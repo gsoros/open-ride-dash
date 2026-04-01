@@ -16,46 +16,46 @@ Establish a reliable embedded system capable of interfacing with the bike contro
 
 ### Hardware
 
-* ESP32-C3 with CAN support (or ESP32 + external CAN module)
-* Buck converter (80V → 5V)
-* CAN connector (5-pin)
-* Keypad connector (6-pin)
-* SSD1283A transflective display
+- ESP32-C3 dev board with CAN support (or ESP32 + external CAN module)
+- Buck converter module (80V → 5V)
+- CAN connector (5-pin)
+- Keypad connector (6-pin)
+- SSD1283A transflective display module
 
 ### Firmware
 
-* PlatformIO project using Arduino framework
-* Drivers and initialization for:
+- PlatformIO project using Arduino framework
+- Drivers and initialization for:
+  - CAN
+  - Display
+  - Keypad
 
-  * CAN
-  * Display
-  * Keypad
-* Keypad input handling using interrupts
-* CAN message transmission for controller power-on (long press button0)
-* CAN message parsing
-* Data model for runtime values:
+- Keypad input handling using interrupts
+- CAN message transmission for controller power-on (long press button0)
+- CAN message parsing
+- Data model for runtime values:
+  - Battery voltage (Vbat)
+  - Current
+  - Speed
+  - PAS level
 
-  * Battery voltage (Vbat)
-  * Current
-  * Speed
-  * PAS level
-* Basic display output (e.g., Vbat and current)
+- Basic display output (e.g., Vbat and current)
 
 ### Development Tasks
 
-* Bench assembly of hardware
-* Verify CAN transceiver (TJA1050 or equivalent; validate MCP2515 if used)
-* Reverse-engineering and validation of Bafang CAN messages
-* Optional use of CANable for sniffing
-* Scaffold project structure and core classes
+- Bench assembly of hardware
+- Verify CAN transceiver (TJA1050 or equivalent; validate MCP2515 if used)
+- Reverse-engineering and validation of Bafang CAN messages
+- Optional use of CANable for sniffing
+- Scaffold project structure and core classes
 
 ### Architecture Constraints
 
-* Each subsystem implemented as an independent class (Keypad, CAN, Display)
-* Each class exposes `setup()` and `loop()`
-* Independent loop frequencies per task
-* No blocking I/O in loops
-* Interrupts and callbacks only update state and exit
+- Each subsystem implemented as an independent class (Keypad, CAN, Display)
+- Each class exposes `setup()` and `loop()`
+- Independent loop frequencies per task
+- No blocking I/O in loops
+- Interrupts and callbacks only update state and exit
 
 ---
 
@@ -63,62 +63,62 @@ Establish a reliable embedded system capable of interfacing with the bike contro
 
 ## Hardware Bring-Up
 
-* [ ] Assemble ESP32 + CAN hardware on bench
-* [ ] Verify stable 5V output from buck converter
-* [ ] Confirm CAN transceiver operation (loopback or known-good device)
-* [ ] Connect display and verify basic initialization
-* [ ] Connect keypad and verify electrical input
+- [ ] Assemble ESP32 + CAN hardware on bench
+- [ ] Verify stable 5V output from buck converter
+- [ ] Confirm CAN transceiver operation (loopback or known-good device)
+- [ ] Connect display and verify basic initialization
+- [ ] Connect keypad and verify electrical input
 
 ## Project Scaffold
 
-* [ ] Create PlatformIO project (Arduino framework)
-* [ ] Set up basic project structure (classes: CAN, Display, Keypad)
-* [ ] Implement logging over serial
+- [ ] Create PlatformIO project (Arduino framework)
+- [ ] Set up basic project structure (classes: CAN, Display, Keypad)
+- [ ] Implement logging over serial
 
 ## CAN Foundation
 
-* [ ] Initialize CAN interface
-* [ ] Capture raw CAN frames (sniffing)
-* [ ] Identify key messages (voltage, speed, etc.)
-* [ ] Validate ability to send a simple CAN frame
-* [ ] Implement controller power-on message (long press button0)
+- [ ] Initialize CAN interface
+- [ ] Capture raw CAN frames (sniffing)
+- [ ] Identify key messages (voltage, speed, etc.)
+- [ ] Validate ability to send a simple CAN frame
+- [ ] Implement controller power-on message (long press button0)
 
 ## Input Handling
 
-* [ ] Implement keypad interrupt handler
-* [ ] Store last key event (non-blocking)
-* [ ] Detect long press vs short press
+- [ ] Implement keypad interrupt handler
+- [ ] Store last key event (non-blocking)
+- [ ] Detect long press vs short press
 
 ## Data Model
 
-* [ ] Define struct/class for runtime values:
+- [ ] Define struct/class for runtime values:
+  - [ ] Vbat
+  - [ ] Current
+  - [ ] Speed
+  - [ ] PAS level
 
-  * [ ] Vbat
-  * [ ] Current
-  * [ ] Speed
-  * [ ] PAS level
-* [ ] Update model from parsed CAN messages
+- [ ] Update model from parsed CAN messages
 
 ## Display Output
 
-* [ ] Initialize display driver
-* [ ] Render basic text
-* [ ] Display Vbat and current
-* [ ] Update display at fixed interval
+- [ ] Initialize display driver
+- [ ] Render basic text
+- [ ] Display Vbat and current
+- [ ] Update display at fixed interval
 
 ## Architecture Validation
 
-* [ ] Ensure each subsystem has setup() and loop()
-* [ ] Verify no blocking calls in loops
-* [ ] Confirm callbacks only set flags
-* [ ] Validate stable loop timing under load
+- [ ] Ensure each subsystem has setup() and loop()
+- [ ] Verify no blocking calls in loops
+- [ ] Confirm callbacks only set flags
+- [ ] Validate stable loop timing under load
 
 ## Basic Integration Test
 
-* [ ] Power system from bike (or simulated supply)
-* [ ] Turn controller on via keypad
-* [ ] Confirm live telemetry updates
-* [ ] Verify system runs reliably for extended period
+- [ ] Power system from bike (or simulated supply)
+- [ ] Turn controller on via keypad
+- [ ] Confirm live telemetry updates
+- [ ] Verify system runs reliably for extended period
 
 ---
 
@@ -132,27 +132,27 @@ Introduce BLE communication for telemetry and external interaction while maintai
 
 ### BLE Server
 
-* Define BLE API protocol
-* Implement BLE service (NUS-style or equivalent)
+- Define BLE API protocol
+- Implement BLE service (NUS-style or equivalent)
 
 ### Standard BLE Services
 
-* Cycling services (0x1816, 0x1818)
-* Temperature service (0x181A)
-* Battery service (0x180F)
-* Custom telemetry services where no standard exists
+- Cycling services (0x1816, 0x1818)
+- Temperature service (0x181A)
+- Battery service (0x180F)
+- Custom telemetry services where no standard exists
 
 ### System Integration
 
-* Extend data model to support BLE publication
-* Introduce BLE update throttling
-* Ensure non-blocking interaction with existing tasks
+- Extend data model to support BLE publication
+- Introduce BLE update throttling
+- Ensure non-blocking interaction with existing tasks
 
 ### Optional Hardware Integration
 
-* Ambient temperature sensor (DS18B20)
-* Light sensor for automatic backlight/headlight control
-* Accelerometer for motion-based wake/sleep/alarm
+- Ambient temperature sensor (DS18B20)
+- Light sensor for automatic backlight/headlight control
+- Accelerometer for motion-based wake/sleep/alarm
 
 ---
 
@@ -166,45 +166,42 @@ Enable external control, visualization, and data recording via a mobile applicat
 
 ### Mobile Application (Flutter)
 
-* Device discovery, pairing, and connection
-* Subscription to telemetry data
-* Real-time display of values
+- Device discovery, pairing, and connection
+- Subscription to telemetry data
+- Real-time display of values
 
 ### Data Recording
 
-* Record ride data to GPX
-* Include:
-
-  * Location
-  * Human power, if torque sensor data is in CAN
-  * Assist power
-  * Temperature
+- Record ride data to GPX
+- Include:
+  - Location
+  - Human power, if torque sensor data is in CAN
+  - Assist power
+  - Temperature
 
 ### Configuration Interface
 
-* GUI for:
-
-  * Screen configuration
-  * Keypad behavior
-  * Sleep timeout
-  * Auto backlight
-  * Motion wakeup
-  * PAS levels
-  * Walk-assist speed
-  * BLE update rate
+- GUI for:
+  - Screen configuration
+  - Keypad behavior
+  - Sleep timeout
+  - Auto backlight
+  - Motion wakeup
+  - PAS levels
+  - Walk-assist speed
+  - BLE update rate
 
 ### Security
 
-* BLE pairing support
-* GUI for passkey management
+- BLE pairing support
+- GUI for passkey management
 
 ### OTA Control
 
-* OTA disabled by default
-* App provides controls to:
-
-  * Enable OTA
-  * Trigger sleep mode
+- OTA disabled by default
+- App provides controls to:
+  - Enable OTA
+  - Trigger sleep mode
 
 ---
 
@@ -218,43 +215,40 @@ Expand functionality, improve robustness, and enable interoperability with exter
 
 ### OTA Updates
 
-* OTA server implementation
-* OTA mode behavior:
-
-  * Suspend all non-essential tasks
-  * Optionally keep keypad active for exit
-  * Display OTA progress
+- OTA server implementation
+- OTA mode behavior:
+  - Suspend all non-essential tasks
+  - Optionally keep keypad active for exit
+  - Display OTA progress
 
 ### BLE Client Functionality
 
-* Connect to BLE heart rate monitor (HRM)
-* Display HR data locally
-* Forward HR data to mobile application
+- Connect to BLE heart rate monitor (HRM)
+- Display HR data locally
+- Forward HR data to mobile application
 
 ### CAN–BLE Bridge
 
-* Provide bridge functionality for external tools (e.g., OpenBafangTool)
+- Provide bridge functionality for external tools (e.g., OpenBafangTool)
 
 ### Modular Firmware Design
 
-* Generic `Controller` interface
-* Controller-specific implementation (`Bafang_M560`)
-* Drop-in modules for:
-
-  * Communication protocols
-  * Hardware configurations
+- Generic `Controller` interface
+- Controller-specific implementation (`Bafang_M560`)
+- Drop-in modules for:
+  - Communication protocols
+  - Hardware configurations
 
 ### Power Management
 
-* Deep sleep implementation:
-
-  * Triggered by timeout, API command, or keypad
-  * Wake via keypad or motion interrupt
+- Deep sleep implementation:
+  - Triggered by timeout, API command, or keypad
+  - Wake via keypad or motion interrupt
 
 ### Testing & Maintenance
 
-* Unit tests for all testable components
-* Continuous README updates after feature/UI changes
+- Unit tests for all testable components
+- Continuous README updates after feature/UI changes
 
 ---
 
@@ -262,33 +256,33 @@ Expand functionality, improve robustness, and enable interoperability with exter
 
 ## Construction
 
-* Epoxy potting for weather and shock protection
-* 3D-printed mold:
+- Epoxy potting for weather and shock protection
+- 3D-printed mold:
+  - Display facing down
+  - Connectors facing upward
 
-  * Display facing down
-  * Connectors facing upward
-* Mold removal after curing; surface finishing as needed
+- Mold removal after curing; surface finishing as needed
 
 ## Mounting
 
-* Embedded threaded inserts for bracket attachment
-* Mold includes alignment holes for precise positioning
+- Embedded threaded inserts for bracket attachment
+- Mold includes alignment holes for precise positioning
 
 ## Display Protection
 
-* Glass cover bonded with optical adhesive
-* Prevent condensation and improve durability
+- Glass cover bonded with optical adhesive
+- Prevent condensation and improve durability
 
 ## Thermal Management
 
-* Validate thermal performance before potting
-* Consider heat sink or radiator block for ESP32 and/or buck converter
+- Validate thermal performance before potting
+- Consider heat sink or radiator block for ESP32 and/or buck converter
 
 ## Sensor Placement
 
-* Ambient temperature sensor mounted underside
-* Shielded from sunlight
-* Thermally isolated from enclosure and electronics
+- Ambient temperature sensor mounted underside
+- Shielded from sunlight
+- Thermally isolated from enclosure and electronics
 
 ---
 
@@ -296,29 +290,29 @@ Expand functionality, improve robustness, and enable interoperability with exter
 
 ## Task Model
 
-* Subsystems: Keypad, CAN, BLE Server, Display, optional BLE Client
-* Each task:
+- Subsystems: Keypad, CAN, BLE Server, Display, optional BLE Client
+- Each task:
+  - Own class
+  - Own execution frequency
 
-  * Own class
-  * Own execution frequency
-* No blocking operations
+- No blocking operations
 
 ## Event Handling
 
-* Callbacks and interrupts only update state
-* Processing deferred to main loop
+- Callbacks and interrupts only update state
+- Processing deferred to main loop
 
 ### Examples
 
-* `BLEServer::onWrite()` → copy buffer, set flag, return
-* `BLEServer::loop()` → process via API handler
-* `Keypad::onKeyPress()` → store key event, return
-* `Keypad::loop()` → invoke API actions
+- `BLEServer::onWrite()` → copy buffer, set flag, return
+- `BLEServer::loop()` → process via API handler
+- `Keypad::onKeyPress()` → store key event, return
+- `Keypad::loop()` → invoke API actions
 
 ## Platform Choice
 
-* Arduino framework preferred for library availability and familiarity
-* ESP-IDF acknowledged as more efficient and flexible, particularly for CAN timing
+- Arduino framework preferred for library availability and familiarity
+- ESP-IDF acknowledged as more efficient and flexible, particularly for CAN timing
 
 ## Modularity and Hardware Abstraction
 
@@ -330,17 +324,17 @@ The firmware is structured around clear abstraction layers to ensure portability
 
 Abstract base classes must be defined for all hardware modules, including but not limited to:
 
-* `Display`
-* `Keypad`
-* `TempSensor`
-* `CanDriver`
+- `Display`
+- `Keypad`
+- `TempSensor`
+- `CanDriver`
 
 Concrete implementations provide hardware-specific behavior, for example:
 
-* `SSD1283A` implements `Display`
-* `BafangDPC245Keypad` implements `Keypad`
-* `DS18B20` implements `TempSensor`
-* `MCP2515Driver` or native ESP32 CAN implements `CanDriver`
+- `SSD1283A` implements `Display`
+- `BafangDPC245Keypad` implements `Keypad`
+- `DS18B20` implements `TempSensor`
+- `MCP2515Driver` or native ESP32 CAN implements `CanDriver`
 
 CAN is treated as a core subsystem but still follows the same abstraction principle to allow flexibility in hardware selection and enable testing via mock implementations.
 
@@ -403,13 +397,13 @@ Factory functions return either a real implementation or a no-op substitute, all
 
 ### Codebase Rules
 
-* `#ifdef` usage is restricted to:
+- `#ifdef` usage is restricted to:
+  - factory functions
+  - low-level hardware initialization
 
-  * factory functions
-  * low-level hardware initialization
-* Application logic must remain free of conditional compilation
-* All modules must expose consistent `setup()` and `loop()` interfaces
-* Communication between modules must occur through well-defined interfaces and data structures
+- Application logic must remain free of conditional compilation
+- All modules must expose consistent `setup()` and `loop()` interfaces
+- Communication between modules must occur through well-defined interfaces and data structures
 
 ---
 
@@ -417,12 +411,11 @@ Factory functions return either a real implementation or a no-op substitute, all
 
 This approach ensures:
 
-* Clean separation between hardware and logic
-* Reduced complexity from conditional compilation
-* Easier testing and mocking of components
-* Scalability as new hardware or features are added
-* Maintainable and readable codebase over time
-
+- Clean separation between hardware and logic
+- Reduced complexity from conditional compilation
+- Easier testing and mocking of components
+- Scalability as new hardware or features are added
+- Maintainable and readable codebase over time
 
 ## Task Model (FreeRTOS Integration)
 
@@ -430,36 +423,34 @@ The system uses FreeRTOS tasks (available within the Arduino framework on ESP32)
 
 ### Design Approach
 
-* Each subsystem is implemented as a class that encapsulates:
+- Each subsystem is implemented as a class that encapsulates:
+  - initialization (`setup()` or constructor)
+  - a task loop (`run()` or similar)
+  - its own timing and state
 
-  * initialization (`setup()` or constructor)
-  * a task loop (`run()` or similar)
-  * its own timing and state
-
-* A lightweight base class should wrap FreeRTOS task creation (`xTaskCreate` / `xTaskCreatePinnedToCore`) and provide a consistent structure.
+- A lightweight base class should wrap FreeRTOS task creation (`xTaskCreate` / `xTaskCreatePinnedToCore`) and provide a consistent structure.
 
 ### Responsibilities of the Task Base Class
 
-* Create and manage the FreeRTOS task
-* Provide a static task entry function that dispatches to the instance method
-* Optionally enforce a fixed loop frequency
-* Handle basic lifecycle concerns (start/stop if needed)
+- Create and manage the FreeRTOS task
+- Provide a static task entry function that dispatches to the instance method
+- Optionally enforce a fixed loop frequency
+- Handle basic lifecycle concerns (start/stop if needed)
 
 ### Execution Model
 
-* Each task runs independently under FreeRTOS
-* No central scheduler (`loop()`) is responsible for application logic
-* Inter-task communication should use:
-
-  * queues, or
-  * well-defined shared data structures with minimal coupling
+- Each task runs independently under FreeRTOS
+- No central scheduler (`loop()`) is responsible for application logic
+- Inter-task communication should use:
+  - queues, or
+  - well-defined shared data structures with minimal coupling
 
 ### Guidelines
 
-* Assign task priorities explicitly (e.g. CAN higher, Display lower)
-* Avoid blocking operations unless explicitly intended
-* Prefer deterministic loop timing over ad-hoc delays
-* Minimize shared mutable state; prefer message passing where practical
+- Assign task priorities explicitly (e.g. CAN higher, Display lower)
+- Avoid blocking operations unless explicitly intended
+- Prefer deterministic loop timing over ad-hoc delays
+- Minimize shared mutable state; prefer message passing where practical
 
 This approach provides deterministic behavior, clear separation of concerns, and an easy migration path to full ESP-IDF if required.
 

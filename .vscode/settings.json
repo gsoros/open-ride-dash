@@ -1,0 +1,41 @@
+{
+  "files.exclude": {
+    "**/.git": true,
+    "**/.svn": true,
+    "**/.hg": true,
+    "**/.DS_Store": true,
+    "**/Thumbs.db": true,
+    "**/flutter/ephemeral": true,
+    "**/Flutter/ephemeral": true,
+    "**/.symlinks": true,
+    "**/.plugin_symlinks": true,
+    "**/.classpath": true,
+    "**/.factorypath": true,
+    "**/.pio": true,
+    "**/.project": true,
+    "**/.settings": true
+  },
+  "hide-files.files": [],
+  "yaml.schemas": {
+    "file:///home/g/.vscode/extensions/continue.continue-1.2.16-linux-x64/config-yaml-schema.json": [
+      ".continue/**/*.yaml"
+    ],
+    "file:///home/g/.vscode-server/extensions/continue.continue-1.2.16-linux-arm64/config-yaml-schema.json": [
+      ".continue/**/*.yaml"
+    ],
+    "file:///home/esphome/.vscode-server/extensions/continue.continue-1.2.16-linux-x64/config-yaml-schema.json": [
+      ".continue/**/*.yaml",
+      "file:///home/esphome/.continue/config.yaml"
+    ],
+    "file:///home/esphome/.vscode-server/extensions/continue.continue-1.3.32-linux-x64/config-yaml-schema.json": [
+      ".continue/**/*.yaml"
+    ],
+    "file:///home/g/.vscode/extensions/continue.continue-1.2.17-linux-x64/config-yaml-schema.json": [
+      ".continue/**/*.yaml"
+    ],
+    "file:///home/g/.vscode/extensions/continue.continue-1.2.22-linux-x64/config-yaml-schema.json": [
+      ".continue/**/*.yaml",
+      "file:///home/g/wrk/open-ride-dash/.continue/agents/openrouter.yaml"
+    ]
+  }
+}
