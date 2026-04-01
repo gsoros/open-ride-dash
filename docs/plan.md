@@ -320,6 +320,110 @@ Expand functionality, improve robustness, and enable interoperability with exter
 * Arduino framework preferred for library availability and familiarity
 * ESP-IDF acknowledged as more efficient and flexible, particularly for CAN timing
 
+## Modularity and Hardware Abstraction
+
+### Design Principles
+
+The firmware is structured around clear abstraction layers to ensure portability, maintainability, and ease of extension. All hardware-specific functionality must be encapsulated behind well-defined interfaces.
+
+### Interfaces
+
+Abstract base classes must be defined for all hardware modules, including but not limited to:
+
+* `Display`
+* `Keypad`
+* `TempSensor`
+* `CanDriver`
+
+Concrete implementations provide hardware-specific behavior, for example:
+
+* `SSD1283A` implements `Display`
+* `BafangDPC245Keypad` implements `Keypad`
+* `DS18B20` implements `TempSensor`
+* `MCP2515Driver` or native ESP32 CAN implements `CanDriver`
+
+CAN is treated as a core subsystem but still follows the same abstraction principle to allow flexibility in hardware selection and enable testing via mock implementations.
+
+Controller-specific logic (e.g. Bafang protocols) must be separated from the CAN driver via a `Controller` interface.
+
+---
+
+### Compile-Time Configuration
+
+Hardware selection and optional features are controlled via compile-time flags defined in `platformio.ini`.
+
+Example:
+
+```ini
+build_flags =
+    -DUSE_SSD1283A
+    -DUSE_DS18B20
+```
+
+Multiple build environments may be defined to represent different hardware configurations.
+
+---
+
+### Factory Pattern
+
+Object instantiation must be centralized using factory functions. Compile-time flags are handled only within these factories.
+
+Example:
+
+```cpp
+std::unique_ptr<Display> createDisplay() {
+#ifdef USE_SSD1283A
+    return std::make_unique<SSD1283A>();
+#else
+    #error "No display selected"
+#endif
+}
+```
+
+This ensures that conditional compilation does not leak into application logic.
+
+---
+
+### Optional Components
+
+Optional features (e.g. temperature sensor) must not introduce conditional logic throughout the codebase.
+
+Instead, use the null-object pattern:
+
+```cpp
+class NoTempSensor : public TempSensor {
+public:
+    float read() override { return NAN; }
+};
+```
+
+Factory functions return either a real implementation or a no-op substitute, allowing the rest of the system to operate without `#ifdef` checks.
+
+---
+
+### Codebase Rules
+
+* `#ifdef` usage is restricted to:
+
+  * factory functions
+  * low-level hardware initialization
+* Application logic must remain free of conditional compilation
+* All modules must expose consistent `setup()` and `loop()` interfaces
+* Communication between modules must occur through well-defined interfaces and data structures
+
+---
+
+### Benefits
+
+This approach ensures:
+
+* Clean separation between hardware and logic
+* Reduced complexity from conditional compilation
+* Easier testing and mocking of components
+* Scalability as new hardware or features are added
+* Maintainable and readable codebase over time
+
+
 ---
 
 # Summary
