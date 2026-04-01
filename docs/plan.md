@@ -424,6 +424,45 @@ This approach ensures:
 * Maintainable and readable codebase over time
 
 
+## Task Model (FreeRTOS Integration)
+
+The system uses FreeRTOS tasks (available within the Arduino framework on ESP32) as the primary execution model. Each major subsystem (e.g. CAN, Display, BLE, Keypad) should be implemented as a self-contained task.
+
+### Design Approach
+
+* Each subsystem is implemented as a class that encapsulates:
+
+  * initialization (`setup()` or constructor)
+  * a task loop (`run()` or similar)
+  * its own timing and state
+
+* A lightweight base class should wrap FreeRTOS task creation (`xTaskCreate` / `xTaskCreatePinnedToCore`) and provide a consistent structure.
+
+### Responsibilities of the Task Base Class
+
+* Create and manage the FreeRTOS task
+* Provide a static task entry function that dispatches to the instance method
+* Optionally enforce a fixed loop frequency
+* Handle basic lifecycle concerns (start/stop if needed)
+
+### Execution Model
+
+* Each task runs independently under FreeRTOS
+* No central scheduler (`loop()`) is responsible for application logic
+* Inter-task communication should use:
+
+  * queues, or
+  * well-defined shared data structures with minimal coupling
+
+### Guidelines
+
+* Assign task priorities explicitly (e.g. CAN higher, Display lower)
+* Avoid blocking operations unless explicitly intended
+* Prefer deterministic loop timing over ad-hoc delays
+* Minimize shared mutable state; prefer message passing where practical
+
+This approach provides deterministic behavior, clear separation of concerns, and an easy migration path to full ESP-IDF if required.
+
 ---
 
 # Summary
