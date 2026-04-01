@@ -78,11 +78,10 @@ lib/
 ├── location_service.dart
 └── export_service.dart
 
-````
-
 ## BLE Integration
 
 ### Device Scanning
+
 ```dart
 class DeviceScanner {
   final FlutterBluePlus flutterBlue = FlutterBluePlus.instance;
@@ -112,7 +111,7 @@ class DeviceScanner {
     await _setupCharacteristics(ordService);
   }
 }
-````
+```
 
 ### API Client Implementation
 
@@ -406,10 +405,6 @@ class _OtaScreenState extends State<OtaScreen> {
 }
 ```
 
-return ride;
-}
-}
-
 ## Security Implementation
 
 ### Pairing Management
@@ -475,11 +470,6 @@ class SecureStorage {
 }
 ```
 
-_[Development Tasks and Testing sections continue...]_
-return ride;
-}
-}
-
 ## Security Implementation
 
 ### Pairing Management
@@ -544,5 +534,3 @@ class SecureStorage {
   }
 }
 ```
-
-_[Development Tasks and Testing sections continue...]_
