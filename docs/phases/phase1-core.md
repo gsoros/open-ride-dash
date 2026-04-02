@@ -20,7 +20,8 @@ Establish a reliable embedded system capable of interfacing with the bike contro
 - **Buck converter** module (80V → 5V)
 - **CAN connector** (5-pin automotive)
 - **Keypad connector** (6-pin JST)
-- **SSD1283A** transflective display module
+- **ST7789** IPS TFT display module
+- or **SSD1283A** transflective display module
 
 ### Firmware Features
 
@@ -53,6 +54,8 @@ Qty  Component                     Specification                 Notes
 1     470 Ohm Resistor             SMD 0805
 1     1.5 KOhm Resistor            SMD 0805
 1     Prototyping Board            Perf board or custom PCB      For assembly
+1     Quartz Glass Sheet           ~ 30x30x1mm
+1     Optical Adhesive             LOCA UV Cure
 ```
 
 ### Assembly Instructions
@@ -92,72 +95,90 @@ Qty  Component                     Specification                 Notes
 
 ### Controller Power and Walk Mode Circuit
 
-The Bafang M500/M600 motor controller provides two control lines for power management and walk‑mode activation. These lines are accessible through the display connector (6‑pin JST SM series) and must be driven with open‑drain outputs to avoid damaging the controller.
+The Bafang M500/M600 motor controller communicates with the display over the **5-pin EB-BUS (Higo Mini-F) connector**. Two of those pins — **CTRL** and **P+VBAT** — handle power sequencing. Understanding the difference between them is critical.
 
-#### Pin Assignments (Bafang Display Connector)
+#### Pin Assignments (Bafang EB-BUS Motor Controller Connector, 5-pin Higo Mini-F)
 
-| Pin | Signal | Description                       |
-| --- | ------ | --------------------------------- |
-| 1   | +5V    | Display power (from controller)   |
-| 2   | CAN_H  | CAN bus high                      |
-| 3   | CAN_L  | CAN bus low                       |
-| 4   | PWR    | Power on/off control (active low) |
-| 5   | WALK   | Walk‑mode control (active low)    |
-| 6   | GND    | Ground                            |
+| Pin | Signal | Description                                                                                                                     |
+| --- | ------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | P+VBAT | Battery voltage **output** from controller. 0 V when off; asserts Vbat once power-on completes. Feeds the DC-DC converter.      |
+| 2   | GND    | Ground                                                                                                                          |
+| 3   | CTRL   | Power control signal. Held at Vbat by internal pull-up when idle. Remote POWER button pulls it toward GND to initiate power-on. |
+| 4   | CAN_H  | CAN bus high                                                                                                                    |
+| 5   | CAN_L  | CAN bus low                                                                                                                     |
 
-#### Circuit Design
+> ⚠️ **Both P+VBAT and CTRL sit at battery voltage (36–52 V) under various conditions.** Do not connect either directly to a microcontroller GPIO. See protection circuit below.
 
-The interface circuit uses two GPIOs of the ESP32‑C3 configured as open‑drain outputs. Each output is protected with a series resistor and a clamping diode.
+#### How Power-On Actually Works
 
-**Power‑On/Off Circuit**
+This is a **hardware-initiated, firmware-sustained** sequence — not a software-controlled one:
 
-- GPIO‑A → 470 Ω resistor → 1N4148 diode (cathode to GPIO) → PWR pin
-- A 3.3 kΩ pull‑up resistor connects PWR pin to +5V (internal to controller).
-- To turn the controller on, drive GPIO‑A low (sink current). To turn it off, set GPIO‑A high‑impedance (let the internal pull‑up keep PWR high).
+1. **At rest:** CTRL is held at Vbat by an internal pull-up inside the controller. P+VBAT is 0 V.
+2. **Short press of the POWER button on the remote:** The button connects CTRL through a resistor/diode network to GND, pulling CTRL down to ~4.5 V. The controller detects this transition.
+3. **Long press of the POWER button:** CTRL is pulled closer to GND. The controller responds by asserting P+VBAT (battery voltage), which powers the DC-DC converter and thus the microcontroller and display.
+4. **Firmware takes over:** Once the MCU boots, it **must immediately begin transmitting valid CAN messages** to the controller. If the controller receives no valid CAN traffic within a few seconds, it cuts P+VBAT and shuts everything down.
+5. **Power-off:** Long press again pulls CTRL low; the controller de-asserts P+VBAT.
 
-**Walk‑Mode Circuit**
+**The MCU cannot initiate power-on in software.** There is no GPIO the firmware can wiggle to turn the system on — only the physical button can do that. The firmware's power-related responsibility is exclusively keeping the system _alive_ via CAN after the button brings it up.
 
-- GPIO‑B → 1.5 kΩ resistor → 1N4148 diode (cathode to GPIO) → WALK pin
-- A 3.3 kΩ pull‑up resistor connects WALK pin to +5V.
-- To activate walk mode, drive GPIO‑B low. Release to deactivate.
+#### Walk Mode
 
-**Protection**
+The **DOWN button** on the remote uses an identical circuit: it pulls a dedicated signal line toward GND through D2/R4/R3, and the MCU reads that as an input. The motor controller independently monitors this line and activates walk assist when it is pulled low. Again, this is a hardware button circuit — the MCU reads the button state but the controller responds to the raw signal directly.
 
-- The 1N4148 diodes prevent reverse current when the controller’s internal voltage differs from the GPIO voltage.
-- The series resistors limit current to safe levels (≈10 mA) and protect against accidental shorts.
+#### Circuit Design — CTRL and DOWN Input Protection
+
+The resistor/diode networks around CTRL and DOWN are **input protection and level-shifting circuits**, not output drive circuits. They allow a 3.3 V MCU to safely read lines that can sit at battery voltage.
+
+**POWER button / CTRL input (D1, R1, R2):**
+
+```
+CTRL (from motor) ──── R1 (470 Ω) ──── D1 anode
+                                        D1 cathode ──── MCU GPIO (CTRL input)
+                                                   └─── R2 (3K3) ──── +3.3 V
+```
+
+- When CTRL is at Vbat and button is not pressed: D1 is reverse-biased; MCU GPIO is pulled to 3.3 V by R2 — safe.
+- When button pulls CTRL to ~4.5 V: D1 conducts slightly; R1 drops voltage further; MCU GPIO sees a safe logic-high level.
+- R2 provides the MCU-side pull-up so the GPIO has a defined level when CTRL is not being driven.
+
+**DOWN button / walk mode input (D2, R3, R4):** identical principle with R3 (3K3) and R4 (1K5).
+
+The MCU GPIOs are **never exposed to battery voltage** as long as the circuit is built correctly as above.
 
 #### Wiring Diagram
 
 ```
-   ESP32‑C3                          Bafang Connector
-   GPIO‑A (IO4) ──┬── 470 Ω ────┬── 1N4148 ──── PWR (Pin 4)
-                  │             │
-                 GND            │
-                                │
-   GPIO‑B (IO5) ──┬── 1.5 kΩ ──┼── 1N4148 ──── WALK (Pin 5)
-                  │            │
-                 GND           │
-                               │
-   +5V (Pin 1) ────────────────┴── 3.3 kΩ ──── PWR / WALK (internal pull‑up)
+   Bafang EB-BUS (5-pin Higo Mini-F)          Prototyping board
+   P+VBAT (Pin 1) ──────────────────────────── DC-DC IN+ (STH0548S05)
+   GND    (Pin 2) ──────────────────────────── DC-DC IN− / system GND
+   CTRL   (Pin 3) ──── R1 (470 Ω) ──── D1 ─── MCU GPIO (input, reads power state)
+                                               └── R2 (3K3) → +3.3 V
+   CAN_H  (Pin 4) ──────────────────────────── TJA1050 CAN_H
+   CAN_L  (Pin 5) ──────────────────────────── TJA1050 CAN_L
+
+   850C Remote (6-pin control unit connector)
+   DOWN button ──── R4 (1K5) ──── D2 ─────── MCU GPIO (input, reads walk mode)
+                                             └── R3 (3K3) → +3.3 V
+   POWER button ─── connected to CTRL line (pulls CTRL toward GND when pressed)
 ```
 
 #### Firmware Considerations
 
-- Both GPIOs must be configured as open‑drain outputs (`GPIO_MODE_OUTPUT_OD`).
-- The default state after reset should be high‑impedance (controller off, walk mode inactive).
-- A deliberate low pulse of at least 100 ms is required to toggle power.
-- Walk mode should be activated only while the button is held (typical timeout 30 seconds).
+- CTRL and DOWN GPIOs are **inputs**, not outputs. Configure them as digital inputs with no internal pull-up (external R2/R3 handle that).
+- **CAN keepalive is not optional.** The exact message sequence needed to keep the controller alive after power-on is in the [OpenSourceEBike CAN logs](https://github.com/OpenSourceEBike/Bafang_M500_M600/blob/main/Hardware/Display/DP_C240_241/CAN_stop_sequence.txt). The placeholder `powerOnController()` must be replaced with the real sequence before any bench testing on a live motor.
+- The MCU can monitor CTRL to detect user power-off intent (button long-press will pull CTRL low again) and do a clean shutdown before P+VBAT is cut.
+- Walk mode: monitor the DOWN GPIO; signal is active while button is held. The controller enforces the ~6 km/h speed limit and the 30-second timeout autonomously — no firmware enforcement needed.
 
 #### Bill of Materials Additions
 
-The components required for this circuit are already listed in the Phase 1 BoM:
+The components required for this circuit are already listed in the Phase 1 BoM:
 
-- 2 × 1N4148 diodes (SMD 0805)
-- 2 × 3.3 kΩ resistors (SMD 0805)
-- 1 × 470 Ω resistor (SMD 0805)
-- 1 × 1.5 kΩ resistor (SMD 0805)
+- 2 × 1N4148 diodes (SMD 0805) — D1 (CTRL), D2 (DOWN/walk)
+- 2 × 3.3 kΩ resistors (SMD 0805) — R2 (CTRL pull-up), R3 (DOWN pull-up)
+- 1 × 470 Ω resistor (SMD 0805) — R1 (CTRL series protection)
+- 1 × 1.5 kΩ resistor (SMD 0805) — R4 (DOWN series protection)
 
-Refer to the [OpenSourceEBike documentation](https://opensourceebike.github.io/easy_diy_display_ebike_display/build_display-bafang_m500_M600.html) for the original circuit design and further details.
+Refer to the [OpenSourceEBike documentation](https://opensourceebike.github.io/easy_diy_display_ebike_display/build_display-bafang_m500_M600.html) for the original schematic and further details.
 
 ## Firmware Implementation
 
