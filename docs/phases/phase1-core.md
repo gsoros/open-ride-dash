@@ -160,6 +160,15 @@ The MCU GPIOs are **never exposed to battery voltage** as long as the circuit is
    POWER button ─── connected to CTRL line (pulls CTRL toward GND when pressed)
 ```
 
+#### Protections
+
+- SMBJ58A across VBAT - GND
+- 72V 0.3A PPTC Polyfuse on the Vbat line
+- 16V 1000µF Electrolytic Bulk Cap: where the 5V enters PCB from the buck converter
+- 100V 100nF Ceramic Caps: as close as possible to the VCC pin of the SN65HVD230, another near the ESP32-C3 power pins, another before the buck
+- 100V 68µF Electrolytic Bulk Cap: before the buck
+- SMBJ5.0A: across 5V and GND rails (.CA bidirectional variant acceptable)
+
 #### Firmware Considerations
 
 - CTRL and DOWN GPIOs are **inputs**, not outputs. Configure them as digital inputs with no internal pull-up (external R2/R3 handle that).
