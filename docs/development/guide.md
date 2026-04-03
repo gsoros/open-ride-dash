@@ -125,7 +125,7 @@ framework = arduino
 board_build.f_cpu = 160000000L
 
 build_flags =
-    -DUSE_SSD1283A
+    -DUSE_ST7789
     -DUSE_ESP32_CAN
     -DLOG_LEVEL=3
     -DCONFIG_BLE_ENABLED=1
@@ -178,7 +178,7 @@ Hardware selection and feature flags are controlled via `build_flags` in `platfo
 
 ```ini
 build_flags =
-    -DUSE_SSD1283A          # SSD1283A display
+    -DUSE_ST7789          # ST7789 display
     -DUSE_ILI9341           # Alternative display
     -DUSE_ESP32_CAN         # Native ESP32 CAN
     -DUSE_MCP2515           # External MCP2515 CAN

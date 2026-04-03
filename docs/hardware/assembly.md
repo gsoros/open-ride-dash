@@ -83,7 +83,7 @@ This guide provides detailed, step-by-step instructions for assembling your Open
 ### CAN Transceiver Preparation
 
 1. **Module Inspection**
-   - Verify TJA1050 chip orientation
+   - Verify SN65HVD230 chip orientation
    - Check for solder bridges on module
 
 2. **Add Termination Resistor**
@@ -148,7 +148,7 @@ Procedure:
 #### 2.2 CAN Connections
 
 ```
-ESP32-C3 → TJA1050
+ESP32-C3 → SN65HVD230
 GPIO4   → RX
 GPIO5   → TX
 3.3V    → VCC (if module uses 3.3V logic)
@@ -158,14 +158,14 @@ GND     → GND
 Procedure:
 
 1. Cut four 10cm wires (22 AWG)
-2. Solder to TJA1050 module pins
+2. Solder to SN65HVD230 module pins
 3. Connect to ESP32 according to pinout
 4. Add 120Ω termination resistor if not already on module
 
 #### 2.3 Display Connections
 
 ```
-SSD1283A → ESP32-C3
+ST7789 → ESP32-C3
 VCC      → 3.3V or 5V (check display specs)
 GND      → GND
 SCK      → GPIO18
@@ -188,7 +188,14 @@ Procedure:
 #### 3.1 Button Wiring
 
 ```
-Button Layout (typical 6-button):
+Button Layout (typical 3-button):
+UP    → GPIO32
+DOWN  → GPIO33
+OK    → GPIO27
+```
+
+```
+Button Layout (6-button):
 UP    → GPIO32
 DOWN  → GPIO33
 LEFT  → GPIO25

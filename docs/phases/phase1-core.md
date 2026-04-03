@@ -21,7 +21,6 @@ Establish a reliable embedded system capable of interfacing with the bike contro
 - **CAN connector** (5-pin automotive)
 - **Keypad connector** (6-pin JST)
 - **ST7789** IPS TFT display module
-- or **SSD1283A** transflective display module
 
 ### Firmware Features
 
@@ -44,10 +43,9 @@ Qty  Component                     Specification                 Notes
 ─────────────────────────────────────────────────────────────────────────
 1     ESP32-C3 Dev Board           160MHz, 4MB flash, CAN        With USB-C
 1     Buck Converter               LX8015, 80V→5V, 1.5A          Adjustable
-1     CAN Transceiver              TJA1050                       5V operation
+1     CAN Transceiver              SN65HVD230                    3.3V operation
 1     Display Module               ST7789, 1.54" 240x240         SPI
-1     Display Module               SSD1283A, 1.6" 130x130        Alternative, SPI
-1     Keypad                       6-button membrane             Custom or DPC245
+1     Keypad                       3 to 6-button membrane        Custom or DPC245
 1     CAN Connector                5-pin automotive              Waterproof
 2     1N4148 Diodes                SMD 0805
 2     3.3 KOhm Resistors           SMD 0805
@@ -76,7 +74,7 @@ Qty  Component                     Specification                 Notes
 
 #### Step 3: CAN Interface
 
-1. Connect TJA1050 to ESP32-C3 CAN pins
+1. Connect SN65HVD230 to ESP32-C3 CAN pins
 2. Add 120Ω termination resistor (if end-of-line)
 3. Connect CAN_H and CAN_L to connector
 4. Add TVS diodes for protection (optional)
@@ -153,8 +151,8 @@ The MCU GPIOs are **never exposed to battery voltage** as long as the circuit is
    GND    (Pin 2) ──────────────────────────── DC-DC IN− / system GND
    CTRL   (Pin 3) ──── R1 (470 Ω) ──── D1 ─── MCU GPIO (input, reads power state)
                                                └── R2 (3K3) → +3.3 V
-   CAN_H  (Pin 4) ──────────────────────────── TJA1050 CAN_H
-   CAN_L  (Pin 5) ──────────────────────────── TJA1050 CAN_L
+   CAN_H  (Pin 4) ──────────────────────────── SN65HVD230 CAN_H
+   CAN_L  (Pin 5) ──────────────────────────── SN65HVD230 CAN_L
 
    850C Remote (6-pin control unit connector)
    DOWN button ──── R4 (1K5) ──── D2 ─────── MCU GPIO (input, reads walk mode)
@@ -193,8 +191,8 @@ open-ride-dash/
 │   │   ├── display_task.cpp
 │   │   └── keypad_task.cpp
 │   ├── drivers/
-│   │   ├── ssd1283a.cpp
-│   │   └── tja1050_can.cpp
+│   │   ├── ST7789.cpp
+│   │   └── SN65HVD230_can.cpp
 │   └── model/
 │       └── system_state.cpp
 ├── include/
@@ -287,7 +285,7 @@ private:
         display.update();
     }
 
-    SSD1283A display;
+    ST7789 display;
 };
 ```
 

@@ -26,7 +26,7 @@ framework = arduino
 board_build.f_cpu = 160000000L
 
 build_flags =
-    -DUSE_SSD1283A
+    -DUSE_ST7789
     -DUSE_ESP32_CAN
     -DLOG_LEVEL=3
 
@@ -61,7 +61,7 @@ board = esp32-devkitc
 framework = arduino
 build_flags =
     -DUSE_MCP2515
-    -DUSE_SSD1283A
+    -DUSE_ST7789
 ```
 
 #### Native Simulation (No Hardware)
@@ -100,7 +100,7 @@ Feature flags control which components are included in the build:
 ```ini
 build_flags =
     # Display selection
-    -DUSE_SSD1283A
+    -DUSE_ST7789
     # -DUSE_ILI9341
 
     # CAN controller selection
@@ -124,7 +124,7 @@ build_flags =
 
 | Flag            | Description                        | Default              |
 | --------------- | ---------------------------------- | -------------------- |
-| `USE_SSD1283A`  | SSD1283A display driver            | Enabled              |
+| `USE_ST7789`    | ST7789 display driver              | Enabled              |
 | `USE_ILI9341`   | ILI9341 display driver             | Disabled             |
 | `USE_ESP32_CAN` | Native ESP32 CAN controller        | Enabled for ESP32-C3 |
 | `USE_MCP2515`   | External MCP2515 CAN controller    | Disabled             |
@@ -140,9 +140,9 @@ build_flags =
 In code, use feature flags like:
 
 ```cpp
-#if defined(USE_SSD1283A)
-    #include "SSD1283A.h"
-    SSD1283A display;
+#if defined(USE_ST7789)
+    #include "ST7789.h"
+    ST7789 display;
 #endif
 
 #if defined(USE_BLE)
@@ -367,7 +367,7 @@ build_flags =
 
 [env:common]
 build_flags =
-    -DUSE_SSD1283A
+    -DUSE_ST7789
     -DLOG_LEVEL=3
 ```
 
@@ -602,7 +602,7 @@ Example for production release:
 [env:production]
 extends = esp32-c3-devkit
 build_flags =
-    -DUSE_SSD1283A
+    -DUSE_ST7789
     -DUSE_ESP32_CAN
     -DUSE_BLE
     -DLOG_LEVEL=1          # Only errors

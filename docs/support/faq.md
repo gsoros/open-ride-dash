@@ -16,7 +16,7 @@ OpenRideDash is an open-source, modular firmware and hardware platform for ESP32
 
 ### Is OpenRideDash compatible with my e-bike?
 
-OpenRideDash is designed to work with any e-bike controller that uses CAN bus communication. It has been specifically tested with Bafang systems (M500, M600, M620) but can be adapted to other controllers with protocol documentation.
+OpenRideDash is designed to work with any e-bike controller that uses CAN bus communication. It has been specifically tested with Bafang systems (M560) but can be adapted to other controllers with protocol documentation.
 
 ### Do I need programming skills to use OpenRideDash?
 
@@ -43,9 +43,9 @@ Minimum components:
 
 1. ESP32-C3 development board (with CAN)
 2. Buck converter (80V to 5V)
-3. CAN transceiver (TJA1050)
-4. Display (SSD1283A or compatible)
-5. Keypad (6-button membrane)
+3. CAN transceiver (SN65HVD230)
+4. Display (ST7789 or compatible)
+5. Keypad (3 to 6-button membrane)
 6. Enclosure materials
 
 See the [Hardware Guide](../hardware/guide.md) for complete bill of materials.
@@ -62,9 +62,7 @@ Yes, but ESP32 doesn't have native CAN controller. You'll need:
 
 Currently supported:
 
-- **SSD1283A** (primary, transflective, sunlight readable)
-- **ILI9341** (alternative, higher resolution)
-- **ST7789** (smaller, lower power)
+- **ST7789** (sunlight readable)
 
 More displays can be added by implementing the display interface.
 
@@ -321,13 +319,6 @@ This allows testing logic without physical hardware.
 
 ## Community & Support
 
-### Where can I get help?
-
-1. **Community Forum** - [forum.open-ride-dash.org](https://forum.open-ride-dash.org)
-2. **Discord Server** - [discord.gg/open-ride-dash](https://discord.gg/open-ride-dash)
-3. **GitHub Issues** - For bug reports and feature requests
-4. **Documentation** - This site and linked resources
-
 ### How can I contribute?
 
 Many ways to contribute:
@@ -335,17 +326,12 @@ Many ways to contribute:
 - **Code** - Fix bugs, add features
 - **Documentation** - Improve guides, add examples
 - **Testing** - Test on different hardware, report issues
-- **Community** - Help others on forums
 - **Translation** - Translate documentation/app
 - **Hardware** - Design PCB improvements, enclosures
 
-### Is there a roadmap for future development?
-
-Yes, see the [Phases documentation](../phases/phase1-core.md) for the development roadmap. The community also votes on feature priorities.
-
 ### Can I use OpenRideDash commercially?
 
-Yes, under the terms of the open-source license (MIT). You must:
+Yes, under the terms of the open-source license (GPL). You must:
 
 - Include the license and copyright notice
 - State changes if you modify the code
@@ -386,15 +372,6 @@ Improper installation or software bugs could potentially cause issues:
 
 ## Miscellaneous
 
-### How much does it cost to build OpenRideDash?
-
-Approximate costs (2024):
-
-- **Components**: $50-$100 depending on source and quality
-- **Tools**: $50-$200 if you need to buy soldering equipment
-- **Enclosure**: $20-$50 for 3D printing and materials
-- **Total**: $100-$300 for a complete build
-
 ### How long does it take to build?
 
 Experience level matters:
@@ -411,7 +388,6 @@ Currently, OpenRideDash is DIY-only. However, community members may offer assemb
 
 | Feature       | OpenRideDash        | Commercial Displays   |
 | ------------- | ------------------- | --------------------- |
-| Cost          | $100-$300           | $200-$1000+           |
 | Customization | Full control        | Limited or none       |
 | Openness      | Fully open          | Usually closed        |
 | Features      | Community-driven    | Manufacturer-defined  |

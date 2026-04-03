@@ -183,7 +183,7 @@ This guide helps you diagnose and fix common issues with OpenRideDash hardware a
    - Verify filters are not blocking all messages
 
 3. **Hardware Check**
-   - Check TJA1050 power (5V)
+   - Check SN65HVD230 power (3.3V)
    - Verify TX/RX connections to ESP32
    - Check for shorts on CAN lines
 

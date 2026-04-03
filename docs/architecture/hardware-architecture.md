@@ -19,11 +19,11 @@ OpenRideDash hardware is designed for reliability, modularity, and DIY assembly.
                               │
           ┌───────────────────┼───────────────────┐
           │                   │                   │
-┌─────────▼──────────┐ ┌─────▼──────┐ ┌──────────▼──────────┐
-│     ESP32-C3       │ │   CAN      │ │      Display        │
-│   Microcontroller  │ │ Transceiver│ │    (SSD1283A)       │
-│                    │ │ (TJA1050)  │ │                     │
-└─────────┬──────────┘ └─────┬──────┘ └──────────┬──────────┘
+┌─────────▼──────────┐ ┌─────▼───────┐ ┌──────────▼──────────┐
+│     ESP32-C3       │ │   CAN       │ │      Display        │
+│   Microcontroller  │ │ Transceiver │ │    (ST7789)         │
+│                    │ │ (SN65HVD230)│ │                     │
+└─────────┬──────────┘ └──────┬──────┘ └──────────┬──────────┘
           │                   │                   │
           └───────────────────┼───────────────────┘
                               │
@@ -36,6 +36,7 @@ OpenRideDash hardware is designed for reliability, modularity, and DIY assembly.
 ## Core Components
 
 ### 1. Microcontroller: ESP32-C3
+
 - **Why ESP32-C3**: Integrated CAN controller, BLE 5.0, RISC-V architecture
 - **Alternative**: ESP32 with external CAN controller (MCP2515)
 - **Key Features**:
@@ -46,6 +47,7 @@ OpenRideDash hardware is designed for reliability, modularity, and DIY assembly.
   - Low-power modes for battery operation
 
 ### 2. Power System
+
 - **Input**: 36V-80V DC from e-bike battery
 - **Regulation**: Buck converter to 5V
 - **Requirements**:
@@ -55,7 +57,8 @@ OpenRideDash hardware is designed for reliability, modularity, and DIY assembly.
   - Protection: Over-voltage, under-voltage, reverse polarity
 
 ### 3. CAN Interface
-- **Transceiver**: TJA1050 (industry standard)
+
+- **Transceiver**: SN65HVD230
 - **Connector**: 5-pin automotive (CAN_H, CAN_L, GND, optional +12V)
 - **Configuration**:
   - Baud rate: 500kbps (Bafang standard)
@@ -63,7 +66,8 @@ OpenRideDash hardware is designed for reliability, modularity, and DIY assembly.
   - Protection: TVS diodes on CAN lines
 
 ### 4. Display Module
-- **Type**: SSD1283A transflective LCD
+
+- **Type**: ST7789 LCD
 - **Size**: 2.4" typical (variable based on availability)
 - **Interface**: SPI or parallel (depending on module)
 - **Features**:
@@ -73,6 +77,7 @@ OpenRideDash hardware is designed for reliability, modularity, and DIY assembly.
   - Compatible with common controllers
 
 ### 5. User Input
+
 - **Options**:
   - Custom membrane keypad (6 buttons typical)
   - Tactile switches with waterproof boots
@@ -85,16 +90,19 @@ OpenRideDash hardware is designed for reliability, modularity, and DIY assembly.
 ## Optional Components
 
 ### 1. Environmental Sensors
+
 - **Temperature**: DS18B20 (1-wire interface)
 - **Light Sensor**: BH1750 or equivalent (I²C)
 - **Accelerometer**: MPU6050 or BMA423 (I²C/SPI)
 
 ### 2. Connectivity Expansion
+
 - **WiFi**: Already integrated in ESP32
 - **GPS**: Optional for mobile app integration
 - **SD Card**: For standalone data logging
 
 ### 3. Protection Circuits
+
 - **TVS Diodes**: CAN lines, power input
 - **Fuses**: Power input protection
 - **EMI Filters**: For noisy e-bike environments
@@ -102,6 +110,7 @@ OpenRideDash hardware is designed for reliability, modularity, and DIY assembly.
 ## Electrical Specifications
 
 ### Power Requirements
+
 ```
 Component          Voltage   Current (max)   Notes
 ────────────────────────────────────────────────────
@@ -115,6 +124,7 @@ Total (maximum)              ~800mA         All systems active
 ```
 
 ### Signal Levels
+
 - **CAN**: Differential 2.5V nominal (CAN_H: 3.5V, CAN_L: 1.5V)
 - **I²C**: 3.3V, 100-400kHz
 - **SPI**: 3.3V, up to 10MHz
@@ -123,12 +133,14 @@ Total (maximum)              ~800mA         All systems active
 ## Physical Architecture
 
 ### Board Layout Considerations
+
 1. **Power Isolation**: Keep switching converter away from analog signals
 2. **CAN Routing**: Differential pair routing with length matching
 3. **Ground Planes**: Solid ground plane for noise reduction
 4. **Thermal Management**: Heat sinking for buck converter if needed
 
 ### Connector Strategy
+
 ```
 Connector   Type          Purpose                  Pins
 ──────────────────────────────────────────────────────────
@@ -143,18 +155,21 @@ DEBUG       Serial header    Programming/debug     6
 ## Enclosure Design
 
 ### Requirements
+
 - **Weather Resistance**: IP65 or better for outdoor use
 - **Thermal Management**: Heat dissipation for electronics
 - **Mounting**: Secure attachment to handlebars or frame
 - **Display Protection**: Scratch-resistant cover with optical bonding
 
 ### Construction Approach
+
 1. **3D Printed Mold**: Create custom shape for epoxy potting
 2. **Epoxy Potting**: Complete environmental sealing
 3. **Glass Cover**: Optical adhesive bonding to display
 4. **Threaded Inserts**: For secure mounting brackets
 
 ### Thermal Considerations
+
 - **Heat Sources**: Buck converter (efficiency losses), ESP32 (RF operation)
 - **Dissipation**: Potting material thermal conductivity, heat sinking
 - **Monitoring**: Optional temperature sensor for thermal protection
@@ -162,16 +177,19 @@ DEBUG       Serial header    Programming/debug     6
 ## Modularity and Compatibility
 
 ### Hardware Abstraction
+
 - **Interface Definitions**: Clear contracts for each component type
 - **Factory Pattern**: Runtime selection of concrete implementations
 - **Configuration Flags**: Compile-time hardware selection
 
 ### Supported Variants
+
 1. **Basic Configuration**: ESP32-C3 + CAN + Display + Keypad
 2. **Enhanced Configuration**: Add sensors and additional interfaces
 3. **Custom Configurations**: User-defined component combinations
 
 ### Compatibility Matrix
+
 ```
 Feature              ESP32-C3   ESP32 + MCP2515   Notes
 ────────────────────────────────────────────────────────────
@@ -186,6 +204,7 @@ Power Consumption    Lower      Higher            MCP2515 adds power
 ## Testing and Validation
 
 ### Hardware Testing Points
+
 1. **Power Input**: Verify voltage range and protection
 2. **CAN Bus**: Loopback test and communication validation
 3. **Display**: Test patterns and refresh rate
@@ -193,6 +212,7 @@ Power Consumption    Lower      Higher            MCP2515 adds power
 5. **Sensors**: Calibration and accuracy verification
 
 ### Environmental Testing
+
 - **Temperature**: -20°C to +60°C operation
 - **Humidity**: 0-95% non-condensing
 - **Vibration**: Handlebar mounting simulation
@@ -201,19 +221,21 @@ Power Consumption    Lower      Higher            MCP2515 adds power
 ## Bill of Materials (Reference)
 
 ### Required Components
+
 ```
 Qty  Component                     Specification                 Notes
 ─────────────────────────────────────────────────────────────────────────
 1     ESP32-C3 Dev Board           160MHz, 4MB flash, CAN        AliExpress
 1     Buck Converter               80V→5V, 1A minimum            LM2596 based
-1     CAN Transceiver              TJA1050 or equivalent         5V operation
-1     Display Module               SSD1283A, 2.4"               SPI interface
-1     Keypad                       6-button membrane            Custom design
-1     CAN Connector                5-pin automotive             Deutsch or equivalent
-1     Enclosure                    3D printed + epoxy           Weather resistant
+1     CAN Transceiver              SN65HVD230 or equivalent      3.3V operation
+1     Display Module               ST7789, 2.4"                  SPI interface
+1     Keypad                       3 to 6-button membrane             Custom design
+1     CAN Connector                5-pin automotive              Green 5-pin Higo
+1     Enclosure                    3D printed + epoxy            Weather resistant
 ```
 
 ### Optional Components
+
 ```
 Qty  Component                     Interface      Purpose
 ──────────────────────────────────────────────────────────────────
@@ -226,16 +248,19 @@ Qty  Component                     Interface      Purpose
 ## Safety Considerations
 
 ### Electrical Safety
+
 - **Isolation**: Proper isolation between high-voltage and low-voltage sections
 - **Protection**: Fuses, TVS diodes, and reverse polarity protection
 - **Certification**: DIY project - not certified for commercial use
 
 ### Mechanical Safety
+
 - **Mounting**: Secure attachment to prevent detachment while riding
 - **Sealing**: Complete weatherproofing for outdoor operation
 - **Materials**: UV-resistant, temperature-stable materials
 
 ### Operational Safety
+
 - **Fail-Safe Modes**: Graceful degradation on system failure
 - **Error Indication**: Clear visual indicators for fault conditions
 - **Recovery**: User-accessible reset and recovery procedures
@@ -249,4 +274,4 @@ Qty  Component                     Interface      Purpose
 
 ---
 
-*This hardware architecture provides a solid foundation for a reliable, customizable e-bike display system that balances performance, cost, and DIY accessibility.*
+_This hardware architecture provides a solid foundation for a reliable, customizable e-bike display system that balances performance, cost, and DIY accessibility._

@@ -7,21 +7,25 @@ OpenRideDash firmware follows a task-based, event-driven architecture using Free
 ## Core Architecture Principles
 
 ### 1. Task-Based Execution
+
 - Each major subsystem runs as an independent FreeRTOS task
 - Tasks have explicit priorities and stack allocations
 - No central `loop()` function controls everything
 
 ### 2. Hardware Abstraction
+
 - All hardware access through abstract interfaces
 - Concrete implementations selected at compile time
 - Mock implementations for testing
 
 ### 3. Event-Driven Design
+
 - Interrupts only set flags or update state
 - Processing deferred to task context
 - Non-blocking operations throughout
 
 ### 4. Data-Centric Design
+
 - Central data model holds system state
 - Tasks subscribe to data changes
 - Immutable data structures where possible
@@ -29,6 +33,7 @@ OpenRideDash firmware follows a task-based, event-driven architecture using Free
 ## Task Model
 
 ### Task Hierarchy
+
 ```
 High Priority (10-15)
 ├── CAN Manager Task        (Priority 15)
@@ -47,13 +52,14 @@ Low Priority (1-4)
 ### Task Responsibilities
 
 #### CAN Manager Task
+
 ```cpp
 class CanManagerTask : public BaseTask {
     void setup() {
         // Initialize CAN hardware
         // Configure filters and masks
     }
-    
+
     void run() {
         while (true) {
             // Receive CAN messages
@@ -66,13 +72,14 @@ class CanManagerTask : public BaseTask {
 ```
 
 #### Display Update Task
+
 ```cpp
 class DisplayTask : public BaseTask {
     void setup() {
         // Initialize display hardware
         // Load fonts and graphics
     }
-    
+
     void run() {
         while (true) {
             // Update display based on data model
@@ -87,6 +94,7 @@ class DisplayTask : public BaseTask {
 ## Hardware Abstraction Layer
 
 ### Interface Definitions
+
 ```cpp
 // Abstract display interface
 class Display {
@@ -110,9 +118,10 @@ public:
 ```
 
 ### Concrete Implementations
+
 ```cpp
-// SSD1283A display implementation
-class SSD1283ADisplay : public Display {
+// ST7789 display implementation
+class ST7789Display : public Display {
     // Hardware-specific implementation
 };
 
@@ -128,10 +137,11 @@ class Mcp2515CanDriver : public CanDriver {
 ```
 
 ### Factory Pattern
+
 ```cpp
 std::unique_ptr<Display> createDisplay() {
-#ifdef USE_SSD1283A
-    return std::make_unique<SSD1283ADisplay>();
+#ifdef USE_ST7789
+    return std::make_unique<ST7789Display>();
 #elif defined(USE_ILI9341)
     return std::make_unique<ILI9341Display>();
 #else
@@ -143,27 +153,28 @@ std::unique_ptr<Display> createDisplay() {
 ## Data Model Design
 
 ### Central State Structure
+
 ```cpp
 struct SystemState {
     // Power system
     float batteryVoltage;
     float batteryCurrent;
     uint8_t batteryPercent;
-    
+
     // Drive system
     float speed;            // km/h
     uint8_t pasLevel;       // 0-5
     uint32_t odometer;      // meters
-    
+
     // User interface
     DisplayMode displayMode;
     uint8_t backlightLevel;
-    
+
     // System status
     bool canConnected;
     bool bleConnected;
     ErrorCode lastError;
-    
+
     // Timestamps
     uint32_t lastUpdate;
     uint32_t bootTime;
@@ -171,6 +182,7 @@ struct SystemState {
 ```
 
 ### Data Flow Pattern
+
 ```
 Raw Data → Parsing → Validation → State Update → Notification
    ↑          ↑          ↑            ↑              ↑
@@ -180,6 +192,7 @@ Hardware   CAN Msg   Range Check  Atomic Update  Subscribers
 ## Event System
 
 ### Event Types
+
 ```cpp
 enum class EventType {
     KeyPress,
@@ -196,17 +209,18 @@ enum class EventType {
 ```
 
 ### Event Queue Pattern
+
 ```cpp
 class EventSystem {
 public:
     void post(Event event) {
         xQueueSend(eventQueue, &event, portMAX_DELAY);
     }
-    
+
     bool receive(Event& event, TickType_t timeout) {
         return xQueueReceive(eventQueue, &event, timeout) == pdTRUE;
     }
-    
+
 private:
     QueueHandle_t eventQueue;
 };
@@ -215,12 +229,14 @@ private:
 ## Communication Patterns
 
 ### Inter-Task Communication
+
 1. **Shared State**: Atomic access to `SystemState`
 2. **Message Queues**: For event passing between tasks
 3. **Semaphores/Mutexes**: For resource protection
 4. **Task Notifications**: For simple signaling
 
 ### Example: Keypad to CAN Communication
+
 ```
 Keypad Task → KeyPress Event → Event Queue → CAN Task → CAN Message
 ```
@@ -228,39 +244,41 @@ Keypad Task → KeyPress Event → Event Queue → CAN Task → CAN Message
 ## Configuration Management
 
 ### Persistent Storage
+
 ```cpp
 class ConfigManager {
 public:
     bool load();
     bool save();
-    
+
     template<typename T>
     bool get(const char* key, T& value);
-    
+
     template<typename T>
     bool set(const char* key, const T& value);
-    
+
 private:
     Preferences preferences;  // ESP32 non-volatile storage
 };
 ```
 
 ### Configuration Structure
+
 ```cpp
 struct SystemConfig {
     // Display settings
     uint8_t brightness;
     uint8_t contrast;
     DisplayLayout layout;
-    
+
     // CAN settings
     uint32_t canBaudrate;
     CanFilter filters[4];
-    
+
     // BLE settings
     char deviceName[32];
     uint16_t bleInterval;
-    
+
     // Power management
     uint16_t sleepTimeout;
     uint8_t lowPowerThreshold;
@@ -270,6 +288,7 @@ struct SystemConfig {
 ## Error Handling
 
 ### Error Hierarchy
+
 ```cpp
 enum class ErrorSeverity {
     DEBUG,      // Informational only
@@ -289,6 +308,7 @@ struct SystemError {
 ```
 
 ### Error Recovery Strategies
+
 1. **Retry with Backoff**: For transient communication errors
 2. **Reinitialization**: For hardware in unknown state
 3. **Graceful Degradation**: Disable non-essential features
@@ -297,6 +317,7 @@ struct SystemError {
 ## Power Management
 
 ### Sleep States
+
 ```cpp
 enum class PowerState {
     ACTIVE,         // Full operation
@@ -307,6 +328,7 @@ enum class PowerState {
 ```
 
 ### State Transitions
+
 ```
 ACTIVE → (timeout) → IDLE → (timeout) → LIGHT_SLEEP → (timeout) → DEEP_SLEEP
     ↑                       ↑                       ↑
@@ -316,6 +338,7 @@ ACTIVE → (timeout) → IDLE → (timeout) → LIGHT_SLEEP → (timeout) → DE
 ## Build System
 
 ### PlatformIO Configuration
+
 ```ini
 [env:esp32-c3-devkit]
 platform = espressif32
@@ -323,17 +346,18 @@ board = esp32-c3-devkitm-1
 framework = arduino
 board_build.f_cpu = 160000000L
 
-build_flags = 
-    -DUSE_SSD1283A
+build_flags =
+    -DUSE_ST7789
     -DUSE_ESP32_CAN
     -DLOG_LEVEL=3
 
-lib_deps = 
+lib_deps =
     arduino-libraries/Arduino-CAN@^0.4.0
     bodmer/TFT_eSPI@^2.5.0
 ```
 
 ### Feature Flags
+
 ```cpp
 // Feature selection at compile time
 #ifdef USE_BLE
@@ -348,18 +372,20 @@ lib_deps =
 ## Testing Architecture
 
 ### Unit Testing
+
 ```cpp
 TEST(CanManagerTest, MessageParsing) {
     CanManager manager;
     CanMessage msg = {0x123, 8, {0x01, 0x02, 0x03, 0x04}};
-    
+
     manager.processMessage(msg);
-    
+
     EXPECT_EQ(manager.getBatteryVoltage(), 48.0f);
 }
 ```
 
 ### Integration Testing
+
 ```cpp
 class IntegrationTest {
     void testCompleteSystem() {
@@ -372,6 +398,7 @@ class IntegrationTest {
 ```
 
 ## Code Organization
+
 ```
 src/
 ├── tasks/           # FreeRTOS task implementations
@@ -400,17 +427,20 @@ src/
 ## Development Guidelines
 
 ### Code Style
+
 - **Naming**: camelCase for variables, PascalCase for classes
 - **Indentation**: 4 spaces, no tabs
 - **Comments**: Doxygen-style for public APIs
 - **Error Handling**: Always check return values
 
 ### Memory Management
+
 - **Stack Allocation**: Prefer stack for small, short-lived objects
 - **Heap Allocation**: Use `std::unique_ptr` for owned resources
 - **Pool Allocation**: For frequently allocated/deallocated objects
 
 ### Performance Considerations
+
 - **Minimize Copies**: Pass by const reference where possible
 - **Cache Awareness**: Keep related data together
 - **Avoid Dynamic Allocation**: In time-critical paths
@@ -424,4 +454,4 @@ src/
 
 ---
 
-*This firmware architecture provides a robust foundation for reliable e-bike display operation while maintaining the flexibility needed for customization and future expansion.*
+_This firmware architecture provides a robust foundation for reliable e-bike display operation while maintaining the flexibility needed for customization and future expansion._

@@ -38,9 +38,9 @@ Welcome to OpenRideDash! This guide will help you get up and running with your o
 
 - ESP32-C3 development board with CAN
 - Buck converter (80V to 5V)
-- CAN transceiver (TJA1050)
-- Display (SSD1283A or compatible)
-- Keypad (6-button membrane)
+- CAN transceiver (SN65HVD230)
+- Display (ST7789 or compatible)
+- Keypad (3 to 6-button membrane)
 - Enclosure materials
 
 #### Assembly
@@ -124,15 +124,15 @@ Follow the [Hardware Assembly](hardware/assembly.md) guide for detailed instruct
 
 ## Configuration Examples
 
-### Basic Configuration (Bafang M600)
+### Basic Configuration (Bafang M560)
 
 ```ini
 # platformio.ini
 build_flags =
-    -DUSE_SSD1283A
+    -DUSE_ST7789
     -DUSE_ESP32_CAN
     -DCAN_BAUDRATE=500000
-    -DCONTROLLER_TYPE=BAFANG_M600
+    -DCONTROLLER_TYPE=BAFANG_M560
 ```
 
 ### Advanced Configuration (Custom Display)

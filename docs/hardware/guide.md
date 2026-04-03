@@ -8,15 +8,15 @@ This guide covers the hardware components, assembly, and testing procedures for 
 
 ### Required Components
 
-| Component       | Specification          | Recommended Part    | Notes                                      |
-| --------------- | ---------------------- | ------------------- | ------------------------------------------ |
-| Microcontroller | ESP32-C3 with CAN      | ESP32-C3-DevKitM-1  | Must have integrated CAN controller        |
-| Buck Converter  | 80V to 5V, 1A+         | LM2596-based module | Adjustable output, over-current protection |
-| CAN Transceiver | TJA1050 or equivalent  | TJA1050 module      | 5V operation, high-speed CAN               |
-| Display         | SSD1283A transflective | 2.4" 240x320 SPI    | Sunlight readable, low power               |
-| Keypad          | 6-button membrane      | Custom or DPC245    | Waterproof, tactile feedback               |
-| CAN Connector   | 5-pin automotive       | Deutsch DT06-5S     | Waterproof, locking                        |
-| Enclosure       | 3D printed + epoxy     | Custom design       | Weatherproof, shock resistant              |
+| Component       | Specification            | Recommended Part    | Notes                                      |
+| --------------- | ------------------------ | ------------------- | ------------------------------------------ |
+| Microcontroller | ESP32-C3 with CAN        | ESP32-C3-DevKitM-1  | Must have integrated CAN controller        |
+| Buck Converter  | 80V to 5V, 1A+           | LM2596-based module | Adjustable output, over-current protection |
+| CAN Transceiver | SN65HVD230 or equivalent | SN65HVD230 module   | 3.3V operation, high-speed CAN             |
+| Display         | ST7789                   | 2.4" 240x240 SPI    | Sunlight readable                          |
+| Keypad          | 6-button membrane        | Custom or DPC245    | Waterproof, tactile feedback               |
+| CAN Connector   | 5-pin automotive         | Deutsch DT06-5S     | Waterproof, locking                        |
+| Enclosure       | 3D printed + epoxy       | Custom design       | Weatherproof, shock resistant              |
 
 ### Optional Components
 
@@ -55,8 +55,8 @@ This guide covers the hardware components, assembly, and testing procedures for 
 
 ### Step 2: CAN Interface Assembly
 
-1. **Wire TJA1050 Module**
-   - Connect VCC to 5V
+1. **Wire SN65HVD230 Module**
+   - Connect VCC to 3V3
    - Connect GND to common ground
    - Connect CAN_H and CAN_L to connector
    - Connect TX to ESP32 GPIO 5 (CAN TX)
@@ -73,7 +73,7 @@ This guide covers the hardware components, assembly, and testing procedures for 
 ### Step 3: Display Assembly
 
 1. **Connect Display Pins**
-   - SSD1283A typically uses SPI interface:
+   - ST7789 typically uses SPI interface:
      - SCK → GPIO 18
      - MOSI → GPIO 23
      - MISO → GPIO 19 (optional)
@@ -135,8 +135,8 @@ This guide covers the hardware components, assembly, and testing procedures for 
            ┌──────────────────┼──────────────────┐
            │                  │                  │
     ┌──────▼──────┐   ┌──────▼──────┐   ┌───────▼──────┐
-    │   ESP32-C3  │   │  TJA1050    │   │   Display    │
-    │             │   │   CAN       │   │   SSD1283A   │
+    │   ESP32-C3  │   │  SN65HVD230 │   │   Display    │
+    │             │   │   CAN       │   │   ST7789   │
     └──────┬──────┘   └──────┬──────┘   └───────┬──────┘
            │                  │                  │
     ┌──────▼──────┐   ┌──────▼──────┐   ┌───────▼──────┐
