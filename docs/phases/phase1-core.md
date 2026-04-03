@@ -160,14 +160,15 @@ The MCU GPIOs are **never exposed to battery voltage** as long as the circuit is
    POWER button ─── connected to CTRL line (pulls CTRL toward GND when pressed)
 ```
 
-#### Protections
+#### Protections for a 48V system (adjust values for different voltages)
 
-- SMBJ58A across VBAT - GND
-- 72V 0.3A PPTC Polyfuse on the Vbat line
-- 16V 1000µF Electrolytic Bulk Cap: where the 5V enters PCB from the buck converter
-- 100V 100nF Ceramic Caps: as close as possible to the VCC pin of the SN65HVD230, another near the ESP32-C3 power pins, another before the buck
+- 72V 0.3A PPTC: Polyfuse on the Vbat line
+- SMBJ58A: TVS across VBAT - GND
 - 100V 68µF Electrolytic Bulk Cap: before the buck
-- SMBJ5.0A: across 5V and GND rails (.CA bidirectional variant acceptable)
+- 16V 1000µF Electrolytic Bulk Cap: where the 5V enters PCB from the buck converter
+- 100V 100nF Ceramic Caps: 1 x at VCC of SN65HVD230, 1x at ESP32-C3 power pins, 1x at buck VIN
+- SMBJ5.0A: TVS across 5V and GND rails (.CA bidirectional variant acceptable)
+- Order matters: Connector → PPTC → TVS + caps → buck
 
 #### Firmware Considerations
 
