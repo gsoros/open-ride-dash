@@ -493,17 +493,7 @@ async def set_brightness(level):
         await client.write_gatt_char(COMMAND_CHAR_UUID, command, response=True)
 ```
 
-## Revision History
-
-| Version | Date       | Changes                                        |
-| ------- | ---------- | ---------------------------------------------- |
-| 1.0.0   | 2024-01-01 | Initial release                                |
-| 1.1.0   | 2024-03-15 | Added telemetry batching, error codes          |
-| 1.2.0   | 2024-06-30 | Added configuration structures, security notes |
-
 ## References
 
 - [Bluetooth SIG Assigned Numbers](https://www.bluetooth.com/specifications/assigned-numbers/)
 - [BLE GATT Specification](https://www.bluetooth.com/specifications/gatt/)
-- [OpenRideDash Firmware Repository](https://github.com/open-ride-dash/firmware)
-- [OpenRideDash Mobile App](https://github.com/open-ride-dash/mobile)
