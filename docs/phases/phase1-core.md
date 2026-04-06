@@ -405,22 +405,6 @@ void processBafangMessage(const CanMessage& msg) {
 }
 ```
 
-### Controller Power-On
-
-```cpp
-void powerOnController() {
-    CanMessage msg;
-    msg.id = 0x100;  // Power control message
-    msg.length = 8;
-    msg.data[0] = 0x01;  // Power on command
-    // ... fill rest of data
-
-    CAN.send(msg);
-
-    systemState.controllerPowered = true;
-}
-```
-
 ## Development Tasks Checklist
 
 ### Hardware Bring-Up
