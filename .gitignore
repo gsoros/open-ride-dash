@@ -1,0 +1,9 @@
+.history
+*backups/
+*.log
+*.lck
+fp-lib-table
+*.kicad_prl
+*.kicad_pro
+*.kicad_pcb
+kicad/ord-v0.1/ord-keypad-v0.1.kicad_sch
