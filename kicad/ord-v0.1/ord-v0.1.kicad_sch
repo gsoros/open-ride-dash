@@ -2973,6 +2973,12 @@
 		(uuid "fb4ecbaa-52d6-45e5-b24a-224201fa1054")
 	)
 	(junction
+		(at 179.07 40.64)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "02e74e61-07ab-430a-a8bf-d0cb3af9f086")
+	)
+	(junction
 		(at 54.61 92.71)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -3037,12 +3043,6 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "d1faf3db-f132-4072-a68c-dd5c50783616")
-	)
-	(junction
-		(at 179.07 55.88)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "e81a0322-e88e-4c1e-9914-1be398c84f39")
 	)
 	(junction
 		(at 41.91 181.61)
@@ -3158,6 +3158,16 @@
 	)
 	(wire
 		(pts
+			(xy 179.07 40.64) (xy 201.93 40.64)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "14b89292-1db4-4390-ab0a-886a27c58288")
+	)
+	(wire
+		(pts
 			(xy 196.85 137.16) (xy 214.63 137.16)
 		)
 		(stroke
@@ -3165,16 +3175,6 @@
 			(type default)
 		)
 		(uuid "153afa60-54cc-4999-b55b-1b7bee41bcdf")
-	)
-	(wire
-		(pts
-			(xy 179.07 55.88) (xy 201.93 55.88)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "16d87118-b89f-4c69-ac2b-49f319416235")
 	)
 	(wire
 		(pts
@@ -3388,16 +3388,6 @@
 	)
 	(wire
 		(pts
-			(xy 198.12 40.64) (xy 201.93 40.64)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "5dd395ae-0e46-4f61-9878-2c3f9839ee87")
-	)
-	(wire
-		(pts
 			(xy 198.12 45.72) (xy 201.93 45.72)
 		)
 		(stroke
@@ -3548,7 +3538,7 @@
 	)
 	(wire
 		(pts
-			(xy 179.07 52.07) (xy 179.07 55.88)
+			(xy 179.07 36.83) (xy 179.07 40.64)
 		)
 		(stroke
 			(width 0)
@@ -3678,6 +3668,16 @@
 	)
 	(wire
 		(pts
+			(xy 198.12 55.88) (xy 201.93 55.88)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a17e94ca-7724-429e-bf28-acd26035f8ef")
+	)
+	(wire
+		(pts
 			(xy 132.08 128.27) (xy 137.16 128.27)
 		)
 		(stroke
@@ -3768,7 +3768,7 @@
 	)
 	(wire
 		(pts
-			(xy 173.99 55.88) (xy 179.07 55.88)
+			(xy 173.99 40.64) (xy 179.07 40.64)
 		)
 		(stroke
 			(width 0)
@@ -4038,7 +4038,7 @@
 	)
 	(wire
 		(pts
-			(xy 179.07 40.64) (xy 179.07 44.45)
+			(xy 179.07 25.4) (xy 179.07 29.21)
 		)
 		(stroke
 			(width 0)
@@ -4137,7 +4137,7 @@
 		(uuid "25f3302f-a117-4987-acbc-62e4f18d03f6")
 	)
 	(label "I2C_SDA"
-		(at 173.99 55.88 180)
+		(at 173.99 40.64 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -4357,7 +4357,7 @@
 		(uuid "ecda7153-efed-428e-8414-b2ad3ffdaa34")
 	)
 	(label "CAN_RX"
-		(at 198.12 40.64 180)
+		(at 198.12 55.88 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -4717,7 +4717,7 @@
 	)
 	(symbol
 		(lib_id "power:+3.3V")
-		(at 179.07 40.64 180)
+		(at 179.07 25.4 180)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -4727,7 +4727,7 @@
 		(dnp no)
 		(uuid "265aca0c-9568-49b6-96ca-d75e631b75f9")
 		(property "Reference" "#PWR023"
-			(at 179.07 36.83 0)
+			(at 179.07 21.59 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -4738,7 +4738,7 @@
 			)
 		)
 		(property "Value" "+3.3V"
-			(at 176.022 38.354 0)
+			(at 176.022 23.114 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -4749,7 +4749,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 179.07 40.64 0)
+			(at 179.07 25.4 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -4760,7 +4760,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 179.07 40.64 0)
+			(at 179.07 25.4 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -4771,7 +4771,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"+3.3V\""
-			(at 179.07 40.64 0)
+			(at 179.07 25.4 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -5914,7 +5914,7 @@
 	)
 	(symbol
 		(lib_id "Device:R")
-		(at 179.07 48.26 0)
+		(at 179.07 33.02 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -5925,7 +5925,7 @@
 		(fields_autoplaced yes)
 		(uuid "7f8a6b13-420f-477c-a53f-b75ce73ec6bd")
 		(property "Reference" "R7"
-			(at 181.61 46.9899 0)
+			(at 181.61 31.7499 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -5936,7 +5936,7 @@
 			)
 		)
 		(property "Value" "4.7k"
-			(at 181.61 49.5299 0)
+			(at 181.61 34.2899 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -5947,7 +5947,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 177.292 48.26 90)
+			(at 177.292 33.02 90)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -5958,7 +5958,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 179.07 48.26 0)
+			(at 179.07 33.02 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -5969,7 +5969,7 @@
 			)
 		)
 		(property "Description" "Resistor"
-			(at 179.07 48.26 0)
+			(at 179.07 33.02 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
