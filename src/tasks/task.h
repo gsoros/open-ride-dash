@@ -55,6 +55,7 @@ class Task {
     }
 
     virtual void taskSetFrequency(float frequency) {
+        ESP_LOGD(taskName(), "Setting frequency to %.2f Hz", frequency);
         taskWriteFrequency(frequency);
         TaskHandle_t h = taskHandle;
         if (h != nullptr) {
