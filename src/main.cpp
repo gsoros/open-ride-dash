@@ -23,7 +23,7 @@ void setup() {
 
     wifi.waitForConnection();  // Ensure WiFi is connected before starting other tasks that depend on it
 
-    ota.taskStart(10.0f, 16384);
+    ota.taskStart(10.0f, 100.0f, 16384);
 
     logServer.taskStart(1.0f, 16384);
 
