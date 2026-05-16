@@ -28,7 +28,7 @@ class Wifi : public Task {
     }
 
     virtual void run() override {
-        ESP_LOGD(taskName(), "Status: %d", WiFi.status());
+        ESP_LOGD(taskName(), "Status: %d Heap: %u Stack: %d", WiFi.status(), xPortGetFreeHeapSize(), taskGetLowestStackLevel());
     }
 
     bool isReady() const {

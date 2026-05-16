@@ -25,7 +25,7 @@ class Task {
                            int8_t priority = -1) {
         if (taskHandle != nullptr) return;  // already running
 
-        taskFrequencyHz = frequency;
+        taskWriteFrequency(frequency);
 
         // Convert stack bytes to words (FreeRTOS stack depth is in words)
         uint32_t stackWords = 0;
@@ -49,6 +49,18 @@ class Task {
 
         (void)res;  // ignore result for now; taskHandle will be nullptr on failure
     };
+
+    virtual float taskGetFrequency() const {
+        return taskReadFrequency();
+    }
+
+    virtual void taskSetFrequency(float frequency) {
+        taskWriteFrequency(frequency);
+        TaskHandle_t h = taskHandle;
+        if (h != nullptr) {
+            xTaskNotifyGive(h);
+        }
+    }
 
     virtual void taskStop() {
         if (taskHandle == nullptr) return;
@@ -79,6 +91,26 @@ class Task {
    protected:
     TaskHandle_t taskHandle = nullptr;
     float taskFrequencyHz = -1;
+    portMUX_TYPE taskFrequencyMux = portMUX_INITIALIZER_UNLOCKED;
+
+    float taskReadFrequency() const {
+        portMUX_TYPE* mux = const_cast<portMUX_TYPE*>(&taskFrequencyMux);
+        portENTER_CRITICAL(mux);
+        float frequency = taskFrequencyHz;
+        portEXIT_CRITICAL(mux);
+        return frequency;
+    }
+
+    void taskWriteFrequency(float frequency) {
+        portENTER_CRITICAL(&taskFrequencyMux);
+        taskFrequencyHz = frequency;
+        portEXIT_CRITICAL(&taskFrequencyMux);
+    }
+
+    static TickType_t taskFrequencyToTicks(float frequency) {
+        TickType_t ticks = pdMS_TO_TICKS((uint32_t)(1000.0f / frequency));
+        return (ticks == 0) ? 1 : ticks;
+    }
 
     static void taskTrampoline(void* pvParameters) {
         Task* self = static_cast<Task*>(pvParameters);
@@ -93,24 +125,18 @@ class Task {
         // Call setup once
         self->setup();
 
-        if (self->taskFrequencyHz == 0.0f) {
-            // Do not run; suspend this task indefinitely. taskStop() may delete it later.
-            vTaskSuspend(nullptr);
-            // If the task resumes for any reason, delete it to avoid falling through.
-            vTaskDelete(nullptr);
-            return;
-        } else if (self->taskFrequencyHz > 0.0f) {
-            const TickType_t period = pdMS_TO_TICKS((uint32_t)(1000.0f / self->taskFrequencyHz));
-            TickType_t lastWake = xTaskGetTickCount();
-            for (;;) {
+        for (;;) {
+            float frequency = self->taskReadFrequency();
+            if (frequency == 0.0f) {
+                // Do not run until taskSetFrequency() wakes the task with a new mode.
+                ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+            } else if (frequency > 0.0f) {
                 self->run();
-                vTaskDelayUntil(&lastWake, period);
-            }
-        } else {
-            // frequency < 0: run continuously with minimal yield
-            for (;;) {
+                ulTaskNotifyTake(pdTRUE, taskFrequencyToTicks(frequency));
+            } else {
+                // frequency < 0: run continuously with minimal yield
                 self->run();
-                vTaskDelay(1);  // yield to other tasks
+                ulTaskNotifyTake(pdTRUE, 1);
             }
         }
     }

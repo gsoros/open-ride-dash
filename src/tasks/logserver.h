@@ -4,7 +4,7 @@
 class LogServer : public Task {
    public:
     LogServer() {
-        s_instance = this;
+        instance = this;
     }
 
     virtual const char* taskName() override {
@@ -12,7 +12,7 @@ class LogServer : public Task {
     }
 
     virtual void setup() override {
-        s_instance = this;
+        instance = this;
         logServer.begin();
         ESP_LOGI(taskName(), "Log server ready on port 23");
     }
@@ -48,15 +48,16 @@ class LogServer : public Task {
         char buf[256];
         int res = 0;
         vsnprintf(buf, sizeof(buf), fmt, args);
-        if (s_instance && s_instance->logClient && s_instance->logClient.connected()) {
-            res = s_instance->logClient.print(buf);
+        if (instance && instance->logClient && instance->logClient.connected()) {
+            res = instance->logClient.print(buf);
         }
         // Serial.print(buf);
         return res;
     }
 
    protected:
-    inline static LogServer* s_instance = nullptr;
+    // std=GNU++17 allows inline static member variables
+    inline static LogServer* instance = nullptr;
     WiFiServer logServer{23};
     WiFiClient logClient;
 };
