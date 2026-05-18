@@ -71,6 +71,7 @@ class Api : public Task {
             return false;
         }
         strncpy(commands[numCommands].command, command, sizeof(commands[numCommands].command) - 1);
+        commands[numCommands].command[sizeof(commands[numCommands].command) - 1] = '\0';
         commands[numCommands].handler = handler;
         numCommands++;
         ESP_LOGI(taskName(), "Registered command: %s", command);
@@ -83,6 +84,10 @@ class Api : public Task {
         Request req = {};
         strncpy(req.commandLine, commandLine, sizeof(req.commandLine) - 1);
         req.commandLine[sizeof(req.commandLine) - 1] = '\0';
+        size_t length = strlen(req.commandLine);
+        while (length > 0 && (req.commandLine[length - 1] == '\r' || req.commandLine[length - 1] == '\n')) {
+            req.commandLine[--length] = '\0';
+        }
         req.replyQueue = replyQueue;
         BaseType_t res = xQueueSend(requestQueue, &req, 0);
         if (res != pdTRUE) {
@@ -115,16 +120,26 @@ class Api : public Task {
 
     Reply handleCommand(const char* input) {
         Reply reply = {};
-        char cmd[32];
-        const char* args = nullptr;
-        sscanf(input, "%31s", cmd);   // Extract command (first word)
-        args = input + strlen(cmd);   // Point to the rest of the string as arguments
-        while (*args == ' ') args++;  // Skip leading spaces
+        if (input == nullptr) input = "";
+
+        while (*input == ' ' || *input == '\t' || *input == '\r' || *input == '\n') input++;
+
+        char cmd[32] = {};
+        int argsOffset = 0;
+        if (sscanf(input, "%31s%n", cmd, &argsOffset) != 1) {
+            reply.errorCode = ErrorCode::INVALID_ARGS;
+            snprintf((char*)reply.data, sizeof(reply.data), "Empty command");
+            reply.length = strlen((char*)reply.data);
+            return reply;
+        }
+
+        const char* args = input + argsOffset;
+        while (*args == ' ' || *args == '\t') args++;  // Skip leading argument whitespace
         for (uint8_t i = 0; i < numCommands; ++i) {
             if (strcmp(cmd, commands[i].command) == 0) {
                 // Call handler to produce a reply
                 reply = commands[i].handler(args);
-                // Ensure reply.command contains the command name (caller may not set it)
+                // Ensure reply.command contains the command name (handler may not set it)
                 strncpy(reply.command, commands[i].command, sizeof(reply.command) - 1);
                 reply.command[sizeof(reply.command) - 1] = '\0';
                 reply.length = strlen((char*)reply.data);

@@ -20,7 +20,7 @@ class OTA : public Task {
     }
 
     virtual void setup() {
-        ArduinoOTA.setHostname(hostname);
+        ArduinoOTA.setHostname(default_hostname);
         ArduinoOTA.onStart([this]() {
             taskSetFrequency(uploadFrequencyHz);
             ESP_LOGI("OTA", "Start");

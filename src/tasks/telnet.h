@@ -17,6 +17,9 @@ class Telnet : public Task, public ApiClient {
         wifiServer.begin();
         ESP_LOGI(taskName(), "Ready on port %d", port);
         apiClientSetup(taskName());
+        api.registerCommand("echo", [this](const char* args) {
+            return setEchoCommand(args);
+        });
         taskSetup();
     }
 
@@ -39,12 +42,14 @@ class Telnet : public Task, public ApiClient {
                 ESP_LOGI(taskName(), "Client disconnected.");
             }
         } else if (wifiClient.available()) {
-            // Echo back any received data
             String line = wifiClient.readStringUntil('\n');
+            // Echo back any received data if echo is enabled
             if (echo) {
-                ESP_LOGI(taskName(), "Received from client: %s", line.c_str());
+                // ESP_LOGI(taskName(), "Received from client: %s", line.c_str());
+                wifiClient.println(line);
             }
             // Send command to API (non-blocking) and ask for a reply on our queue
+            line.trim();
             if (line.length() > 0) {
                 bool ok = apiClientQueueCommand(line.c_str());
                 if (!ok) {
@@ -88,6 +93,48 @@ class Telnet : public Task, public ApiClient {
     }
 
    protected:
+    static bool parseEchoValue(const char* args, bool* value) {
+        while (*args == ' ' || *args == '\t') ++args;
+
+        char token[6] = {};
+        size_t length = 0;
+        while (args[length] != '\0' && args[length] != ' ' && args[length] != '\t' && args[length] != '\r' && args[length] != '\n') {
+            if (length >= sizeof(token) - 1) return false;
+            token[length] = args[length];
+            ++length;
+        }
+
+        const char* rest = args + length;
+        while (*rest == ' ' || *rest == '\t' || *rest == '\r' || *rest == '\n') ++rest;
+        if (*rest != '\0') return false;
+
+        if (strcmp(token, "1") == 0 || strcmp(token, "True") == 0 || strcmp(token, "true") == 0 ||
+            strcmp(token, "On") == 0 || strcmp(token, "on") == 0) {
+            *value = true;
+            return true;
+        }
+        if (strcmp(token, "0") == 0 || strcmp(token, "False") == 0 || strcmp(token, "false") == 0 ||
+            strcmp(token, "Off") == 0 || strcmp(token, "off") == 0) {
+            *value = false;
+            return true;
+        }
+        return false;
+    }
+
+    Api::Reply setEchoCommand(const char* args) {
+        Api::Reply reply = {};
+        bool enable = false;
+        if (!parseEchoValue(args, &enable)) {
+            reply.errorCode = Api::ErrorCode::INVALID_ARGS;
+            snprintf((char*)reply.data, sizeof(reply.data), "Usage: echo 0|1|True|true|False|false|On|on|Off|off");
+            return reply;
+        }
+
+        setEcho(enable);
+        snprintf((char*)reply.data, sizeof(reply.data), "Telnet echo %s", enable ? "enabled" : "disabled");
+        return reply;
+    }
+
     // std=GNU++17 allows inline static member variables
     inline static Telnet* instance = nullptr;
     uint16_t port = 23;

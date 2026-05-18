@@ -40,7 +40,7 @@ void setup() {
     blink.setup();
     blink.taskStart(1.0f);
 
-    static Task* tasksToMonitor[] = {&wifi, &ota, &telnet, &blink};
+    static Task* tasksToMonitor[] = {&api, &wifi, &ota, &telnet, &blink};
     systemMonitor.setup(tasksToMonitor, sizeof(tasksToMonitor) / sizeof(tasksToMonitor[0]));
     systemMonitor.taskStart(0.1f, 4096);
 }
