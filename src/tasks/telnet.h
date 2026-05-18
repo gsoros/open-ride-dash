@@ -17,9 +17,12 @@ class Telnet : public Task, public ApiClient {
         wifiServer.begin();
         ESP_LOGI(taskName(), "Ready on port %d", port);
         apiClientSetup(taskName());
-        api.registerCommand("echo", [this](const char* args) {
-            return setEchoCommand(args);
-        });
+        api.registerCommand(
+            "echo",
+            [this](const char* args) {
+                return setEchoCommand(args);
+            },
+            "Usage: echo 0|1|True|true|False|false|On|on|Off|off\nEnables or disables Telnet input echo.");
         taskSetup();
     }
 

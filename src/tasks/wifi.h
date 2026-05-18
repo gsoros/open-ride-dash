@@ -77,12 +77,18 @@ class Wifi : public Task {
     }
 
     void registerApiCommands() {
-        api.registerCommand("wifi_ssid", [this](const char* args) {
-            return wifiCredentialCommand(args, ssid, ssidKey);
-        });
-        api.registerCommand("wifi_password", [this](const char* args) {
-            return wifiCredentialCommand(args, password, passwordKey);
-        });
+        api.registerCommand(
+            "wifi_ssid",
+            [this](const char* args) {
+                return wifiCredentialCommand(args, ssid, ssidKey);
+            },
+            "Usage: wifi_ssid [ssid]\nShows the current WiFi SSID, or stores a new SSID when provided.");
+        api.registerCommand(
+            "wifi_password",
+            [this](const char* args) {
+                return wifiCredentialCommand(args, password, passwordKey);
+            },
+            "Usage: wifi_password [password]\nShows the current WiFi password, or stores a new password when provided.");
     }
 
     Api::Reply wifiCredentialCommand(const char* args, String& value, const char* key) {

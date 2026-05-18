@@ -7,14 +7,21 @@
 
 class Api : public Task {
    public:
+    static constexpr size_t COMMAND_NAME_SIZE = 32;
+    static constexpr size_t REQUEST_COMMAND_LINE_SIZE = 128;
+    static constexpr size_t REPLY_DATA_SIZE = 256;
+    static constexpr size_t MAX_COMMANDS = 256;
+    static constexpr UBaseType_t REQUEST_QUEUE_LENGTH = 8;
+
     struct Reply;
     struct Command {
-        char command[32];
+        char command[COMMAND_NAME_SIZE];
+        const char* helpText = nullptr;
         std::function<Reply(const char* args)> handler;
     };
 
     struct Request {
-        char commandLine[128];
+        char commandLine[REQUEST_COMMAND_LINE_SIZE];
         QueueHandle_t replyQueue = nullptr;
     };
 
@@ -46,9 +53,9 @@ class Api : public Task {
     }
 
     struct Reply {
-        char command[32];
+        char command[COMMAND_NAME_SIZE];
         uint8_t errorCode = ErrorCode::SUCCESS;
-        uint8_t data[256];
+        uint8_t data[REPLY_DATA_SIZE];
         size_t length = 0;
     };
 
@@ -58,20 +65,28 @@ class Api : public Task {
 
     virtual void setup() {
         // Create request queue
-        requestQueue = xQueueCreate(8, sizeof(Request));
+        requestQueue = xQueueCreate(REQUEST_QUEUE_LENGTH, sizeof(Request));
         if (requestQueue == nullptr) {
             ESP_LOGE(taskName(), "Failed to create request queue");
         }
+        registerCommand(
+            "help",
+            [this](const char* args) {
+                return helpCommand(args);
+            },
+            "Usage: help [command]\nLists commands or shows detailed help for one command.");
         Task::taskSetup();
     }
 
-    bool registerCommand(const char* command, std::function<Reply(const char* args)> handler) {
-        if (numCommands >= 256) {
+    bool registerCommand(const char* command, std::function<Reply(const char* args)> handler,
+                         const char* helpText = nullptr) {
+        if (numCommands >= MAX_COMMANDS) {
             ESP_LOGE(taskName(), "Command limit reached while registering: %s", command);
             return false;
         }
         strncpy(commands[numCommands].command, command, sizeof(commands[numCommands].command) - 1);
         commands[numCommands].command[sizeof(commands[numCommands].command) - 1] = '\0';
+        commands[numCommands].helpText = helpText;
         commands[numCommands].handler = handler;
         numCommands++;
         ESP_LOGI(taskName(), "Registered command: %s", command);
@@ -114,8 +129,8 @@ class Api : public Task {
     }
 
    protected:
-    uint8_t numCommands = 0;
-    Command commands[256];
+    size_t numCommands = 0;
+    Command commands[MAX_COMMANDS];
     QueueHandle_t requestQueue = nullptr;
 
     Reply handleCommand(const char* input) {
@@ -124,18 +139,29 @@ class Api : public Task {
 
         while (*input == ' ' || *input == '\t' || *input == '\r' || *input == '\n') input++;
 
-        char cmd[32] = {};
-        int argsOffset = 0;
-        if (sscanf(input, "%31s%n", cmd, &argsOffset) != 1) {
+        char cmd[COMMAND_NAME_SIZE] = {};
+        size_t length = 0;
+        while (input[length] != '\0' && input[length] != ' ' && input[length] != '\t' && input[length] != '\r' &&
+               input[length] != '\n') {
+            if (length >= sizeof(cmd) - 1) {
+                reply.errorCode = ErrorCode::INVALID_ARGS;
+                snprintf((char*)reply.data, sizeof(reply.data), "Command name too long");
+                reply.length = strlen((char*)reply.data);
+                return reply;
+            }
+            cmd[length] = input[length];
+            ++length;
+        }
+        if (length == 0) {
             reply.errorCode = ErrorCode::INVALID_ARGS;
             snprintf((char*)reply.data, sizeof(reply.data), "Empty command");
             reply.length = strlen((char*)reply.data);
             return reply;
         }
 
-        const char* args = input + argsOffset;
+        const char* args = input + length;
         while (*args == ' ' || *args == '\t') args++;  // Skip leading argument whitespace
-        for (uint8_t i = 0; i < numCommands; ++i) {
+        for (size_t i = 0; i < numCommands; ++i) {
             if (strcmp(cmd, commands[i].command) == 0) {
                 // Call handler to produce a reply
                 reply = commands[i].handler(args);
@@ -152,6 +178,57 @@ class Api : public Task {
         reply.command[sizeof(reply.command) - 1] = '\0';
         snprintf((char*)reply.data, sizeof(reply.data), "Unknown command: %s", cmd);
         reply.length = strlen((char*)reply.data);
+        return reply;
+    }
+
+    Reply helpCommand(const char* args) {
+        Reply reply = {};
+        if (args == nullptr) args = "";
+        while (*args == ' ' || *args == '\t' || *args == '\r' || *args == '\n') args++;
+
+        if (*args == '\0') {
+            size_t used = snprintf((char*)reply.data, sizeof(reply.data), "Commands:");
+            for (size_t i = 0; i < numCommands && used < sizeof(reply.data); ++i) {
+                int written = snprintf((char*)reply.data + used, sizeof(reply.data) - used, "%s%s", i == 0 ? " " : ", ",
+                                       commands[i].command);
+                if (written < 0) break;
+                used += (size_t)written;
+            }
+            reply.data[sizeof(reply.data) - 1] = '\0';
+            return reply;
+        }
+
+        char command[COMMAND_NAME_SIZE] = {};
+        size_t length = 0;
+        while (args[length] != '\0' && args[length] != ' ' && args[length] != '\t' && args[length] != '\r' &&
+               args[length] != '\n') {
+            if (length >= sizeof(command) - 1) {
+                reply.errorCode = ErrorCode::INVALID_ARGS;
+                snprintf((char*)reply.data, sizeof(reply.data), "Command name too long");
+                return reply;
+            }
+            command[length] = args[length];
+            ++length;
+        }
+
+        const char* rest = args + length;
+        while (*rest == ' ' || *rest == '\t' || *rest == '\r' || *rest == '\n') rest++;
+        if (*rest != '\0') {
+            reply.errorCode = ErrorCode::INVALID_ARGS;
+            snprintf((char*)reply.data, sizeof(reply.data), "Usage: help [command]");
+            return reply;
+        }
+
+        for (size_t i = 0; i < numCommands; ++i) {
+            if (strcmp(command, commands[i].command) == 0) {
+                snprintf((char*)reply.data, sizeof(reply.data), "%s: %s", commands[i].command,
+                         commands[i].helpText != nullptr ? commands[i].helpText : "No detailed help available.");
+                return reply;
+            }
+        }
+
+        reply.errorCode = ErrorCode::UNKNOWN_COMMAND;
+        snprintf((char*)reply.data, sizeof(reply.data), "Unknown command: %s", command);
         return reply;
     }
 };
