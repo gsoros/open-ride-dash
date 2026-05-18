@@ -4,12 +4,16 @@
 #include "tasks/blink.h"
 #include "tasks/wifi.h"
 #include "tasks/ota.h"
-#include "tasks/logserver.h"
+#include "tasks/telnet.h"
+#include "tasks/system_monitor.h"
+#include "tasks/api.h"
 
+Api api;
 Blink blink;
 Wifi wifi;
 OTA ota;
-LogServer logServer;
+Telnet telnet(23);
+SystemMonitor systemMonitor;
 
 void setup() {
     const char* tag = "setup";
@@ -19,15 +23,26 @@ void setup() {
     Serial.begin(115200);
     // Serial.setDebugOutput(false);
 
-    wifi.taskStart(0.1f, 16384);
+    api.setup();
+    api.taskStart(10.0f, 4096);
 
-    wifi.waitForConnection();  // Ensure WiFi is connected before starting other tasks that depend on it
+    wifi.setup();
+    wifi.taskStart(0.0f, 4096);
 
-    ota.taskStart(10.0f, 100.0f, 16384);
+    wifi.waitForConnection();
 
-    logServer.taskStart(1.0f, 16384);
+    ota.setup();
+    ota.taskStart(10.0f, 100.0f, 4096);
 
+    telnet.setup();
+    telnet.taskStart(10.0f, 4096);
+
+    blink.setup();
     blink.taskStart(1.0f);
+
+    static Task* tasksToMonitor[] = {&wifi, &ota, &telnet, &blink};
+    systemMonitor.setup(tasksToMonitor, sizeof(tasksToMonitor) / sizeof(tasksToMonitor[0]));
+    systemMonitor.taskStart(0.1f, 4096);
 }
 
 void loop() {

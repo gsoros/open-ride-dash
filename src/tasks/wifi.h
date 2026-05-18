@@ -9,7 +9,7 @@ class Wifi : public Task {
         return "WiFi";
     }
 
-    virtual void setup() override {
+    virtual void setup() {
         WiFi.mode(WIFI_MODE_STA);
         WiFi.begin(ssid, password);
         ESP_LOGI(taskName(), "Connecting to WiFi");
@@ -24,24 +24,23 @@ class Wifi : public Task {
         }
         ESP_LOGI(taskName(), "Starting mDNS with hostname: %s", hostname);
         MDNS.begin(hostname);
-        ready = true;
+        Task::taskSetup();
     }
 
-    virtual void run() override {
-        ESP_LOGD(taskName(), "Status: %d Heap: %u Stack: %d", WiFi.status(), xPortGetFreeHeapSize(), taskGetLowestStackLevel());
+    virtual void taskRun() override {
+        // ESP_LOGD(taskName(), "Status: %d Heap: %u Stack: %d", WiFi.status(), xPortGetFreeHeapSize(), taskGetLowestStackLevel());
     }
 
     bool isReady() const {
-        return ready;
+        return taskSetupDone;
     }
 
     void waitForConnection() {
         while (!isReady()) {
-            ESP_LOGD(taskName(), "Waiting for WiFi...");
+            ESP_LOGD(taskName(), "Waiting for setup to complete...");
             delay(100);
         }
     }
 
    protected:
-    bool ready = false;
 };

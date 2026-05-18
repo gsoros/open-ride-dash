@@ -6,20 +6,20 @@ class OTA : public Task {
    public:
     using Task::taskStart;
 
-    void taskStart(float idleFrequency,
+    bool taskStart(float idleFrequency,
                    float uploadFrequency,
                    uint32_t stack = 0,
                    int8_t priority = -1) {
         idleFrequencyHz = idleFrequency;
         uploadFrequencyHz = uploadFrequency;
-        Task::taskStart(idleFrequencyHz, stack, priority);
+        return Task::taskStart(idleFrequencyHz, stack, priority);
     }
 
     virtual const char* taskName() override {
         return "OTA";
     }
 
-    virtual void setup() override {
+    virtual void setup() {
         ArduinoOTA.setHostname(hostname);
         ArduinoOTA.onStart([this]() {
             taskSetFrequency(uploadFrequencyHz);
@@ -38,9 +38,10 @@ class OTA : public Task {
         });
         ArduinoOTA.begin();
         ESP_LOGI(taskName(), "OTA ready");
+        Task::taskSetup();
     }
 
-    virtual void run() override {
+    virtual void taskRun() override {
         ArduinoOTA.handle();
     }
 

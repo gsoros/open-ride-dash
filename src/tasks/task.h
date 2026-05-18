@@ -6,8 +6,11 @@
 
 class Task {
    public:
-    virtual void setup() {};
-    virtual void run() {};
+    virtual void taskSetup() {
+        taskSetupDone = true;
+    };
+
+    virtual void taskRun() {};
 
     virtual const char* taskName() = 0;
 
@@ -20,10 +23,15 @@ class Task {
      * - `stack`: requested stack size in bytes. If 0, uses `configMINIMAL_STACK_SIZE`.
      * - `priority`: FreeRTOS priority. If -1, defaults to 1.
      */
-    virtual void taskStart(float frequency = -1,
+    virtual bool taskStart(float frequency = -1,
                            uint32_t stack = 0,
                            int8_t priority = -1) {
-        if (taskHandle != nullptr) return;  // already running
+        ESP_LOGD(taskName(), "Starting task with frequency %.2f Hz, stack %u bytes, priority %d",
+                 frequency, stack, priority);
+        if (taskHandle != nullptr) {
+            ESP_LOGE(taskName(), "Already running");
+            return false;
+        }
 
         taskWriteFrequency(frequency);
 
@@ -47,7 +55,12 @@ class Task {
             &taskHandle             // handle
         );
 
-        (void)res;  // ignore result for now; taskHandle will be nullptr on failure
+        if (res != pdPASS) {
+            taskHandle = nullptr;
+            ESP_LOGE(taskName(), "Failed to create task (res=%d)", res);
+            return false;
+        }
+        return true;
     };
 
     virtual float taskGetFrequency() const {
@@ -93,6 +106,7 @@ class Task {
     TaskHandle_t taskHandle = nullptr;
     float taskFrequencyHz = -1;
     portMUX_TYPE taskFrequencyMux = portMUX_INITIALIZER_UNLOCKED;
+    bool taskSetupDone = false;
 
     float taskReadFrequency() const {
         portMUX_TYPE* mux = const_cast<portMUX_TYPE*>(&taskFrequencyMux);
@@ -123,8 +137,9 @@ class Task {
         // Set the handle for this task
         self->taskHandle = xTaskGetCurrentTaskHandle();
 
-        // Call setup once
-        self->setup();
+        if (!self->taskSetupDone) {
+            ESP_LOGW(self->taskName(), "Setup has been skipped");
+        }
 
         for (;;) {
             float frequency = self->taskReadFrequency();
@@ -132,11 +147,11 @@ class Task {
                 // Do not run until taskSetFrequency() wakes the task with a new mode.
                 ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
             } else if (frequency > 0.0f) {
-                self->run();
+                self->taskRun();
                 ulTaskNotifyTake(pdTRUE, taskFrequencyToTicks(frequency));
             } else {
                 // frequency < 0: run continuously with minimal yield
-                self->run();
+                self->taskRun();
                 ulTaskNotifyTake(pdTRUE, 1);
             }
         }

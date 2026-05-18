@@ -3055,10 +3055,6 @@
 		(uuid "1811f8c1-6108-4940-bd14-460d673aac04")
 	)
 	(no_connect
-		(at 240.03 76.2)
-		(uuid "8cb66005-ef59-47b3-a87f-28abfee8c975")
-	)
-	(no_connect
 		(at 171.45 113.03)
 		(uuid "8f40dfd4-aaa1-4d52-91e9-002583a6b049")
 	)
@@ -3988,7 +3984,7 @@
 	)
 	(wire
 		(pts
-			(xy 208.28 142.24) (xy 214.63 142.24)
+			(xy 209.55 142.24) (xy 214.63 142.24)
 		)
 		(stroke
 			(width 0)
@@ -4005,6 +4001,16 @@
 			(type default)
 		)
 		(uuid "e1b82487-2822-4ffb-aa24-947f3a3389ad")
+	)
+	(wire
+		(pts
+			(xy 240.03 76.2) (xy 243.84 76.2)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "e350e17e-409f-400d-904e-1f3378b9f60c")
 	)
 	(wire
 		(pts
@@ -4336,6 +4342,16 @@
 		)
 		(uuid "d75122ea-c1ab-402d-ab10-d2f6694fd8ec")
 	)
+	(label "TFT_BL"
+		(at 209.55 142.24 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "e3871135-1008-4b29-a2ab-095a20af3aed")
+	)
 	(label "CAN_L"
 		(at 80.01 44.45 0)
 		(effects
@@ -4345,6 +4361,16 @@
 			(justify left bottom)
 		)
 		(uuid "e43838f6-aa29-4af2-bf12-cc75dc8b3653")
+	)
+	(label "TFT_BL"
+		(at 243.84 76.2 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "e5d25879-0c17-4c12-a199-4f0bb75ca949")
 	)
 	(label "CAN_TX"
 		(at 243.84 66.04 0)
@@ -5256,84 +5282,6 @@
 			(project "ord-v0.1"
 				(path "/11111111-1111-1111-1111-111111111111"
 					(reference "R4")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:+3.3V")
-		(at 208.28 142.24 270)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "33f91889-532b-4627-bec9-3a728084e008")
-		(property "Reference" "#PWR018"
-			(at 204.47 142.24 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "+3.3V"
-			(at 201.676 142.24 90)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Footprint" ""
-			(at 208.28 142.24 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 208.28 142.24 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "Power symbol creates a global label with name \"+3.3V\""
-			(at 208.28 142.24 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "64485825-8def-4ee0-8718-779b62e723a4")
-		)
-		(instances
-			(project "ord-v0.1"
-				(path "/11111111-1111-1111-1111-111111111111"
-					(reference "#PWR018")
 					(unit 1)
 				)
 			)

@@ -7,11 +7,12 @@ class Blink : public Task {
         return "Blink";
     }
 
-    virtual void setup() override {
+    virtual void setup() {
         pinMode(LED, OUTPUT);
+        Task::taskSetup();
     }
 
-    virtual void run() override {
+    virtual void taskRun() override {
         digitalWrite(LED, LOW);
         delay(30);
         digitalWrite(LED, HIGH);
