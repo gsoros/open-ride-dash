@@ -17,9 +17,9 @@ class Task {
     /*
      * Start the task with the given frequency (Hz), stack size (bytes), and priority.
      * - `frequency`: behavior selection:
-     *     - `> 0`: call `run()` periodically at this frequency (Hz).
-     *     - `== 0`: never call `run()` (task will suspend after `setup()`).
-     *     - `< 0`: call `run()` continuously with a minimal yield.
+     *     - `> 0`: call `taskRun()` periodically at this frequency (Hz).
+     *     - `== 0`: never call `taskRun()` (task will suspend after `taskSetup()`).
+     *     - `< 0`: call `taskRun()` continuously with a minimal yield.
      * - `stack`: requested stack size in bytes. If 0, uses `configMINIMAL_STACK_SIZE`.
      * - `priority`: FreeRTOS priority. If -1, defaults to 1.
      */

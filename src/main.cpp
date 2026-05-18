@@ -7,7 +7,9 @@
 #include "tasks/telnet.h"
 #include "tasks/system_monitor.h"
 #include "tasks/api.h"
+#include "model/state.h"
 
+State state;
 Api api;
 Blink blink;
 Wifi wifi;
@@ -23,6 +25,8 @@ void setup() {
     Serial.begin(115200);
     // Serial.setDebugOutput(false);
 
+    state.setup();
+
     api.setup();
     api.taskStart(10.0f, 4096);
 
@@ -33,7 +37,7 @@ void setup() {
 
     ota.setHostname(wifi.getHostname());
     ota.setup();
-    ota.taskStart(10.0f, 100.0f, 4096);
+    ota.taskStart(2.0f, 100.0f, 4096);
 
     telnet.setup();
     telnet.taskStart(10.0f, 4096);
