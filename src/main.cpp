@@ -31,6 +31,7 @@ void setup() {
 
     wifi.waitForConnection();
 
+    ota.setHostname(wifi.getHostname());
     ota.setup();
     ota.taskStart(10.0f, 100.0f, 4096);
 

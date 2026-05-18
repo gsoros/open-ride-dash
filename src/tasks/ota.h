@@ -19,8 +19,12 @@ class OTA : public Task {
         return "OTA";
     }
 
+    void setHostname(const char* newHostname) {
+        hostname = (newHostname != nullptr && newHostname[0] != '\0') ? newHostname : default_hostname;
+    }
+
     virtual void setup() {
-        ArduinoOTA.setHostname(default_hostname);
+        ArduinoOTA.setHostname(hostname.c_str());
         ArduinoOTA.onStart([this]() {
             taskSetFrequency(uploadFrequencyHz);
             ESP_LOGI("OTA", "Start");
@@ -48,4 +52,5 @@ class OTA : public Task {
    protected:
     float idleFrequencyHz = 10.0f;
     float uploadFrequencyHz = 100.0f;
+    String hostname = default_hostname;
 };

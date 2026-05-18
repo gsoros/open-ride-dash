@@ -16,6 +16,7 @@ class Wifi : public Task {
         registerApiCommands();
 
         WiFi.mode(WIFI_MODE_STA);
+        WiFi.setHostname(hostname.c_str());
         WiFi.begin(ssid.c_str(), password.c_str());
         ESP_LOGI(taskName(), "Connecting to WiFi SSID: %s", ssid.c_str());
         unsigned long start = millis();
@@ -27,8 +28,8 @@ class Wifi : public Task {
         } else {
             ESP_LOGI(taskName(), "WiFi connected, IP: %s", WiFi.localIP().toString().c_str());
         }
-        ESP_LOGI(taskName(), "Starting mDNS with hostname: %s", default_hostname);
-        MDNS.begin(default_hostname);
+        ESP_LOGI(taskName(), "Starting mDNS with hostname: %s", hostname.c_str());
+        MDNS.begin(hostname.c_str());
         Task::taskSetup();
     }
 
@@ -42,38 +43,46 @@ class Wifi : public Task {
 
     void waitForConnection() {
         while (!isReady()) {
-            ESP_LOGD(taskName(), "Waiting for setup to complete...");
+            ESP_LOGD(taskName(), "Waiting for connection...");
             delay(100);
         }
+    }
+
+    const char* getHostname() const {
+        return hostname.c_str();
     }
 
    protected:
     static constexpr const char* preferencesNamespace = "wifi";
     static constexpr const char* ssidKey = "ssid";
     static constexpr const char* passwordKey = "password";
+    static constexpr const char* hostnameKey = "hostname";
 
     Preferences preferences;
     String ssid;
     String password;
+    String hostname;
     bool preferencesReady = false;
 
     void setupPreferences() {
+        ssid = default_wifi_ssid;
+        password = default_wifi_password;
+        hostname = default_hostname;
+
         preferencesReady = preferences.begin(preferencesNamespace, false);
         if (!preferencesReady) {
             ESP_LOGE(taskName(), "Failed to open WiFi preferences, using defaults");
-            ssid = default_wifi_ssid;
-            password = default_wifi_password;
             return;
         }
 
-        if (!preferences.isKey(ssidKey) || !preferences.isKey(passwordKey)) {
+        if (preferences.isKey(ssidKey) && preferences.isKey(passwordKey)) {
+            ssid = preferences.getString(ssidKey, default_wifi_ssid);
+            password = preferences.getString(passwordKey, default_wifi_password);
+        } else {
             ESP_LOGI(taskName(), "WiFi credentials not found in preferences, using defaults");
-            ssid = default_wifi_ssid;
-            password = default_wifi_password;
-            return;
         }
-        ssid = preferences.getString(ssidKey, default_wifi_ssid);
-        password = preferences.getString(passwordKey, default_wifi_password);
+
+        hostname = preferences.getString(hostnameKey, default_hostname);
     }
 
     void registerApiCommands() {
@@ -89,6 +98,12 @@ class Wifi : public Task {
                 return wifiCredentialCommand(args, password, passwordKey);
             },
             "Usage: wifi_password [password]\nShows the current WiFi password, or stores a new password when provided.");
+        api.registerCommand(
+            "hostname",
+            [this](const char* args) {
+                return hostnameCommand(args);
+            },
+            "Usage: hostname [hostname]\nShows the current hostname, or stores a new hostname when provided.");
     }
 
     Api::Reply wifiCredentialCommand(const char* args, String& value, const char* key) {
@@ -106,6 +121,24 @@ class Wifi : public Task {
         }
 
         snprintf((char*)reply.data, sizeof(reply.data), "%s", value.c_str());
+        return reply;
+    }
+
+    Api::Reply hostnameCommand(const char* args) {
+        Api::Reply reply = {};
+        String newValue(args);
+        newValue.trim();
+
+        if (newValue.length() > 0) {
+            if (!preferencesReady || preferences.putString(hostnameKey, newValue) == 0) {
+                reply.errorCode = Api::ErrorCode::EXECUTION_ERROR;
+                snprintf((char*)reply.data, sizeof(reply.data), "%s", hostname.c_str());
+                return reply;
+            }
+            hostname = newValue;
+        }
+
+        snprintf((char*)reply.data, sizeof(reply.data), "%s", hostname.c_str());
         return reply;
     }
 };

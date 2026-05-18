@@ -7,14 +7,14 @@ class SystemMonitor : public Task {
     }
 
     virtual void setup(Task* const* tasksToMonitor = nullptr, size_t tasksToMonitorCount = 0) {
-        monitoredTasks = tasksToMonitor;
-        monitoredTaskCount = tasksToMonitorCount;
+        tasks = tasksToMonitor;
+        taskCount = tasksToMonitorCount;
         Task::taskSetup();
     }
 
     virtual void taskRun() override {
-        for (size_t i = 0; i < monitoredTaskCount; ++i) {
-            Task* task = monitoredTasks[i];
+        for (size_t i = 0; i < taskCount; ++i) {
+            Task* task = tasks[i];
             if (task == nullptr) continue;
             ESP_LOGI(taskName(), "%s: %.2f Hz, stack: %d",
                      task->taskName(),
@@ -24,6 +24,6 @@ class SystemMonitor : public Task {
     }
 
    protected:
-    Task* const* monitoredTasks = nullptr;
-    size_t monitoredTaskCount = 0;
+    Task* const* tasks = nullptr;
+    size_t taskCount = 0;
 };

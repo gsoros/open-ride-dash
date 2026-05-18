@@ -169,7 +169,7 @@ class Api : public Task {
                 strncpy(reply.command, commands[i].command, sizeof(reply.command) - 1);
                 reply.command[sizeof(reply.command) - 1] = '\0';
                 reply.length = strlen((char*)reply.data);
-                ESP_LOGD(taskName(), "Handled command: %s, args: %s, reply length: %d", cmd, args, reply.length);
+                // ESP_LOGD(taskName(), "Handled command: %s, args: %s, reply length: %d", cmd, args, reply.length);
                 return reply;
             }
         }
@@ -228,7 +228,7 @@ class Api : public Task {
         }
 
         reply.errorCode = ErrorCode::UNKNOWN_COMMAND;
-        snprintf((char*)reply.data, sizeof(reply.data), "Unknown command: %s", command);
+        snprintf((char*)reply.data, sizeof(reply.data), "%s", command);
         return reply;
     }
 };

@@ -65,11 +65,21 @@ class Telnet : public Task, public ApiClient {
         apiClientReceiveReplies();
     }
 
-    void receiveReply(const Api::Reply& reply) {
+    void receiveReply(const Api::Reply& reply) override {
         if (instance && instance->wifiClient && instance->wifiClient.connected()) {
             char line[300];
-            snprintf(line, sizeof(line), "API Reply [%s] (err=%d): %s", reply.command, reply.errorCode,
-                     (char*)reply.data);
+            if (reply.errorCode != Api::ErrorCode::SUCCESS) {
+                char errorText[32];
+                api.errorCodeToString(reply.errorCode, errorText, sizeof(errorText));
+                snprintf(line, sizeof(line), "API [%s] Error (%s): %s",
+                         reply.command,
+                         errorText,
+                         (char*)reply.data);
+            } else {
+                snprintf(line, sizeof(line), "API [%s] Reply: %s",
+                         reply.command,
+                         (char*)reply.data);
+            }
             instance->wifiClient.println(line);
         }
     }
