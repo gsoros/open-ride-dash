@@ -7,6 +7,6 @@ class DisplayDriver {
     virtual void drawText(const char* text) = 0;
     virtual void fillScreen(uint16_t color) = 0;
     virtual void setRotation(uint8_t rotation) = 0;
-    virtual void setBrightness(uint8_t brightness) {};
+    virtual void setBrightnessPercent(uint8_t percent) {};
     virtual bool hasBacklight() { return false; };
 };

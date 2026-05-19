@@ -3164,16 +3164,6 @@
 	)
 	(wire
 		(pts
-			(xy 196.85 137.16) (xy 214.63 137.16)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "153afa60-54cc-4999-b55b-1b7bee41bcdf")
-	)
-	(wire
-		(pts
 			(xy 81.28 184.15) (xy 81.28 168.91)
 		)
 		(stroke
@@ -3221,6 +3211,16 @@
 			(type default)
 		)
 		(uuid "248e7f5f-c287-41cf-a68b-9f2fc7eecd67")
+	)
+	(wire
+		(pts
+			(xy 209.55 137.16) (xy 214.63 137.16)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "283ed4bd-2e66-4760-9713-9fd34fe3cf66")
 	)
 	(wire
 		(pts
@@ -3464,16 +3464,6 @@
 	)
 	(wire
 		(pts
-			(xy 209.55 127) (xy 214.63 127)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "7e552a8a-8647-43a0-9d3b-c678de91f5dd")
-	)
-	(wire
-		(pts
 			(xy 73.66 113.03) (xy 80.01 113.03)
 		)
 		(stroke
@@ -3524,6 +3514,16 @@
 	)
 	(wire
 		(pts
+			(xy 208.28 127) (xy 214.63 127)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "8ad653ba-52e8-4986-9c04-39616e5c73b6")
+	)
+	(wire
+		(pts
 			(xy 240.03 71.12) (xy 243.84 71.12)
 		)
 		(stroke
@@ -3551,16 +3551,6 @@
 			(type default)
 		)
 		(uuid "8d4746f9-9935-496f-b7df-e22417fe4094")
-	)
-	(wire
-		(pts
-			(xy 196.85 137.16) (xy 196.85 140.97)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "8dbf4c15-90f4-4580-a056-b9768dff6bd9")
 	)
 	(wire
 		(pts
@@ -4222,6 +4212,16 @@
 		)
 		(uuid "3f940893-9a73-4f84-b3d6-57cc59224db7")
 	)
+	(label "TFT_CS"
+		(at 209.55 137.16 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "4a5002ae-8870-4c2c-bacf-d2b243906b9c")
+	)
 	(label "KEY_UP"
 		(at 92.71 60.96 0)
 		(effects
@@ -4262,6 +4262,16 @@
 		)
 		(uuid "9a83118c-fb3c-42c5-91f1-a0ee21490dae")
 	)
+	(label "TFT_RST"
+		(at 208.28 127 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "9d3bd45b-f1b1-4933-9f8c-dcb2e96a0298")
+	)
 	(label "CAN_TX"
 		(at 132.08 167.64 180)
 		(effects
@@ -4281,6 +4291,16 @@
 			(justify right bottom)
 		)
 		(uuid "a260e588-de65-4b99-9244-91d6348b8b7a")
+	)
+	(label "TFT_CS"
+		(at 236.22 91.44 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "b518826b-4cd0-475e-a1a4-97c6d03b6637")
 	)
 	(label "TFT_DC"
 		(at 243.84 55.88 0)
@@ -4342,16 +4362,6 @@
 		)
 		(uuid "d75122ea-c1ab-402d-ab10-d2f6694fd8ec")
 	)
-	(label "TFT_BL"
-		(at 209.55 142.24 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "e3871135-1008-4b29-a2ab-095a20af3aed")
-	)
 	(label "CAN_L"
 		(at 80.01 44.45 0)
 		(effects
@@ -4362,7 +4372,7 @@
 		)
 		(uuid "e43838f6-aa29-4af2-bf12-cc75dc8b3653")
 	)
-	(label "TFT_BL"
+	(label "TFT_CS"
 		(at 243.84 76.2 0)
 		(effects
 			(font
@@ -4411,16 +4421,6 @@
 			(justify right bottom)
 		)
 		(uuid "feadaac9-42fa-4fb3-b858-1377c03249fa")
-	)
-	(label "TFT_RST"
-		(at 209.55 127 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "fef72692-f2f9-4b8e-84d7-872d6fac07ba")
 	)
 	(symbol
 		(lib_id "Device:Polyfuse")
@@ -6654,8 +6654,8 @@
 		)
 	)
 	(symbol
-		(lib_id "power:GND")
-		(at 196.85 140.97 0)
+		(lib_id "power:+3.3V")
+		(at 209.55 142.24 270)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -6663,10 +6663,9 @@
 		(on_board yes)
 		(in_pos_files yes)
 		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "90678dda-3133-442d-b7b8-5c7b8e0dcc83")
-		(property "Reference" "#PWR019"
-			(at 196.85 147.32 0)
+		(uuid "95f73fd8-86eb-43e6-85b8-a17c5768a9b9")
+		(property "Reference" "#PWR016"
+			(at 205.74 142.24 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -6676,18 +6675,19 @@
 				)
 			)
 		)
-		(property "Value" "GND"
-			(at 196.85 146.05 0)
+		(property "Value" "+3.3V"
+			(at 202.946 142.24 90)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
+				(justify left)
 			)
 		)
 		(property "Footprint" ""
-			(at 196.85 140.97 0)
+			(at 209.55 142.24 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -6698,7 +6698,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 196.85 140.97 0)
+			(at 209.55 142.24 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -6708,8 +6708,8 @@
 				)
 			)
 		)
-		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 196.85 140.97 0)
+		(property "Description" "Power symbol creates a global label with name \"+3.3V\""
+			(at 209.55 142.24 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -6720,12 +6720,12 @@
 			)
 		)
 		(pin "1"
-			(uuid "a5c7acb7-64ef-4c8d-8ac1-ce0e76aec1fc")
+			(uuid "72498392-f371-4200-b9cc-45a23bec601b")
 		)
 		(instances
 			(project "ord-v0.1"
 				(path "/11111111-1111-1111-1111-111111111111"
-					(reference "#PWR019")
+					(reference "#PWR016")
 					(unit 1)
 				)
 			)

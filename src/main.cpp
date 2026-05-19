@@ -56,5 +56,5 @@ void setup() {
 }
 
 void loop() {
-    vTaskDelete(nullptr);  // Delete the loop task since we're using FreeRTOS tasks
+    vTaskDelete(nullptr);
 }

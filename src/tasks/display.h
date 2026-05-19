@@ -10,17 +10,18 @@ class Display : public Task {
 
     virtual void setup() {
         output.setup();
-        output.setBrightness(128);
+        output.setBrightnessPercent(100);
     }
 
     virtual void taskRun() override {
         static uint8_t counter = 0;
+        if (counter > 99) counter = 0;
         char buf[32];
-        snprintf(buf, sizeof(buf), "Counter: %d", counter++);
+        snprintf(buf, sizeof(buf), "%d", counter++);
         output.clear();
         output.drawText(buf);
     }
 
    protected:
-    ST7789 output{-1, TFT_DC, SPI_MOSI, SPI_SCK, TFT_RST, TFT_BL};
+    ST7789 output{TFT_CS, TFT_DC, SPI_MOSI, SPI_SCK, TFT_RST, TFT_BL};
 };

@@ -14,7 +14,7 @@ class ST7789 : public DisplayDriver {
     void setup() override {
         tft.init(240, 240);
         tft.setRotation(2);
-        setBrightness(UINT8_MAX);
+        setBrightnessPercent(100);
         clear();
     }
 
@@ -24,8 +24,8 @@ class ST7789 : public DisplayDriver {
 
     void drawText(const char* text) override {
         tft.setTextColor(ST77XX_WHITE);
-        tft.setTextSize(2);
-        tft.setCursor(10, 10);
+        tft.setTextSize(16);
+        tft.setCursor(20, 40);
         tft.print(text);
     }
 
@@ -37,9 +37,9 @@ class ST7789 : public DisplayDriver {
         tft.setRotation(rotation);
     }
 
-    void setBrightness(uint8_t brightness) override {
+    void setBrightnessPercent(uint8_t p) override {
         if (!hasBacklight()) return;
-        analogWrite((uint8_t)bl, brightness);
+        analogWrite((uint8_t)bl, (p * 255) / 100);
     }
 
     bool hasBacklight() override {

@@ -3,4 +3,5 @@
 #define SPI_MOSI 7
 #define TFT_DC 4
 #define TFT_RST 1
-#define TFT_BL 0
+#define TFT_BL -1
+#define TFT_CS 0
