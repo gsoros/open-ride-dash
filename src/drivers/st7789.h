@@ -1,30 +1,34 @@
 #ifndef ST7789_H
 #define ST7789_H
 
-#include <SPI.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_ST7789.h>
+#include <TFT_eSPI.h>
 #include "display.h"
 
 class ST7789 : public DisplayDriver {
    public:
     ST7789(int8_t cs, int8_t dc, int8_t mosi, int8_t sclk, int8_t rst = -1, int8_t bl = -1)
-        : tft(cs, dc, mosi, sclk, rst), bl(bl) {}
+        : bl(bl) {
+        (void)cs;
+        (void)dc;
+        (void)mosi;
+        (void)sclk;
+        (void)rst;
+    }
 
     void setup() override {
-        tft.init(240, 240);
-        tft.setRotation(2);
+        tft.init();
+        tft.setRotation(0);
         setBrightnessPercent(100);
         clear();
     }
 
     void clear() override {
-        tft.fillScreen(ST77XX_BLACK);
+        tft.fillScreen(TFT_BLACK);
     }
 
     void drawText(const char* text) override {
-        tft.setTextColor(ST77XX_WHITE);
-        tft.setTextSize(16);
+        tft.setTextColor(TFT_WHITE);
+        tft.setTextSize(32);
         tft.setCursor(20, 40);
         tft.print(text);
     }
@@ -47,7 +51,7 @@ class ST7789 : public DisplayDriver {
     }
 
    private:
-    Adafruit_ST7789 tft;
+    TFT_eSPI tft;
     int8_t bl = -1;  // backlight pin
 };
 
