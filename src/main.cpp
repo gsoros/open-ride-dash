@@ -7,11 +7,13 @@
 #include "tasks/telnet.h"
 #include "tasks/system_monitor.h"
 #include "tasks/api.h"
+#include "tasks/display.h"
 #include "model/state.h"
 
 State state;
 Api api;
 Blink blink;
+Display display;
 Wifi wifi;
 OTA ota;
 Telnet telnet(23);
@@ -45,9 +47,12 @@ void setup() {
     blink.setup();
     blink.taskStart(1.0f);
 
-    static Task* tasksToMonitor[] = {&api, &wifi, &ota, &telnet, &blink};
+    display.setup();
+    display.taskStart(1.0f, 4096);
+
+    static Task* tasksToMonitor[] = {&api, &wifi, &ota, &telnet, &blink, &display};
     systemMonitor.setup(tasksToMonitor, sizeof(tasksToMonitor) / sizeof(tasksToMonitor[0]));
-    systemMonitor.taskStart(0.1f, 4096);
+    systemMonitor.taskStart(0.05f, 4096);
 }
 
 void loop() {

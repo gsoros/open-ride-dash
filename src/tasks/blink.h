@@ -8,13 +8,13 @@ class Blink : public Task {
     }
 
     virtual void setup() {
-        pinMode(LED, OUTPUT);
+        pinMode(ONBOARD_LED, OUTPUT);
         Task::taskSetup();
     }
 
     virtual void taskRun() override {
-        digitalWrite(LED, LOW);
+        digitalWrite(ONBOARD_LED, LOW);
         delay(30);
-        digitalWrite(LED, HIGH);
+        digitalWrite(ONBOARD_LED, HIGH);
     }
 };
