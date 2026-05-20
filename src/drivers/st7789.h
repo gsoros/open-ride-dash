@@ -1,8 +1,12 @@
 #ifndef ST7789_H
 #define ST7789_H
 
+#include "TFT_eSPI_conf.h"
 #include <TFT_eSPI.h>
+
 #include "display.h"
+
+#include "testFont.h"
 
 class ST7789 : public DisplayDriver {
    public:
@@ -21,6 +25,7 @@ class ST7789 : public DisplayDriver {
         tft.setRotation(0);
         setBrightnessPercent(100);
         clear();
+        tft.setTextFont(GFXFF);  // Enable custom fonts
     }
 
     void clear() override {
@@ -28,10 +33,12 @@ class ST7789 : public DisplayDriver {
     }
 
     void drawText(const char* text) override {
-        tft.setTextColor(TFT_WHITE);
-        tft.setTextSize(32);
-        tft.setCursor(20, 40);
-        tft.print(text);
+        tft.setTextColor(TFT_WHITE, TFT_BLACK);
+        tft.setFreeFont(largeFont);
+        tft.setTextSize(2);
+        tft.drawString(text, 20, 40);
+        // tft.setCursor(20, 40);
+        // tft.print(text);
     }
 
     void fillScreen(uint16_t color) override {
@@ -51,9 +58,15 @@ class ST7789 : public DisplayDriver {
         return bl >= 0;
     }
 
-   private:
+   protected:
     TFT_eSPI tft;
     int8_t bl = -1;  // backlight pin
+
+    // GFX Free Fonts handle
+    const uint8_t GFXFF = 1;
+
+    // Font aliases
+    const GFXfont* largeFont = &testFont32pt8b;
 };
 
 #endif  // ST7789_H
