@@ -26,6 +26,7 @@ void setup() {
 
     Serial.begin(115200);
     // Serial.setDebugOutput(false);
+    while (!Serial) delay(10);
 
     state.setup();
 

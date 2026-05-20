@@ -8,6 +8,7 @@ class ST7789 : public DisplayDriver {
    public:
     ST7789(int8_t cs, int8_t dc, int8_t mosi, int8_t sclk, int8_t rst = -1, int8_t bl = -1)
         : bl(bl) {
+        // TFT_eSPI library uses preprocessor macros to define pin numbers, so we can't pass them as parameters.
         (void)cs;
         (void)dc;
         (void)mosi;

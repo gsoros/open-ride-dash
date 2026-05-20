@@ -75,6 +75,12 @@ class Api : public Task {
                 return helpCommand(args);
             },
             "Usage: help [command]\nLists commands or shows detailed help for one command.");
+        registerCommand(
+            "restart",
+            [this](const char* args) {
+                return restartCommand(args);
+            },
+            "Usage: restart\nRestarts the system.");
         Task::taskSetup();
     }
 
@@ -229,6 +235,16 @@ class Api : public Task {
 
         reply.errorCode = ErrorCode::UNKNOWN_COMMAND;
         snprintf((char*)reply.data, sizeof(reply.data), "%s", command);
+        return reply;
+    }
+
+    Reply restartCommand(const char* args) {
+        ESP_LOGI(taskName(), "Restarting system...");
+        esp_restart();
+        // We should never reach this point, but if we do, return an error reply
+        Reply reply = {};
+        reply.errorCode = ErrorCode::EXECUTION_ERROR;
+        snprintf((char*)reply.data, sizeof(reply.data), "Failed to restart system");
         return reply;
     }
 };

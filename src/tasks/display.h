@@ -14,12 +14,27 @@ class Display : public Task {
     }
 
     virtual void taskRun() override {
+        if (output.hasBrightnessControl()) {
+            for (uint8_t p = 100; p > 0; p -= 1) {
+                output.setBrightnessPercent(p);
+                delay(1);
+            }
+        }
+
         static uint8_t counter = 0;
         if (counter > 99) counter = 0;
         char buf[32];
         snprintf(buf, sizeof(buf), "%d", counter++);
         output.clear();
         output.drawText(buf);
+        delay(100);
+
+        if (output.hasBrightnessControl()) {
+            for (uint8_t p = 0; p <= 100; p += 1) {
+                output.setBrightnessPercent(p);
+                delay(3);
+            }
+        }
     }
 
    protected:
