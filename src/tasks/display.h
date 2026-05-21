@@ -1,6 +1,7 @@
 #include "task.h"
 #include "model/state.h"
 #include "pins.h"
+#include "config.h"
 #include "drivers/st7789.h"
 
 extern State state;
@@ -13,6 +14,7 @@ class Display : public Task {
 
     virtual void setup() {
         output.setup();
+        output.clear();
         output.setBrightnessPercent(50);
     }
 
@@ -51,5 +53,15 @@ class Display : public Task {
     }
 
    protected:
-    ST7789 output{TFT_CS, TFT_DC, SPI_MOSI, SPI_SCK, TFT_RST, TFT_BL};
+    ST7789 output{
+        TFT_CS,
+        TFT_DC,
+        SPI_MOSI,
+        SPI_SCK,
+        TFT_RST,
+        TFT_BL,
+        SPI2_HOST,
+        TFT_ROTATION,
+        TFT_WIDTH,
+        TFT_HEIGHT};
 };

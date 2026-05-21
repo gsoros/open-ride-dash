@@ -12,4 +12,8 @@ const char* default_hostname = "ord-" STR(BUILDTAG);
 const char* default_hostname = "ord";
 #endif
 
+#define TFT_WIDTH 240
+#define TFT_HEIGHT 240
+#define TFT_ROTATION 0
+
 #endif  // CONFIG_H

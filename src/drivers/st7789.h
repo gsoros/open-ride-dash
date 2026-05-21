@@ -1,52 +1,53 @@
 #ifndef ST7789_H
 #define ST7789_H
 
-#include "TFT_eSPI_conf.h"
-#include <TFT_eSPI.h>
+#include <Arduino_GFX_Library.h>
 
 #include "display.h"
 
-#include "testFont.h"
+// #include "testFont.h"
 
 class ST7789 : public DisplayDriver {
    public:
-    ST7789(int8_t cs, int8_t dc, int8_t mosi, int8_t sclk, int8_t rst = -1, int8_t bl = -1)
+    ST7789(int8_t cs, int8_t dc, int8_t mosi, int8_t sck, int8_t rst = -1, int8_t bl = -1, uint8_t spi = SPI2_HOST, uint8_t rot = 0, uint16_t w = 240, uint16_t h = 240)
         : bl(bl) {
-        // TFT_eSPI library uses preprocessor macros to define pin numbers, so we can't pass them as parameters.
-        (void)cs;
-        (void)dc;
-        (void)mosi;
-        (void)sclk;
-        (void)rst;
+        bus = new Arduino_ESP32SPIDMA(dc, cs, sck, mosi, GFX_NOT_DEFINED, spi);
+        tft = new Arduino_ST7789(bus, rst, rot, true, w, h);
     }
 
     void setup() override {
-        tft.init();
-        tft.setRotation(0);
-        setBrightnessPercent(100);
-        clear();
-        tft.setTextFont(GFXFF);  // Enable custom fonts
+        if (bl >= 0) {
+            pinMode(bl, OUTPUT);
+            digitalWrite(bl, LOW);
+        }
+
+        if (!tft->begin()) {
+            while (true) {
+                ESP_LOGE(tag, "begin() failed");
+                delay(10000);
+            }
+        }
     }
 
     void clear() override {
-        tft.fillScreen(TFT_BLACK);
+        tft->fillScreen(BLACK);
     }
 
     void drawText(const char* text) override {
-        tft.setTextColor(TFT_WHITE, TFT_BLACK);
-        tft.setFreeFont(largeFont);
-        tft.setTextSize(2);
-        tft.drawString(text, 20, 40);
-        // tft.setCursor(20, 40);
-        // tft.print(text);
+        tft->setTextColor(WHITE);
+        // tft->setFreeFont(largeFont);
+        tft->setTextSize(8);
+        // tft->drawString(text, 20, 40);
+        tft->setCursor(20, 40);
+        tft->print(text);
     }
 
     void fillScreen(uint16_t color) override {
-        tft.fillScreen(color);
+        tft->fillScreen(color);
     }
 
     void setRotation(uint8_t rotation) override {
-        tft.setRotation(rotation);
+        tft->setRotation(rotation);
     }
 
     void setBrightnessPercent(uint8_t p) override {
@@ -59,14 +60,13 @@ class ST7789 : public DisplayDriver {
     }
 
    protected:
-    TFT_eSPI tft;
-    int8_t bl = -1;  // backlight pin
-
-    // GFX Free Fonts handle
-    const uint8_t GFXFF = 1;
+    int8_t bl;
+    Arduino_DataBus* bus = nullptr;
+    Arduino_GFX* tft = nullptr;
+    const char* tag = "ST7789";
 
     // Font aliases
-    const GFXfont* largeFont = &testFont32pt8b;
+    // const GFXfont* largeFont = &testFont32pt8b;
 };
 
 #endif  // ST7789_H

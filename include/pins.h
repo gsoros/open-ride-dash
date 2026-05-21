@@ -7,7 +7,7 @@
 #define SPI_MOSI 7
 #define TFT_DC 4
 #define TFT_RST 1
-// #define TFT_CS 0
+#define TFT_CS -1
 
 // Backlight pin in handled by the display driver instead of
 // using the TFT_eSPI library's built-in backlight control
