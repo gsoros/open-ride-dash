@@ -8,11 +8,13 @@
 #include "tasks/system_monitor.h"
 #include "tasks/api.h"
 #include "tasks/display.h"
+#include "tasks/can_sim.h"
 #include "model/state.h"
 
 State state;
 Api api;
 Blink blink;
+CANSim can;
 Display display;
 Wifi wifi;
 OTA ota;
@@ -49,7 +51,10 @@ void setup() {
     blink.taskStart(1.0f);
 
     display.setup();
-    display.taskStart(1.0f, 4096);
+    display.taskStart(4.0f, 4096);
+
+    can.setup();
+    can.taskStart(100.0f, 2048);
 
     static Task* tasksToMonitor[] = {&api, &wifi, &ota, &telnet, &blink, &display};
     systemMonitor.setup(tasksToMonitor, sizeof(tasksToMonitor) / sizeof(tasksToMonitor[0]));

@@ -137,10 +137,6 @@ class Task {
         // Set the handle for this task
         self->taskHandle = xTaskGetCurrentTaskHandle();
 
-        if (!self->taskSetupDone) {
-            ESP_LOGW(self->taskName(), "Setup has been skipped");
-        }
-
         for (;;) {
             float frequency = self->taskReadFrequency();
             if (frequency == 0.0f) {
