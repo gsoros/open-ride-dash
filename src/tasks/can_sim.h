@@ -22,6 +22,15 @@ class CANSim : public Task {
         targetSpeed = (float)random(0, 51);
     }
 
+    /*
+    The simulation logic performs two main functions:
+    1. Physics Simulation: Updates the `currentSpeed` every loop iteration using a delta-time (dt)
+       calculation. It smoothly interpolates the speed toward a `targetSpeed` using defined
+       acceleration (5 km/h/s) and deceleration (10 km/h/s) constants.
+    2. State Machine & Timing: Every 100-500ms, it pushes the current speed to the global state.
+       It also manages random behavior changes, such as simulating downhill stretches or
+       "traffic light" stops where the target speed is set to zero for a random duration.
+    */
     virtual void taskRun() override {
         unsigned long now = millis();
 
@@ -54,34 +63,38 @@ class CANSim : public Task {
         // ---- Stopping timeout ----
         if (isStopping && (now - stopStartTime >= stopDuration)) {
             isStopping = false;
-            targetSpeed = (float)random(5, 51);
+            targetSpeed = (float)random(25, 51);
         }
 
         // ---- CAN message injection every 100–500ms ----
-        if (now - lastMessageTime >= nextMsgInterval) {
-            // Inject current speed into shared state
-            state.setSpeed(currentSpeed);
+        if (now - lastMessageTime < nextMsgInterval) {
+            return;
+        }
 
-            lastMessageTime = now;
-            nextMsgInterval = (unsigned long)random(100, 501);
+        // Inject current speed into shared state
+        state.setSpeed(currentSpeed);
 
-            if (!isStopping) {
-                int roll = random(0, 10);  // 10 % chance to "stop"
-                if (roll == 0) {
-                    // Enter stopping mode — decelerate to 0 for 1–2 s
-                    isStopping = true;
-                    stopStartTime = now;
-                    stopDuration = (unsigned long)random(1000, 2001);
-                    targetSpeed = 0.0f;
-                } else {
-                    // Normal riding: random target 0–50 km/h
-                    targetSpeed = (float)random(0, 51);
+        lastMessageTime = now;
+        nextMsgInterval = (unsigned long)random(100, 501);
 
-                    // 5 % chance of a spike to 51–60 km/h
-                    if (random(0, 20) == 0) {
-                        targetSpeed = (float)random(51, 61);
-                    }
-                }
+        if (isStopping) {
+            return;
+        }
+
+        // 1 % chance to "stop"
+        if (random(0, 101) == 0) {
+            // Enter stopping mode — decelerate to 0 for 3-8 s
+            isStopping = true;
+            stopStartTime = now;
+            stopDuration = (unsigned long)random(3000, 8001);
+            targetSpeed = 0.0f;
+        } else {
+            // 50 % chance of a downhill stretch
+            if (random(0, 2) == 0) {
+                targetSpeed = (float)random(51, 61);
+            } else {
+                // Normal riding
+                targetSpeed = (float)random(15, 41);
             }
         }
     }
