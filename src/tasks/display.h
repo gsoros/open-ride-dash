@@ -15,7 +15,7 @@ class Display : public Task {
 
     virtual void taskRun() override {
         if (output.hasBrightnessControl()) {
-            for (uint8_t p = 100; p > 0; p -= 1) {
+            for (uint8_t p = 80; p > 0; p -= 1) {
                 output.setBrightnessPercent(p);
                 delay(1);
             }
@@ -30,7 +30,7 @@ class Display : public Task {
         delay(100);
 
         if (output.hasBrightnessControl()) {
-            for (uint8_t p = 0; p <= 100; p += 1) {
+            for (uint8_t p = 0; p <= 80; p += 1) {
                 output.setBrightnessPercent(p);
                 delay(3);
             }
