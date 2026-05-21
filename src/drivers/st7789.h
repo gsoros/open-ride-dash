@@ -5,7 +5,7 @@
 
 #include "display.h"
 
-// #include "testFont.h"
+#include "RobotoMono_bold48pt7b_digits.h"
 
 class ST7789 : public DisplayDriver {
    public:
@@ -13,6 +13,7 @@ class ST7789 : public DisplayDriver {
         : bl(bl) {
         bus = new Arduino_ESP32SPIDMA(dc, cs, sck, mosi, GFX_NOT_DEFINED, spi);
         tft = new Arduino_ST7789(bus, rst, rot, true, w, h);
+        canvas = new Arduino_Canvas_Mono(w, h, tft);
     }
 
     void setup() override {
@@ -21,29 +22,34 @@ class ST7789 : public DisplayDriver {
             digitalWrite(bl, LOW);
         }
 
-        if (!tft->begin()) {
+        if (!canvas->begin()) {
             while (true) {
-                ESP_LOGE(tag, "begin() failed");
+                ESP_LOGE(tag, "canvas begin() failed");
                 delay(10000);
             }
         }
+        canvas->setTextColor(WHITE, BLACK);
     }
 
     void clear() override {
-        tft->fillScreen(BLACK);
+        fillScreen(BLACK);
     }
 
-    void drawText(const char* text) override {
-        tft->setTextColor(WHITE);
-        // tft->setFreeFont(largeFont);
-        tft->setTextSize(8);
-        // tft->drawString(text, 20, 40);
-        tft->setCursor(20, 40);
-        tft->print(text);
+    void drawText(const char* buf) override {
+        canvas->setFont(largeFont);
+        canvas->setTextSize(2);
+        canvas->setCursor(5, 140);
+        canvas->print(buf);
+        canvas->setTextSize(1);
+        canvas->setCursor(5, 235);
+        canvas->print(buf);
+        canvas->setCursor(120, 235);
+        canvas->print(buf);
+        canvas->flush();
     }
 
     void fillScreen(uint16_t color) override {
-        tft->fillScreen(color);
+        canvas->fillScreen(color);
     }
 
     void setRotation(uint8_t rotation) override {
@@ -63,10 +69,11 @@ class ST7789 : public DisplayDriver {
     int8_t bl;
     Arduino_DataBus* bus = nullptr;
     Arduino_GFX* tft = nullptr;
+    Arduino_Canvas_Mono* canvas = nullptr;
     const char* tag = "ST7789";
 
-    // Font aliases
-    // const GFXfont* largeFont = &testFont32pt8b;
+    // RobotoMono_Bold48pt7b
+    const GFXfont* largeFont = &RobotoMono_Bold48pt7b;
 };
 
 #endif  // ST7789_H
