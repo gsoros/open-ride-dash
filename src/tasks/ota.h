@@ -8,15 +8,8 @@ TODO: Research rollback strategies for failed OTA updates.
 E.g. record successful boot after a delay and revert to previous firmware
 after a number of unsuccessful boots.
 
-This is working well in ESPHome (IDF framework), see
-https://esphome.io/changelog/2026.1.0/#ota-rollback-support. It is not
-clear if it is possible to implement this in Arduino framework, but it
-may be worth investigating.
 
-This could in theory allow us to drop the requirement for physical access
-for recovery after a bad OTA flash, which would be a big win for remote
-debugging and development. However, it adds complexity, storage, and
-potential failure modes, so we should research it more before implementing.
+https://chat.deepseek.com/share/2wxb8xpwh796gtzekm
 */
 
 class OTA : public Task {

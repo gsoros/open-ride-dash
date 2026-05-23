@@ -51,7 +51,7 @@ void setup() {
     blink.taskStart(1.0f);
 
     display.setup();
-    display.taskStart(4.0f, 16384);
+    display.taskStart(4.0f, 4096);
 
     can.setup();
     can.taskStart(100.0f, 2048);
