@@ -26,7 +26,7 @@ class Display : public Task {
         snprintf(buf, sizeof(buf), "%.0f", speed);
         output.clear();
         output.drawText(buf);
-        ESP_LOGD(taskName(), "Update took %d ms", millis() - t);
+        // ESP_LOGD(taskName(), "Update took %d ms", millis() - t);
 
         /*
         // Fade counter

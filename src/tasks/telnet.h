@@ -30,7 +30,7 @@ class Telnet : public Task, public ApiClient {
         if (!wifiClient.connected()) {
             static bool logClientActive = false;
             if (!logClientActive) {
-                WiFiClient newClient = wifiServer.available();
+                WiFiClient newClient = wifiServer.accept();
                 if (newClient) {
                     wifiClient = newClient;
                     logClientActive = true;
@@ -91,7 +91,11 @@ class Telnet : public Task, public ApiClient {
     static int serial_vprintf(const char* fmt, va_list args) {
         char buf[256];
         vsnprintf(buf, sizeof(buf), fmt, args);
+#ifdef FEATURE_SERIAL
         return Serial.print(buf);
+#else
+        return sizeof(buf);
+#endif
     }
 
     static int telnet_vprintf(const char* fmt, va_list args) {

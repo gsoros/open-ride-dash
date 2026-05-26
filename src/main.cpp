@@ -1,6 +1,7 @@
 #include <Arduino.h>
 
 #include "config.h"
+#include "model/state.h"
 #include "tasks/blink.h"
 #include "tasks/wifi.h"
 #include "tasks/ota.h"
@@ -9,7 +10,6 @@
 #include "tasks/api.h"
 #include "tasks/display.h"
 #include "tasks/can_sim.h"
-#include "model/state.h"
 
 State state;
 Api api;
@@ -26,9 +26,15 @@ void setup() {
 
     esp_log_level_set("*", ESP_LOG_DEBUG);
 
+    ulong t = millis();
+
+#ifdef FEATURE_SERIAL
+    Serial.setTxTimeoutMs(0);
+    Serial.setDebugOutput(false);
     Serial.begin(115200);
-    // Serial.setDebugOutput(false);
-    while (!Serial) delay(10);
+    while (!Serial && millis() - t < 100) delay(10);
+    // delay(100);
+#endif
 
     state.setup();
 

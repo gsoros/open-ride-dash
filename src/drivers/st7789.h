@@ -28,11 +28,11 @@ class ST7789 : public DisplayDriver {
                 delay(10000);
             }
         }
-        canvas->setTextColor(WHITE, BLACK);
+        canvas->setTextColor(RGB565_WHITE, RGB565_BLACK);
     }
 
     void clear() override {
-        fillScreen(BLACK);
+        fillScreen(RGB565_BLACK);
     }
 
     void drawText(const char* buf) override {

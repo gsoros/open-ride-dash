@@ -5,77 +5,61 @@
 
 extern State state;
 
-// Simulated CAN injections
-class CANSim : public Task {
+class NumberSim {
    public:
-    virtual const char* taskName() override {
-        return "CANSim";
+    NumberSim() {
+        unsigned long now = millis();
+        lastInjection = now;
+        lastUpdate = now;
+        nextInterval = (unsigned long)random(100, 501);
+        target = (float)random(0, 51);
     }
 
-    virtual void setup() {
-        randomSeed(esp_random());
-
+    void run() {
         unsigned long now = millis();
-        lastMessageTime = now;
-        lastSimUpdateTime = now;
-        nextMsgInterval = (unsigned long)random(100, 501);
-        targetSpeed = (float)random(0, 51);
-    }
-
-    /*
-    The simulation logic performs two main functions:
-    1. Physics Simulation: Updates the `currentSpeed` every loop iteration using a delta-time (dt)
-       calculation. It smoothly interpolates the speed toward a `targetSpeed` using defined
-       acceleration (5 km/h/s) and deceleration (10 km/h/s) constants.
-    2. State Machine & Timing: Every 100-500ms, it pushes the current speed to the global state.
-       It also manages random behavior changes, such as simulating downhill stretches or
-       "traffic light" stops where the target speed is set to zero for a random duration.
-    */
-    virtual void taskRun() override {
-        unsigned long now = millis();
+        isInjectable = false;
 
         // ---- Physics simulation (continuous, every call ~10ms) ----
-        float dt = (now - lastSimUpdateTime) / 1000.0f;
+        float dt = (now - lastUpdate) / 1000.0f;
         if (dt <= 0.0f) dt = 0.01f;
         if (dt > 0.1f) dt = 0.1f;  // clamp after long pauses
-        lastSimUpdateTime = now;
+        lastUpdate = now;
 
-        if (currentSpeed < targetSpeed) {
+        if (currentValue < target) {
             // Accelerate toward target at up to 5 km/h/s
             float maxAccel = 5.0f * dt;
-            if (targetSpeed - currentSpeed <= maxAccel) {
-                currentSpeed = targetSpeed;
+            if (target - currentValue <= maxAccel) {
+                currentValue = target;
             } else {
-                currentSpeed += maxAccel;
+                currentValue += maxAccel;
             }
-        } else if (currentSpeed > targetSpeed) {
+        } else if (currentValue > target) {
             // Decelerate toward target at up to 10 km/h/s
             float maxDecel = 10.0f * dt;
-            if (currentSpeed - targetSpeed <= maxDecel) {
-                currentSpeed = targetSpeed;
+            if (currentValue - target <= maxDecel) {
+                currentValue = target;
             } else {
-                currentSpeed -= maxDecel;
+                currentValue -= maxDecel;
             }
         }
 
-        currentSpeed = fmax(0.0f, currentSpeed);
+        currentValue = fmax(0.0f, currentValue);
 
         // ---- Stopping timeout ----
         if (isStopping && (now - stopStartTime >= stopDuration)) {
             isStopping = false;
-            targetSpeed = (float)random(25, 51);
+            target = (float)random(25, 51);
         }
 
         // ---- CAN message injection every 100–500ms ----
-        if (now - lastMessageTime < nextMsgInterval) {
+        if (now - lastInjection < nextInterval) {
             return;
         }
 
-        // Inject current speed into shared state
-        state.setSpeed(currentSpeed);
+        isInjectable = true;
 
-        lastMessageTime = now;
-        nextMsgInterval = (unsigned long)random(100, 501);
+        lastInjection = now;
+        nextInterval = (unsigned long)random(100, 501);
 
         if (isStopping) {
             return;
@@ -87,32 +71,56 @@ class CANSim : public Task {
             isStopping = true;
             stopStartTime = now;
             stopDuration = (unsigned long)random(3000, 8001);
-            targetSpeed = 0.0f;
+            target = 0.0f;
         } else {
             // 50 % chance of a downhill stretch
             if (random(0, 2) == 0) {
-                targetSpeed = (float)random(51, 61);
+                target = (float)random(51, 61);
             } else {
                 // Normal riding
-                targetSpeed = (float)random(15, 41);
+                target = (float)random(15, 41);
             }
         }
     }
 
+    bool isInjectable = false;
+    float currentValue = 0.0f;
+
    protected:
-    // ---- Simulation state (reusable for future parameters) ----
-    float currentSpeed = 0.0f;
-    float targetSpeed = 0.0f;
+    float target = 0.0f;
     bool isStopping = false;
 
     // ---- CAN message timing ----
-    unsigned long lastMessageTime = 0;
-    unsigned long nextMsgInterval = 100;
+    unsigned long lastInjection = 0;
+    unsigned long nextInterval = 100;
 
     // ---- Physics timing ----
-    unsigned long lastSimUpdateTime = 0;
+    unsigned long lastUpdate = 0;
 
-    // ---- "Traffic light" stop state ----
+    // ---- Stop state ----
     unsigned long stopStartTime = 0;
     unsigned long stopDuration = 2000;
+};
+
+// Simulated CAN injections
+class CANSim : public Task {
+   public:
+    virtual const char* taskName() override {
+        return "CANSim";
+    }
+
+    virtual void setup() {
+        randomSeed(esp_random());
+        speedSim = new NumberSim();
+    }
+
+    virtual void taskRun() override {
+        speedSim->run();
+        if (speedSim->isInjectable) {
+            state.setSpeed(speedSim->currentValue);
+        }
+    }
+
+   protected:
+    NumberSim* speedSim;
 };
