@@ -1,4 +1,5 @@
-#pragma once
+#ifndef CAN_SIM_H
+#define CAN_SIM_H
 
 #include "model/state.h"
 #include "task.h"
@@ -154,3 +155,5 @@ class CANSim : public Task {
     NumberSim* speedSim = nullptr;
     NumberSim* powerSim = nullptr;
 };
+
+#endif  // CAN_SIM_H
