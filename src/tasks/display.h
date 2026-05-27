@@ -19,14 +19,13 @@ class Display : public Task {
     }
 
     virtual void taskRun() override {
-        // Display speed
         ulong t = millis();
-        float speed = state.getSpeed();
-        char buf[3];
-        snprintf(buf, sizeof(buf), "%.0f", speed);
-        output.clear();
-        output.drawText(buf);
-        // ESP_LOGD(taskName(), "Update took %d ms", millis() - t);
+
+        output.drawMajor(state.getSpeed());
+        output.drawMinor1(state.getMotorPower());
+        output.drawMinor2(state.getMotorPower());
+
+        ESP_LOGD(taskName(), "Update took %d ms", millis() - t);
 
         /*
         // Fade counter

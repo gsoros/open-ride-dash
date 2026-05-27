@@ -26,20 +26,20 @@ class NumberSim {
         lastUpdate = now;
 
         if (currentValue < target) {
-            // Accelerate toward target at up to 5 km/h/s
-            float maxAccel = 5.0f * dt;
-            if (target - currentValue <= maxAccel) {
+            // Accelerate toward target at up to maxAccel unit/h/s
+            float accel = maxAccel * dt;
+            if (target - currentValue <= accel) {
                 currentValue = target;
             } else {
-                currentValue += maxAccel;
+                currentValue += accel;
             }
         } else if (currentValue > target) {
-            // Decelerate toward target at up to 10 km/h/s
-            float maxDecel = 10.0f * dt;
-            if (currentValue - target <= maxDecel) {
+            // Decelerate toward target at up to maxDecel unit/h/s
+            float decel = maxDecel * dt;
+            if (currentValue - target <= decel) {
                 currentValue = target;
             } else {
-                currentValue -= maxDecel;
+                currentValue -= decel;
             }
         }
 
@@ -48,10 +48,10 @@ class NumberSim {
         // ---- Stopping timeout ----
         if (isStopping && (now - stopStartTime >= stopDuration)) {
             isStopping = false;
-            target = (float)random(25, 51);
+            target = (float)random(normalMin, normalMax + 1);
         }
 
-        // ---- CAN message injection every 100–500ms ----
+        // ---- CAN message injection every minInterval - maxInterval ms ----
         if (now - lastInjection < nextInterval) {
             return;
         }
@@ -59,29 +59,46 @@ class NumberSim {
         isInjectable = true;
 
         lastInjection = now;
-        nextInterval = (unsigned long)random(100, 501);
+        nextInterval = (unsigned long)random(minInterval, maxInterval + 1);
 
         if (isStopping) {
             return;
         }
 
-        // 1 % chance to "stop"
-        if (random(0, 101) == 0) {
-            // Enter stopping mode — decelerate to 0 for 3-8 s
+        // stopProbability % chance to "stop"
+        if (random(0, 101) < stopProbability) {
+            // Enter stopping mode — decelerate to 0 for minStopLength - maxStopLength ms
             isStopping = true;
             stopStartTime = now;
-            stopDuration = (unsigned long)random(3000, 8001);
+            stopDuration = (unsigned long)random(minStopLength, maxStopLength + 1);
             target = 0.0f;
         } else {
-            // 50 % chance of a downhill stretch
-            if (random(0, 2) == 0) {
-                target = (float)random(51, 61);
+            // burstProbability % chance of a downhill stretch
+            if (random(0, 101) < burstProbability) {
+                target = (float)random(burstMin, burstMax + 1);
             } else {
                 // Normal riding
-                target = (float)random(15, 41);
+                target = (float)random(normalMin, normalMax + 1);
             }
         }
     }
+
+    float maxAccel = 5.0f;
+    float maxDecel = 10.0f;
+
+    uint16_t normalMin = 15;  // Normal range
+    uint16_t normalMax = 40;
+
+    uint16_t minInterval = 100;  // Injection interval
+    uint16_t maxInterval = 500;
+
+    uint8_t stopProbability = 1;
+    uint16_t minStopLength = 3000;
+    uint16_t maxStopLength = 8000;
+
+    uint8_t burstProbability = 25;
+    uint16_t burstMin = 50;
+    uint16_t burstMax = 60;
 
     bool isInjectable = false;
     float currentValue = 0.0f;
@@ -112,6 +129,14 @@ class CANSim : public Task {
     virtual void setup() {
         randomSeed(esp_random());
         speedSim = new NumberSim();
+        powerSim = new NumberSim();
+        powerSim->normalMin = 200;
+        powerSim->normalMax = 500;
+        powerSim->burstMin = 700;
+        powerSim->burstMax = 900;
+        powerSim->maxAccel = 100.0f;
+        powerSim->maxDecel = 500.0f;
+        powerSim->stopProbability = 2;
     }
 
     virtual void taskRun() override {
@@ -119,8 +144,13 @@ class CANSim : public Task {
         if (speedSim->isInjectable) {
             state.setSpeed(speedSim->currentValue);
         }
+        powerSim->run();
+        if (powerSim->isInjectable) {
+            state.setMotorPower(powerSim->currentValue);
+        }
     }
 
    protected:
-    NumberSim* speedSim;
+    NumberSim* speedSim = nullptr;
+    NumberSim* powerSim = nullptr;
 };

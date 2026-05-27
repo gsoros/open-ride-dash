@@ -5,6 +5,9 @@ class DisplayDriver {
     virtual void setup() = 0;
     virtual void clear() = 0;
     virtual void drawText(const char* text) = 0;
+    virtual void drawMajor(float v) = 0;
+    virtual void drawMinor1(float v) = 0;
+    virtual void drawMinor2(float v) = 0;
     virtual void fillScreen(uint16_t color) = 0;
     virtual void setRotation(uint8_t rotation) = 0;
     virtual void setBrightnessPercent(uint8_t percent) {};
