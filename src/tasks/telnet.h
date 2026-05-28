@@ -23,10 +23,35 @@ class Telnet : public Task, public ApiClient {
                 return setEchoCommand(args);
             },
             "Usage: echo 0|1|True|true|False|false|On|on|Off|off\nEnables or disables Telnet input echo.");
-        taskSetup();
+        Task::taskSetup();
     }
 
     virtual void taskRun() override {
+#ifdef FEATURE_SERIAL
+        static String serialBuf = "";
+
+        while (Serial.available()) {
+            char c = Serial.read();
+            Serial.print(c);
+            if (c == '\n' || c == '\r') {
+                if (serialBuf.length() > 0) {
+                    // ESP_LOGD(taskName(), "Received from serial: '%s'", serialBuf.c_str());
+                    if (!apiClientQueueCommand(serialBuf.c_str())) {
+                        ESP_LOGE(taskName(), "API request dropped");
+                    }
+                    serialBuf = "";
+                }
+            } else {
+                serialBuf += c;
+                if (serialBuf.length() > 63) {
+                    ESP_LOGE(taskName(), "Serial buffer overflow");
+                    serialBuf = "";
+                }
+            }
+        }
+
+#endif
+
         if (!wifiClient.connected()) {
             static bool logClientActive = false;
             if (!logClientActive) {
@@ -56,7 +81,7 @@ class Telnet : public Task, public ApiClient {
             if (line.length() > 0) {
                 bool ok = apiClientQueueCommand(line.c_str());
                 if (!ok) {
-                    wifiClient.println("API busy: request dropped");
+                    wifiClient.println("Error: API request dropped");
                 }
             }
         }
@@ -66,20 +91,33 @@ class Telnet : public Task, public ApiClient {
     }
 
     void receiveReply(const Api::Reply& reply) override {
-        if (instance && instance->wifiClient && instance->wifiClient.connected()) {
-            char line[300];
-            if (reply.errorCode != Api::ErrorCode::SUCCESS) {
-                char errorText[32];
-                api.errorCodeToString(reply.errorCode, errorText, sizeof(errorText));
-                snprintf(line, sizeof(line), "API [%s] Error (%s): %s",
-                         reply.command,
-                         errorText,
-                         (char*)reply.data);
-            } else {
-                snprintf(line, sizeof(line), "API [%s] Reply: %s",
-                         reply.command,
-                         (char*)reply.data);
-            }
+#ifdef FEATURE_SERIAL
+        bool serial = true;
+#else
+        bool serial = false;
+#endif
+        bool client = instance && instance->wifiClient && instance->wifiClient.connected();
+        if (!client && !serial) {
+            return;
+        }
+
+        char line[300];
+        if (reply.errorCode != Api::ErrorCode::SUCCESS) {
+            char errorText[32];
+            api.errorCodeToString(reply.errorCode, errorText, sizeof(errorText));
+            snprintf(line, sizeof(line), "API [%s] Error (%s): %s",
+                     reply.command,
+                     errorText,
+                     (char*)reply.data);
+        } else {
+            snprintf(line, sizeof(line), "API [%s] Reply: %s",
+                     reply.command,
+                     (char*)reply.data);
+        }
+#ifdef FEATURE_SERIAL
+        Serial.println(line);
+#endif
+        if (client) {
             instance->wifiClient.println(line);
         }
     }

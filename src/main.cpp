@@ -2,7 +2,6 @@
 
 #include "config.h"
 #include "model/state.h"
-#include "tasks/blink.h"
 #include "tasks/wifi.h"
 #include "tasks/ota.h"
 #include "tasks/telnet.h"
@@ -10,11 +9,12 @@
 #include "tasks/api.h"
 #include "tasks/display.h"
 #include "tasks/can_sim.h"
+#include "tasks/can.h"
 
 State state;
 Api api;
-Blink blink;
-CANSim can;
+CANSim canSim;
+CAN can;
 Display display;
 Wifi wifi;
 OTA ota;
@@ -42,9 +42,7 @@ void setup() {
     api.taskStart(10.0f, 4096);
 
     wifi.setup();
-    wifi.taskStart(0.0f, 4096);
-
-    wifi.waitForConnection();
+    wifi.taskStart(1.0f, 4096);
 
     ota.setHostname(wifi.getHostname());
     ota.setup();
@@ -53,16 +51,16 @@ void setup() {
     telnet.setup();
     telnet.taskStart(10.0f, 4096);
 
-    blink.setup();
-    blink.taskStart(1.0f);
-
     display.setup();
-    display.taskStart(4.0f, 4096);
+    display.taskStart(50.0f, 4096);
+
+    canSim.setup();
+    canSim.taskStart(100.0f, 2048);
 
     can.setup();
-    can.taskStart(100.0f, 2048);
+    can.taskStart(10.0f, 2048);
 
-    static Task* tasksToMonitor[] = {&api, &wifi, &ota, &telnet, &blink, &display};
+    static Task* tasksToMonitor[] = {&api, &wifi, &ota, &telnet, &display};
     systemMonitor.setup(tasksToMonitor, sizeof(tasksToMonitor) / sizeof(tasksToMonitor[0]));
     systemMonitor.taskStart(0.05f, 4096);
 }

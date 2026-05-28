@@ -6,9 +6,7 @@
 
 class Task {
    public:
-    virtual void taskSetup() {
-        taskSetupDone = true;
-    };
+    virtual void taskSetup() {};
 
     virtual void taskRun() {};
 
@@ -106,7 +104,6 @@ class Task {
     TaskHandle_t taskHandle = nullptr;
     float taskFrequencyHz = -1;
     portMUX_TYPE taskFrequencyMux = portMUX_INITIALIZER_UNLOCKED;
-    bool taskSetupDone = false;
 
     float taskReadFrequency() const {
         portMUX_TYPE* mux = const_cast<portMUX_TYPE*>(&taskFrequencyMux);

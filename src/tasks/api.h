@@ -101,7 +101,10 @@ class Api : public Task {
 
     // Non-blocking enqueue of a command request. Returns true on success.
     bool queueCommand(const char* commandLine, QueueHandle_t replyQueue = nullptr) {
-        if (requestQueue == nullptr) return false;
+        if (requestQueue == nullptr) {
+            ESP_LOGE(taskName(), "Request queue is null");
+            return false;
+        }
         Request req = {};
         strncpy(req.commandLine, commandLine, sizeof(req.commandLine) - 1);
         req.commandLine[sizeof(req.commandLine) - 1] = '\0';
@@ -123,9 +126,11 @@ class Api : public Task {
         // Drain any pending requests without blocking
         Request req;
         while (xQueueReceive(requestQueue, &req, 0) == pdTRUE) {
+            // ESP_LOGD(taskName(), "Received request: %s", req.commandLine);
             Reply reply = handleCommand(req.commandLine);
             // If caller requested a reply, send it back (non-blocking)
             if (req.replyQueue != nullptr) {
+                // ESP_LOGD(taskName(), "Sending reply: (%d) %s", reply.errorCode, reply.data);
                 BaseType_t sent = xQueueSend(req.replyQueue, &reply, 0);
                 if (sent != pdTRUE) {
                     ESP_LOGW(taskName(), "Failed to enqueue reply for command %s", reply.command);
@@ -258,6 +263,7 @@ class ApiClient {
 
    protected:
     bool apiClientSetup(const char* logTag, UBaseType_t replyQueueLength = 4) {
+        this->logTag = logTag;
         apiReplyQueue = xQueueCreate(replyQueueLength, sizeof(Api::Reply));
         if (apiReplyQueue == nullptr) {
             ESP_LOGE(logTag, "Failed to create API reply queue");
@@ -267,6 +273,7 @@ class ApiClient {
     }
 
     bool apiClientQueueCommand(const char* commandLine) {
+        // ESP_LOGD(logTag, "Calling api.queueCommand('%s')", commandLine);
         return api.queueCommand(commandLine, apiReplyQueue);
     }
 
@@ -282,6 +289,7 @@ class ApiClient {
     virtual void receiveReply(const Api::Reply& reply) = 0;
 
     QueueHandle_t apiReplyQueue = nullptr;
+    const char* logTag = "ApiClient";
 };
 
 #endif  // API_H

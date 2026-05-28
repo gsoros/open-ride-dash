@@ -15,17 +15,33 @@ class Display : public Task {
     virtual void setup() {
         output.setup();
         output.clear();
-        output.setBrightnessPercent(50);
+        output.setBrightnessPercent(5);
+        Task::taskSetup();
     }
 
     virtual void taskRun() override {
+        static uint8_t bl = 0;
+        static bool blDir = true;
+        if (blDir) {
+            bl += 2;
+            if (bl > 99) blDir = false;
+
+        } else {
+            bl -= 2;
+            if (bl < 2) blDir = true;
+        }
+        output.setBrightnessPercent(bl);
+
         ulong t = millis();
+        static ulong last = 0;
+        if (t - last < 150) return;
+        last = t;
 
         output.drawMajor(state.getSpeed());
         output.drawMinor1(state.getMotorPower());
         output.drawMinor2(state.getMotorPower());
 
-        ESP_LOGD(taskName(), "Update took %d ms", millis() - t);
+        // ESP_LOGD(taskName(), "Update took %d ms, bl=%d", millis() - t, bl);
 
         /*
         // Fade counter

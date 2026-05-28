@@ -1,6 +1,7 @@
 #include "task.h"
 #include "pins.h"
 
+// Blink the onboard LED for testing
 class Blink : public Task {
    public:
     virtual const char* taskName() override {

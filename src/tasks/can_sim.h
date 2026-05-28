@@ -138,6 +138,7 @@ class CANSim : public Task {
         powerSim->maxAccel = 100.0f;
         powerSim->maxDecel = 500.0f;
         powerSim->stopProbability = 2;
+        Task::taskSetup();
     }
 
     virtual void taskRun() override {

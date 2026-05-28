@@ -19,6 +19,7 @@ class Wifi : public Task {
         WiFi.setHostname(hostname.c_str());
         WiFi.begin(ssid.c_str(), password.c_str());
         ESP_LOGI(taskName(), "Connecting to WiFi SSID: %s", ssid.c_str());
+        /*
         unsigned long start = millis();
         while (WiFi.status() != WL_CONNECTED && millis() - start < 10000) {
             delay(250);
@@ -28,21 +29,37 @@ class Wifi : public Task {
         } else {
             ESP_LOGI(taskName(), "WiFi connected, IP: %s", WiFi.localIP().toString().c_str());
         }
+        */
         ESP_LOGI(taskName(), "Starting mDNS with hostname: %s", hostname.c_str());
         MDNS.begin(hostname.c_str());
+        setupDone = true;
         Task::taskSetup();
     }
 
     virtual void taskRun() override {
-        // ESP_LOGD(taskName(), "Status: %d Heap: %u Stack: %d", WiFi.status(), xPortGetFreeHeapSize(), taskGetLowestStackLevel());
+        static ulong last = 0;
+        if (millis() - last > 10000) {
+            last = millis();
+            if (WiFi.status() != WL_CONNECTED) {
+                ESP_LOGW(taskName(), "WiFi not connected to '%s', password: '%s'", ssid.c_str(), password.c_str());
+            }
+        }
     }
 
     bool isReady() const {
-        return taskSetupDone;
+        return setupDone;
+    }
+
+    void waitForReady() {
+        while (!isReady()) {
+            ESP_LOGD(taskName(), "Waiting for ready...");
+            delay(100);
+        }
     }
 
     void waitForConnection() {
-        while (!isReady()) {
+        waitForReady();
+        while (WiFi.status() != WL_CONNECTED) {
             ESP_LOGD(taskName(), "Waiting for connection...");
             delay(100);
         }
@@ -57,6 +74,7 @@ class Wifi : public Task {
     static constexpr const char* ssidKey = "ssid";
     static constexpr const char* passwordKey = "password";
     static constexpr const char* hostnameKey = "hostname";
+    bool setupDone = false;
 
     Preferences preferences;
     String ssid;

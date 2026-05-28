@@ -13,3 +13,5 @@ kicad/ord-v0.1/ord-keypad-v0.1.kicad_sch
 *.code-workspace
 include/ttf
 .vscode/settings.json
+can-capture-savvy.csv
+can0.pcapng
