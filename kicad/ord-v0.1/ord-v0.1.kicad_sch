@@ -2882,16 +2882,6 @@
 		)
 		(uuid "041bef96-85f8-402e-a6b8-518645eb68d6")
 	)
-	(text "INPUT_PULLUP"
-		(exclude_from_sim no)
-		(at 218.948 66.294 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-		)
-		(uuid "55722c77-bbfb-4cd4-8ffa-5dd1cb26e3ba")
-	)
 	(text "Remote Keypad"
 		(exclude_from_sim no)
 		(at 31.496 119.126 0)

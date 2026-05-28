@@ -10,6 +10,7 @@
 #include "tasks/display.h"
 #include "tasks/can_sim.h"
 #include "tasks/can.h"
+#include "tasks/keypad.h"
 
 State state;
 Api api;
@@ -20,6 +21,7 @@ Wifi wifi;
 OTA ota;
 Telnet telnet(23);
 SystemMonitor systemMonitor;
+Keypad keypad;
 
 void setup() {
     const char* tag = "setup";
@@ -59,6 +61,9 @@ void setup() {
 
     can.setup();
     can.taskStart(10.0f, 2048);
+
+    keypad.setup();
+    keypad.taskStart(0.0f, 2048);
 
     static Task* tasksToMonitor[] = {&api, &wifi, &ota, &telnet, &display};
     systemMonitor.setup(tasksToMonitor, sizeof(tasksToMonitor) / sizeof(tasksToMonitor[0]));

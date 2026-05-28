@@ -25,84 +25,45 @@ class State {
 
     void registerApiCommands();
 
-    void setSpeed(float v);
-    float getSpeed();
+    void speed(float v);
+    float speed();
 
-    void setPASLevel(uint8_t l);
-    uint8_t getPASLevel();
+    void pasLevel(uint8_t l);
+    uint8_t pasLevel();
 
-    void setBatteryLevel(float v);
-    float getBatteryLevel();
+    void batteryLevel(float v);
+    float batteryLevel();
 
-    void setBatteryVoltage(float v);
-    float getBatteryVoltage();
+    void batteryVoltage(float v);
+    float batteryVoltage();
 
-    void setBatteryCurrent(float v);
-    float getBatteryCurrent();
+    void batteryCurrent(float v);
+    float batteryCurrent();
 
-    void setMotorPower(float v);
-    float getMotorPower();
+    void motorPower(float v);
+    float motorPower();
 
-    void setMotorTemperature(float v);
-    float getMotorTemperature();
+    void motorTemperature(float v);
+    float motorTemperature();
+
+    volatile bool keyUp = false;
+    volatile bool keyDown = false;
+    volatile bool keyPower = false;
 
    private:
     void ensureMutex();
 
-    float speed;
-    uint8_t pasLevel;
+    float _speed = 0.0f;
+    uint8_t _pasLevel = 0;
 
-    float batteryLevel;
-    float batteryVoltage;
-    float batteryCurrent;
+    float _batteryLevel = 0.0f;
+    float _batteryVoltage = 0.0f;
+    float _batteryCurrent = 0.0f;
 
-    float motorPower;
-    float motorTemperature;
+    float _motorPower = 0.0f;
+    float _motorTemperature = 0.0f;
 
-    SemaphoreHandle_t mutex;
+    SemaphoreHandle_t mutex = nullptr;
 };
 
 #endif  // STATE_H
-
-/*
-
-enum MetricID {
-    METRIC_SPEED,
-    METRIC_CADENCE,
-    METRIC_PAS,
-    METRIC_MOTOR_PWR,
-    METRIC_HUMAN_PWR,
-    METRIC_VOLTAGE,
-    METRIC_SOC,
-    METRIC_RANGE,
-    METRIC_HEART_RATE,
-    METRIC_BODY_TEMP,
-    METRIC_COUNT // Keeps track of total metrics
-};
-
-// Global struct to hold live data
-struct TelemetryData {
-    float values[METRIC_COUNT];
-    const char* units[METRIC_COUNT];
-};
-TelemetryData liveData = {
-    .units = {"km/h", "rpm", "PAS", "W", "W", "V", "%", "km", "bpm", "°C"}
-};
-
-// Define what goes on each page
-struct PageLayout {
-    MetricID major;
-    MetricID minor1;
-    MetricID minor2;
-};
-
-PageLayout pages[] = {
-    { METRIC_SPEED,     METRIC_PAS,       METRIC_SOC },       // Page 1: Standard Cruise
-    { METRIC_HUMAN_PWR, METRIC_MOTOR_PWR, METRIC_CADENCE },   // Page 2: Power & Performance
-    { METRIC_SPEED,     METRIC_HEART_RATE,METRIC_RANGE }       // Page 3: Fitness & Range
-};
-uint8_t currentPage = 0;
-uint8_t totalPages = sizeof(pages) / sizeof(PageLayout);
-
-
-*/

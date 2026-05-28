@@ -144,11 +144,11 @@ class CANSim : public Task {
     virtual void taskRun() override {
         speedSim->run();
         if (speedSim->isInjectable) {
-            state.setSpeed(speedSim->currentValue);
+            state.speed(speedSim->currentValue);
         }
         powerSim->run();
         if (powerSim->isInjectable) {
-            state.setMotorPower(powerSim->currentValue);
+            state.motorPower(powerSim->currentValue);
         }
     }
 

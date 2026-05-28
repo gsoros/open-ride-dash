@@ -14,13 +14,32 @@ class Keypad : public Task {
     }
 
     virtual void setup() {
+        pinMode(KEY_UP, INPUT_PULLUP);
+        pinMode(KEY_DOWN, INPUT_PULLUP);
+        pinMode(KEY_POWER, INPUT_PULLUP);
+        keyUpChanged();  // Read initial state
+        keyDownChanged();
+        keyPowerChanged();
+        attachInterrupt(KEY_UP, keyUpChanged, CHANGE);
+        attachInterrupt(KEY_DOWN, keyDownChanged, CHANGE);
+        attachInterrupt(KEY_POWER, keyPowerChanged, CHANGE);
+
         Task::taskSetup();
     }
 
     virtual void taskRun() override {
+        return;
+        static ulong last = 0;
+        if (millis() - last < 100) return;
+        last = millis();
+        ESP_LOGD(taskName(), "State: up=%d, down=%d, power=%d",
+                 state.keyUp, state.keyDown, state.keyPower);
     }
 
    protected:
+    static void IRAM_ATTR keyUpChanged();
+    static void IRAM_ATTR keyDownChanged();
+    static void IRAM_ATTR keyPowerChanged();
 };
 
-#endif  // CAN_H
+#endif  // KEYPAD_H

@@ -4,8 +4,7 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
 
-State::State()
-    : speed(0.0f), pasLevel(0), batteryLevel(0.0f), batteryVoltage(0.0f), batteryCurrent(0.0f), motorPower(0.0f), motorTemperature(0.0f), mutex(nullptr) {}
+State::State() {}
 
 void State::setup() {
     registerApiCommands();
@@ -25,9 +24,9 @@ void State::registerApiCommands() {
                     snprintf((char*)reply.data, sizeof(reply.data), "Invalid speed value: %s", args);
                     return reply;
                 }
-                setSpeed(newSpeed);
+                speed(newSpeed);
             }
-            snprintf((char*)reply.data, sizeof(reply.data), "%.2f", getSpeed());
+            snprintf((char*)reply.data, sizeof(reply.data), "%.2f", speed());
             return reply;
         },
         "Usage: speed [<speed>]\nShows or sets the current speed.");
@@ -43,139 +42,139 @@ State::Snapshot State::getSnapshot() {
     ensureMutex();
     Snapshot s;
     if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE) {
-        s.speed = speed;
-        s.pasLevel = pasLevel;
-        s.batteryLevel = batteryLevel;
-        s.batteryVoltage = batteryVoltage;
-        s.batteryCurrent = batteryCurrent;
-        s.motorPower = motorPower;
-        s.motorTemperature = motorTemperature;
+        s.speed = _speed;
+        s.pasLevel = _pasLevel;
+        s.batteryLevel = _batteryLevel;
+        s.batteryVoltage = _batteryVoltage;
+        s.batteryCurrent = _batteryCurrent;
+        s.motorPower = _motorPower;
+        s.motorTemperature = _motorTemperature;
         xSemaphoreGive(mutex);
     }
     return s;
 }
 
-void State::setSpeed(float v) {
+void State::speed(float v) {
     ensureMutex();
     if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE) {
-        speed = v;
+        _speed = v;
         xSemaphoreGive(mutex);
     }
 }
 
-float State::getSpeed() {
+float State::speed() {
     ensureMutex();
     float v = 0.0f;
     if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE) {
-        v = speed;
+        v = _speed;
         xSemaphoreGive(mutex);
     }
     return v;
 }
 
-void State::setPASLevel(uint8_t l) {
+void State::pasLevel(uint8_t l) {
     ensureMutex();
     if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE) {
-        pasLevel = l;
+        _pasLevel = l;
         xSemaphoreGive(mutex);
     }
 }
 
-uint8_t State::getPASLevel() {
+uint8_t State::pasLevel() {
     ensureMutex();
     uint8_t v = 0;
     if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE) {
-        v = pasLevel;
+        v = _pasLevel;
         xSemaphoreGive(mutex);
     }
     return v;
 }
 
-void State::setBatteryLevel(float v) {
+void State::batteryLevel(float v) {
     ensureMutex();
     if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE) {
-        batteryLevel = v;
+        _batteryLevel = v;
         xSemaphoreGive(mutex);
     }
 }
 
-float State::getBatteryLevel() {
+float State::batteryLevel() {
     ensureMutex();
     float v = 0.0f;
     if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE) {
-        v = batteryLevel;
+        v = _batteryLevel;
         xSemaphoreGive(mutex);
     }
     return v;
 }
 
-void State::setBatteryVoltage(float v) {
+void State::batteryVoltage(float v) {
     ensureMutex();
     if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE) {
-        batteryVoltage = v;
+        _batteryVoltage = v;
         xSemaphoreGive(mutex);
     }
 }
 
-float State::getBatteryVoltage() {
+float State::batteryVoltage() {
     ensureMutex();
     float v = 0.0f;
     if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE) {
-        v = batteryVoltage;
+        v = _batteryVoltage;
         xSemaphoreGive(mutex);
     }
     return v;
 }
 
-void State::setBatteryCurrent(float v) {
+void State::batteryCurrent(float v) {
     ensureMutex();
     if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE) {
-        batteryCurrent = v;
+        _batteryCurrent = v;
         xSemaphoreGive(mutex);
     }
 }
 
-float State::getBatteryCurrent() {
+float State::batteryCurrent() {
     ensureMutex();
     float v = 0.0f;
     if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE) {
-        v = batteryCurrent;
+        v = _batteryCurrent;
         xSemaphoreGive(mutex);
     }
     return v;
 }
 
-void State::setMotorPower(float v) {
+void State::motorPower(float v) {
     ensureMutex();
     if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE) {
-        motorPower = v;
+        _motorPower = v;
         xSemaphoreGive(mutex);
     }
 }
 
-float State::getMotorPower() {
+float State::motorPower() {
     ensureMutex();
     float v = 0.0f;
     if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE) {
-        v = motorPower;
+        v = _motorPower;
         xSemaphoreGive(mutex);
     }
     return v;
 }
 
-void State::setMotorTemperature(float v) {
+void State::motorTemperature(float v) {
     ensureMutex();
     if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE) {
-        motorTemperature = v;
+        _motorTemperature = v;
         xSemaphoreGive(mutex);
     }
 }
 
-float State::getMotorTemperature() {
+float State::motorTemperature() {
     ensureMutex();
     float v = 0.0f;
     if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE) {
-        v = motorTemperature;
+        v = _motorTemperature;
         xSemaphoreGive(mutex);
     }
     return v;
