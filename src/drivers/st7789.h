@@ -4,6 +4,9 @@
 #include <Arduino_GFX_Library.h>
 
 #include "display.h"
+#include "model/state.h"
+
+extern State state;
 
 #include "RobotoMono_bold48pt7b_digits.h"
 #include "RobotoMono_bold30pt7b_digits.h"
@@ -27,33 +30,31 @@ class ST7789 : public DisplayDriver {
             digitalWrite(bl, LOW);
         }
 
-        // 1. Initialize hardware screen FIRST
         if (!tft->begin()) {
-            ESP_LOGE(tag, "TFT Hardware begin failed");
+            ESP_LOGE(tag, "begin() failed");
             while (true) delay(1000);
         }
 
-        // 2. Initialize ALL canvases with GFX_SKIP_OUTPUT_BEGIN
         if (!canvasMajor->begin(GFX_SKIP_OUTPUT_BEGIN) ||
             !canvasMinor1->begin(GFX_SKIP_OUTPUT_BEGIN) ||
             !canvasMinor2->begin(GFX_SKIP_OUTPUT_BEGIN)) {
-            ESP_LOGE(tag, "GFX canvas begin() failed");
+            ESP_LOGE(tag, "canvas begin() failed");
             while (true) delay(1000);
         }
 
         clear();
 
-        canvasMajor->setTextColor(RGB565_WHITE, RGB565_BLACK);
-        canvasMinor1->setTextColor(RGB565_WHITE, RGB565_BLACK);
-        canvasMinor2->setTextColor(RGB565_WHITE, RGB565_BLACK);
+        canvasMajor->setTextColor(WHITE, BLACK);
+        canvasMinor1->setTextColor(WHITE, BLACK);
+        canvasMinor2->setTextColor(WHITE, BLACK);
 
-        canvasMajor->fillScreen(RGB565_BLACK);
-        canvasMinor1->fillScreen(RGB565_BLACK);
-        canvasMinor2->fillScreen(RGB565_BLACK);
+        canvasMajor->fillScreen(BLACK);
+        canvasMinor1->fillScreen(BLACK);
+        canvasMinor2->fillScreen(BLACK);
 
-        canvasMajor->drawRect(0, 0, canvasMajor->width(), canvasMajor->height(), RGB565_WHITE);
-        canvasMinor1->drawRect(0, 0, canvasMinor1->width(), canvasMinor1->height(), RGB565_WHITE);
-        canvasMinor2->drawRect(0, 0, canvasMinor2->width(), canvasMinor2->height(), RGB565_WHITE);
+        canvasMajor->drawRect(0, 0, canvasMajor->width(), canvasMajor->height(), WHITE);
+        canvasMinor1->drawRect(0, 0, canvasMinor1->width(), canvasMinor1->height(), WHITE);
+        canvasMinor2->drawRect(0, 0, canvasMinor2->width(), canvasMinor2->height(), WHITE);
 
         canvasMajor->flush();
         canvasMinor1->flush();
@@ -63,7 +64,7 @@ class ST7789 : public DisplayDriver {
     }
 
     void clear() override {
-        fillScreen(RGB565_BLACK);
+        fillScreen(BLACK);
     }
 
     void drawText(const char* buf) override {
@@ -75,11 +76,18 @@ class ST7789 : public DisplayDriver {
     }
 
     void drawMajor(float v) override {
+        uint16_t bg = BLACK;
+        if (state.keyUp) {
+            canvasMajor->setTextColor(BLACK, WHITE);
+            bg = WHITE;
+        } else {
+            canvasMajor->setTextColor(WHITE, BLACK);
+        }
         char buf[3];
         snprintf(buf, sizeof(buf), "%.0f", v);
         canvasMajor->setFont(largeFont);
         canvasMajor->setTextSize(2);
-        canvasMajor->fillRect(0, 0, canvasMajor->width(), canvasMajor->height(), RGB565_BLACK);
+        canvasMajor->fillRect(0, 0, canvasMajor->width(), canvasMajor->height(), bg);
         canvasMajor->setCursor(0, canvasMajor->height() - 5);
         canvasMajor->print(buf);
         canvasMajor->flush();
@@ -90,7 +98,7 @@ class ST7789 : public DisplayDriver {
         snprintf(buf, sizeof(buf), "%.0f", v);
         canvasMinor1->setFont(v >= 100.0f ? mediumFont : largeFont);
         canvasMinor1->setTextSize(1);
-        canvasMinor1->fillRect(0, 0, canvasMinor1->width(), canvasMinor1->height(), RGB565_BLACK);
+        canvasMinor1->fillRect(0, 0, canvasMinor1->width(), canvasMinor1->height(), BLACK);
         canvasMinor1->setCursor(0, canvasMinor1->height() - 2);
         canvasMinor1->print(buf);
         canvasMinor1->flush();
@@ -101,7 +109,7 @@ class ST7789 : public DisplayDriver {
         snprintf(buf, sizeof(buf), "%.0f", v);
         canvasMinor2->setFont(largeFont);
         canvasMinor2->setTextSize(1);
-        canvasMinor2->fillRect(0, 0, canvasMinor2->width(), canvasMinor2->height(), RGB565_BLACK);
+        canvasMinor2->fillRect(0, 0, canvasMinor2->width(), canvasMinor2->height(), BLACK);
         canvasMinor2->setCursor(0, canvasMinor2->height() - 2);
         canvasMinor2->print(buf);
         canvasMinor2->flush();

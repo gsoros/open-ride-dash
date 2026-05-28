@@ -10,6 +10,10 @@
 
 extern State state;
 
+typedef ACAN_ESP32 ACAN;
+typedef CANMessage ACANMessage;
+typedef ACAN_ESP32_Settings ACANSettings;
+
 class CAN : public Task {
    public:
     virtual const char* taskName() override {
@@ -17,11 +21,11 @@ class CAN : public Task {
     }
 
     virtual void setup() {
-        ACAN_ESP32_Settings settings(250000);
+        ACANSettings settings(250000);
         settings.mTxPin = (gpio_num_t)CAN_TX;
         settings.mRxPin = (gpio_num_t)CAN_RX;
-        settings.mRequestedCANMode = ACAN_ESP32_Settings::LoopBackMode;
-        const uint32_t errorCode = ACAN_ESP32::can.begin(settings);
+        settings.mRequestedCANMode = ACANSettings::LoopBackMode;
+        const uint32_t errorCode = ACAN::can.begin(settings);
         if (errorCode == 0) {
             ESP_LOGD(taskName(), "Init Success");
         } else {
@@ -33,11 +37,11 @@ class CAN : public Task {
     virtual void taskRun() override {
         static uint32_t sent = 0;
         static uint32_t received = 0;
-        CANMessage frame;
-        if (ACAN_ESP32::can.tryToSend(frame)) {
+        ACANMessage frame;
+        if (ACAN::can.tryToSend(frame)) {
             sent += 1;
         }
-        while (ACAN_ESP32::can.receive(frame)) {
+        while (ACAN::can.receive(frame)) {
             received += 1;
         }
         static ulong last = 0;
