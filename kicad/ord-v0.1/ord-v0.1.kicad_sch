@@ -4188,7 +4188,7 @@
 		)
 		(uuid "2b378f43-7d03-40fa-a12b-8ffff5c1f6b5")
 	)
-	(label "CAN_L"
+	(label "CAN_H"
 		(at 121.92 176.53 180)
 		(effects
 			(font
@@ -4318,7 +4318,7 @@
 		)
 		(uuid "a0a0584b-4a4f-4a9c-8700-d741ac8bbf59")
 	)
-	(label "CAN_H"
+	(label "CAN_L"
 		(at 121.92 184.15 180)
 		(effects
 			(font

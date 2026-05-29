@@ -14,7 +14,7 @@
 
 State state;
 Api api;
-CANSim canSim;
+// CANSim canSim;
 CAN can;
 Display display;
 Wifi wifi;
@@ -56,8 +56,8 @@ void setup() {
     display.setup();
     display.taskStart(50.0f, 4096);
 
-    canSim.setup();
-    canSim.taskStart(100.0f, 2048);
+    // canSim.setup();
+    // canSim.taskStart(100.0f, 2048);
 
     can.setup();
     can.taskStart(100.0f, 4096);

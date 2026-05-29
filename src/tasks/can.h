@@ -24,12 +24,12 @@ class CAN : public Task {
         ACANSettings settings(250000);
         settings.mTxPin = (gpio_num_t)CAN_TX;
         settings.mRxPin = (gpio_num_t)CAN_RX;
-        // settings.mRequestedCANMode = ACANSettings::LoopBackMode; // Receive own messages
+        // settings.mRequestedCANMode = ACANSettings::LoopBackMode;  // Receive own messages
         const uint32_t errorCode = ACAN::can.begin(settings);
         if (errorCode == 0) {
             ESP_LOGD(taskName(), "Init Success");
         } else {
-            ESP_LOGE(taskName(), "Init failed, error: 0x%X\n", errorCode);
+            ESP_LOGE(taskName(), "Init failed, error: 0x%X", errorCode);
         }
         Task::taskSetup();
     }
@@ -40,31 +40,34 @@ class CAN : public Task {
         ACANMessage frame;
 
         uint32_t t = millis();
-        // Drain the receive buffer so it doesn't overflow
+
         while (ACAN::can.receive(frame)) {
             received += 1;
 
-            static uint32_t lastReceiveLog = 0;
-            if (t - lastReceiveLog < 200) continue;
-            lastReceiveLog = t;
-
-            // Mask out the lower bytes to group IDs by source component
-            uint32_t baseId = frame.id & 0xFF000000;
-
-            // Filter for target packets
-            // The prefix 0x02 typically designates real-time data and
-            // contains speed, cadences, current, and error codes
-            if (baseId == 0x02000000) {
-                // data[0] and data[1] usually contain wheel speed or RPM.
-                ESP_LOGI("CAN telemtry", "ID: 0x%08X Data: %02X %02X %02X %02X",
-                         frame.id, frame.data[0], frame.data[1], frame.data[2], frame.data[3]);
-            }
-            // The 0x2f prefix indicates parameter query/response blocks and status polling.
-            // The motor and the battery use these to negotiate handshake tokens,
-            // firmware versions, and SoC.
-            if (baseId == 0x2f000000) {
-                ESP_LOGI("CAN parameter", "ID: 0x%08X Data: %02X %02X %02X %02X",
-                         frame.id, frame.data[0], frame.data[1], frame.data[2], frame.data[3]);
+            switch (frame.id) {
+                case 0x01F83100: {
+                    // Direct little-endian reconstruction
+                    uint16_t rawTorque = (uint16_t)(frame.data[1] << 8) | frame.data[0];
+                    state.torque(rawTorque);
+                    state.cadence(frame.data[2]);
+                    break;
+                }
+                case 0x02F83201: {
+                    state.wheelSpeed_x10((uint16_t)(frame.data[1] << 8) | frame.data[0]);
+                    state.batteryCurrent_x20((uint16_t)(frame.data[3] << 8) | frame.data[2]);
+                    state.batteryVoltage_x100((uint16_t)(frame.data[5] << 8) | frame.data[4]);
+                    state.motorTemp((int8_t)frame.data[6] - 40);
+                    state.controllerTemp((int8_t)frame.data[7] - 40);
+                    break;
+                }
+                case 0x02F83203: {
+                    state.wheelMaxSpeed_x100((uint16_t)(frame.data[1] << 8) | frame.data[0]);
+                    uint8_t highNibble = frame.data[3] >> 4;
+                    uint8_t lowNibble = frame.data[2] & 0x0F;
+                    state.wheelSize((highNibble * 10) + lowNibble);
+                    state.wheelCircumference((uint16_t)(frame.data[5] << 8) | frame.data[4]);
+                    break;
+                }
             }
         }
 
@@ -123,11 +126,11 @@ class CAN : public Task {
             }
         }
 
-        static uint32_t lastLog = 0;
-        if (t - lastLog > 10000) {
-            lastLog = t;
-            ESP_LOGD(taskName(), "Sent: %u, Received: %u", sent, received);
-        }
+        // static uint32_t lastLog = 0;
+        // if (t - lastLog > 3000) {
+        //     lastLog = t;
+        //     ESP_LOGD(taskName(), "Sent: %u, Received: %u", sent, received);
+        // }
     }
 
    protected:

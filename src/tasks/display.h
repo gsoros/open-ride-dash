@@ -37,9 +37,11 @@ class Display : public Task {
         if (t - last < 150) return;
         last = t;
 
-        output.drawMajor(state.speed());
-        output.drawMinor1(state.motorPower());
-        output.drawMinor2(state.motorPower());
+        State::Snapshot s = state.getSnapshot();
+
+        output.drawMajor(s.speed());
+        output.drawMinor1(s.humanPower());
+        output.drawMinor2(s.motorPower());
 
         // ESP_LOGD(taskName(), "Update took %d ms, bl=%d", millis() - t, bl);
 
