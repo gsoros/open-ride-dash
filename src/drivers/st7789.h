@@ -75,44 +75,56 @@ class ST7789 : public DisplayDriver {
         tft->flush();
     }
 
-    void drawMajor(float v) override {
-        uint16_t bg = BLACK;
-        if (state.keyUp) {
-            canvasMajor->setTextColor(BLACK, WHITE);
-            bg = WHITE;
-        } else {
-            canvasMajor->setTextColor(WHITE, BLACK);
-        }
-        char buf[3];
+    void drawCanvas(
+        Arduino_Canvas_Mono* canvas,
+        float v,
+        const GFXfont* font,
+        bool invertColors = false,
+        uint8_t size = 1,
+        uint8_t verticalOffset = 0,
+        uint16_t fg = WHITE,
+        uint16_t bg = BLACK) {
+        char buf[4];
         snprintf(buf, sizeof(buf), "%.0f", v);
-        canvasMajor->setFont(largeFont);
-        canvasMajor->setTextSize(2);
-        canvasMajor->fillRect(0, 0, canvasMajor->width(), canvasMajor->height(), bg);
-        canvasMajor->setCursor(0, canvasMajor->height() - 5);
-        canvasMajor->print(buf);
-        canvasMajor->flush();
+        canvas->setFont(font);
+        canvas->setTextSize(size);
+        uint16_t textColor = invertColors ? bg : fg;
+        uint16_t backgroundColor = invertColors ? fg : bg;
+        canvas->setTextColor(textColor, backgroundColor);
+        canvas->fillRect(0, 0, canvas->width(), canvas->height(), backgroundColor);
+        canvas->setCursor(0, canvas->height() - verticalOffset);
+        canvas->print(buf);
+        canvas->flush();
+    }
+
+    void drawMajor(float v) override {
+        drawCanvas(
+            canvasMajor,
+            v,
+            v >= 100.0f ? mediumFont : largeFont,
+            state.keyUp,
+            2,
+            5);
     }
 
     void drawMinor1(float v) override {
-        char buf[4];
-        snprintf(buf, sizeof(buf), "%.0f", v);
-        canvasMinor1->setFont(v >= 100.0f ? mediumFont : largeFont);
-        canvasMinor1->setTextSize(1);
-        canvasMinor1->fillRect(0, 0, canvasMinor1->width(), canvasMinor1->height(), BLACK);
-        canvasMinor1->setCursor(0, canvasMinor1->height() - 2);
-        canvasMinor1->print(buf);
-        canvasMinor1->flush();
+        drawCanvas(
+            canvasMinor1,
+            v,
+            v >= 100.0f ? mediumFont : largeFont,
+            state.keyDown,
+            1,
+            2);
     }
 
     void drawMinor2(float v) override {
-        char buf[3];
-        snprintf(buf, sizeof(buf), "%.0f", v);
-        canvasMinor2->setFont(largeFont);
-        canvasMinor2->setTextSize(1);
-        canvasMinor2->fillRect(0, 0, canvasMinor2->width(), canvasMinor2->height(), BLACK);
-        canvasMinor2->setCursor(0, canvasMinor2->height() - 2);
-        canvasMinor2->print(buf);
-        canvasMinor2->flush();
+        drawCanvas(
+            canvasMinor2,
+            v,
+            v >= 100.0f ? mediumFont : largeFont,
+            state.keyPower,
+            1,
+            2);
     }
 
     void fillScreen(uint16_t color) override {

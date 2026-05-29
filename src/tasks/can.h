@@ -25,6 +25,7 @@ class CAN : public Task {
         settings.mTxPin = (gpio_num_t)CAN_TX;
         settings.mRxPin = (gpio_num_t)CAN_RX;
         // settings.mRequestedCANMode = ACANSettings::LoopBackMode;  // Receive own messages
+        // TODO: Setup HW filters
         const uint32_t errorCode = ACAN::can.begin(settings);
         if (errorCode == 0) {
             ESP_LOGD(taskName(), "Init Success");
@@ -37,10 +38,26 @@ class CAN : public Task {
     virtual void taskRun() override {
         static uint32_t sent = 0;
         static uint32_t received = 0;
-        ACANMessage frame;
-
+        static uint16_t rxBufferOverflows = 0;
+        static uint16_t txBufferOverflows = 0;
         uint32_t t = millis();
 
+        if (ACAN::can.driverReceiveBufferPeakCount() >= ACAN::can.driverReceiveBufferSize()) {
+            rxBufferOverflows++;
+            ACAN::can.resetDriverReceiveBufferPeakCount();
+            ESP_LOGW(taskName(), "RX Buffer overflows: %u", rxBufferOverflows);
+        }
+        if (ACAN::can.driverTransmitBufferPeakCount() >= ACAN::can.driverTransmitBufferSize()) {
+            txBufferOverflows++;
+            ACAN::can.resetDriverTransmitBufferPeakCount();
+            ESP_LOGW(taskName(), "TX Buffer overflows: %u", txBufferOverflows);
+        }
+
+        // https://github.com/OpenSourceEBike/EV_Display_Bluetooth_Ant/blob/main/firmware/display/can.c
+        // https://github.com/andrey-pr/Bafang_M500_M600-Readme/blob/main/CANBUS/readme.md
+
+        ACANMessage frame;
+        uint32_t rxLoop = 0;
         while (ACAN::can.receive(frame)) {
             received += 1;
 

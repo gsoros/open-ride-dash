@@ -39,9 +39,9 @@ class Display : public Task {
 
         State::Snapshot s = state.getSnapshot();
 
-        output.drawMajor(s.speed());
-        output.drawMinor1(s.humanPower());
-        output.drawMinor2(s.motorPower());
+        output.drawMajor((float)s.wheelSpeed_x10 / 10.0f);
+        output.drawMinor1((float)s.torque);
+        output.drawMinor2((float)s.pasLevel);
 
         // ESP_LOGD(taskName(), "Update took %d ms, bl=%d", millis() - t, bl);
 

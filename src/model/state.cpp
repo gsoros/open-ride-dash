@@ -17,7 +17,7 @@ void State::registerApiCommands() {
         [this](const char* args) {
             Api::Reply reply = {};
             State::Snapshot s = getSnapshot();
-            snprintf((char*)reply.data, sizeof(reply.data), "{\"speed\":%.2f,\"pas\":%d,\"torque\":%u,\"cadence\":%u,\"wheelS\":%.1f,\"current\":%.1f,\"voltage\":%.1f,\"motor\":%uC,\"contr\":%uC,\"wheelM\":%.1f,\"wheelS\":%u,\"wheelC\":%u}",
+            snprintf((char*)reply.data, sizeof(reply.data), "{\"speed\":%.2f,\"pas\":%d,\"torque\":%u,\"cadence\":%u,\"wheelSp\":%.1f,\"current\":%.1f,\"voltage\":%.1f,\"motor\":%uC,\"contr\":%uC,\"wheelM\":%.1f,\"wheelSi\":%u,\"wheelC\":%u}",
                      s.speed(),
                      s.pasLevel,
                      s.torque,

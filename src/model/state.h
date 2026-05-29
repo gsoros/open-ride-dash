@@ -11,7 +11,7 @@ class State {
         uint16_t wheelMaxSpeed_x100 = 0;   // RPM * 100
         uint16_t batteryVoltage_x100 = 0;  // V * 100
         uint16_t batteryCurrent_x20 = 0;   // A * 20
-        uint16_t wheelCircumference = 0;   // cm
+        uint16_t wheelCircumference = 0;   // mm
         int8_t pasLevel = 0;               // Pedal Assist Level (-1 walk assist, 0 off, 1-5 PAS)
         uint8_t cadence = 0;               // RPM
         uint8_t motorTemp = 0;             // °C
@@ -20,7 +20,7 @@ class State {
 
         // Calculates speed in km/h
         float speed() {
-            return (float)wheelSpeed_x10 * (float)wheelCircumference * 0.00006f;
+            return (float)wheelSpeed_x10 * (float)wheelCircumference * 0.000006f;
         }
 
         // Calculates motor power in Watts

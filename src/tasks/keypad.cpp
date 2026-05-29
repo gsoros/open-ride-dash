@@ -1,31 +1,33 @@
 #include "keypad.h"
 
+#define KEYPAD_DEBOUNCE_US 100000  // 100 ms
+
 void Keypad::keyUpChanged() {
-    /*
-    static ulong lastUs = 0;
-    ulong now = micros();
-    if (now - lastUs < 500) return;  // .5ms debounce
-    lastUs = now;
-    */
+#ifdef KEYPAD_DEBOUNCE_US
+    static uint32_t last = 0;
+    uint32_t now = micros();
+    if (now - last < KEYPAD_DEBOUNCE_US) return;
+    last = now;
+#endif
     state.keyUp = digitalRead(KEY_UP) == LOW;
 }
 
 void Keypad::keyDownChanged() {
-    /*
-    static ulong lastUs = 0;
-    ulong now = micros();
-    if (now - lastUs < 500) return;  // .5ms debounce
-    lastUs = now;
-    */
+#ifdef KEYPAD_DEBOUNCE_US
+    static uint32_t last = 0;
+    uint32_t now = micros();
+    if (now - last < KEYPAD_DEBOUNCE_US) return;
+    last = now;
+#endif
     state.keyDown = digitalRead(KEY_DOWN) == LOW;
 }
 
 void Keypad::keyPowerChanged() {
-    /*
-    static ulong lastUs = 0;
-    ulong now = micros();
-    if (now - lastUs < 500) return;  // .5ms debounce
-    lastUs = now;
-    */
+#ifdef KEYPAD_DEBOUNCE_US
+    static uint32_t last = 0;
+    uint32_t now = micros();
+    if (now - last < KEYPAD_DEBOUNCE_US) return;
+    last = now;
+#endif
     state.keyPower = digitalRead(KEY_POWER) == LOW;
 }
