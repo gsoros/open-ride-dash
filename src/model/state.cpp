@@ -72,7 +72,7 @@ float State::speed() {
     return v;
 }
 
-void State::pasLevel(uint8_t l) {
+void State::pasLevel(int8_t l) {
     ensureMutex();
     if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE) {
         _pasLevel = l;
@@ -80,9 +80,9 @@ void State::pasLevel(uint8_t l) {
     }
 }
 
-uint8_t State::pasLevel() {
+int8_t State::pasLevel() {
     ensureMutex();
-    uint8_t v = 0;
+    int8_t v = 0;
     if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE) {
         v = _pasLevel;
         xSemaphoreGive(mutex);

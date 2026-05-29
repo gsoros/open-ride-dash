@@ -6,8 +6,8 @@
 class State {
    public:
     struct Snapshot {
-        float speed = 0.0f;    // km/h
-        uint8_t pasLevel = 0;  // Pedal Assist Level (0-5)
+        float speed = 0.0f;   // km/h
+        int8_t pasLevel = 0;  // Pedal Assist Level (0-5)
 
         float batteryLevel = 0.0f;    // SOC percentage
         float batteryVoltage = 0.0f;  // V
@@ -28,8 +28,8 @@ class State {
     void speed(float v);
     float speed();
 
-    void pasLevel(uint8_t l);
-    uint8_t pasLevel();
+    void pasLevel(int8_t l);
+    int8_t pasLevel();
 
     void batteryLevel(float v);
     float batteryLevel();
@@ -54,7 +54,7 @@ class State {
     void ensureMutex();
 
     float _speed = 0.0f;
-    uint8_t _pasLevel = 0;
+    int8_t _pasLevel = 0;
 
     float _batteryLevel = 0.0f;
     float _batteryVoltage = 0.0f;

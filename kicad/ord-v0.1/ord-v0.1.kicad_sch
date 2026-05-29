@@ -4358,7 +4358,7 @@
 		)
 		(uuid "c244b712-5c1a-4c38-a691-a4272c0c9046")
 	)
-	(label "TFT_RST"
+	(label "CAN_TX"
 		(at 243.84 71.12 0)
 		(effects
 			(font
@@ -4398,7 +4398,7 @@
 		)
 		(uuid "e43838f6-aa29-4af2-bf12-cc75dc8b3653")
 	)
-	(label "TFT_BL"
+	(label "CAN_RX"
 		(at 243.84 76.2 0)
 		(effects
 			(font
@@ -4408,7 +4408,7 @@
 		)
 		(uuid "e5d25879-0c17-4c12-a199-4f0bb75ca949")
 	)
-	(label "CAN_TX"
+	(label "TFT_BL"
 		(at 243.84 66.04 0)
 		(effects
 			(font
@@ -4418,7 +4418,7 @@
 		)
 		(uuid "ecda7153-efed-428e-8414-b2ad3ffdaa34")
 	)
-	(label "CAN_RX"
+	(label "TFT_RST"
 		(at 198.12 55.88 180)
 		(effects
 			(font

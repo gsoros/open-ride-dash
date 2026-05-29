@@ -60,12 +60,12 @@ void setup() {
     canSim.taskStart(100.0f, 2048);
 
     can.setup();
-    can.taskStart(10.0f, 2048);
+    can.taskStart(100.0f, 4096);
 
     keypad.setup();
     keypad.taskStart(0.0f, 2048);
 
-    static Task* tasksToMonitor[] = {&api, &wifi, &ota, &telnet, &display};
+    static Task* tasksToMonitor[] = {&api, &wifi, &ota, &telnet, &display, &can};
     systemMonitor.setup(tasksToMonitor, sizeof(tasksToMonitor) / sizeof(tasksToMonitor[0]));
     systemMonitor.taskStart(0.05f, 4096);
 }
