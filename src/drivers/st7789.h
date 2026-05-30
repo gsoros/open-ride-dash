@@ -97,8 +97,8 @@ class ST7789 : public DisplayDriver {
     }
 
     void drawMajor(float v) override {
-        bool invert = state.keyUpClick;
-        state.keyUpClick = false;
+        bool invert = keyUpClick;
+        keyUpClick = false;
         drawCanvas(
             canvasMajor,
             v,
@@ -109,8 +109,8 @@ class ST7789 : public DisplayDriver {
     }
 
     void drawMinor1(float v) override {
-        bool invert = state.keyDownClick;
-        state.keyDownClick = false;
+        bool invert = keyDownClick;
+        keyDownClick = false;
         drawCanvas(
             canvasMinor1,
             v,
@@ -121,8 +121,8 @@ class ST7789 : public DisplayDriver {
     }
 
     void drawMinor2(float v) override {
-        bool invert = state.keyPowerClick;
-        state.keyPowerClick = false;
+        bool invert = keyPowerClick;
+        keyPowerClick = false;
         drawCanvas(
             canvasMinor2,
             v,

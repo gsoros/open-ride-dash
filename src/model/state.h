@@ -71,10 +71,6 @@ class State {
 
     Snapshot getSnapshot();
 
-    bool keyUpClick = false;
-    bool keyDownClick = false;
-    bool keyPowerClick = false;
-
    protected:
     Snapshot _latest;
 

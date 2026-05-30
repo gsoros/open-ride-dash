@@ -14,4 +14,8 @@ class DisplayDriver {
     virtual void setBrightnessPercent(uint8_t percent) {};
     virtual bool hasBacklight() { return false; };
     virtual bool hasBrightnessControl() { return hasBacklight(); };
+
+    volatile bool keyUpClick = false;
+    volatile bool keyDownClick = false;
+    volatile bool keyPowerClick = false;
 };

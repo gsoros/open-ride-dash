@@ -44,7 +44,7 @@ class Keypad : public Task {
 
     void keyUpClick() {
         ESP_LOGD(taskName(), "Key up click");
-        state.keyUpClick = true;
+        display.keyUpClick();
         auto pasLevel = state.pasLevel();
         if (pasLevel < 5) {
             state.pasLevel(pasLevel + 1);
@@ -53,7 +53,7 @@ class Keypad : public Task {
 
     void keyDownClick() {
         ESP_LOGD(taskName(), "Key down click");
-        state.keyDownClick = true;
+        display.keyDownClick();
         auto pasLevel = state.pasLevel();
         if (pasLevel > -1) {
             state.pasLevel(pasLevel - 1);
@@ -62,7 +62,7 @@ class Keypad : public Task {
 
     void keyPowerClick() {
         ESP_LOGD(taskName(), "Key power click");
-        state.keyPowerClick = true;
+        display.keyPowerClick();
     }
 
     void keyUpLongPress() {

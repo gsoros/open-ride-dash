@@ -57,6 +57,16 @@ class Display : public Task {
         output.setBrightnessPercent(brightnessPercent);
     }
 
+    void keyUpClick() {
+        output.keyUpClick = true;
+    }
+    void keyDownClick() {
+        output.keyDownClick = true;
+    }
+    void keyPowerClick() {
+        output.keyPowerClick = true;
+    }
+
    protected:
     ST7789 output{
         TFT_CS,
