@@ -63,9 +63,7 @@ class CAN : public Task {
 
             switch (frame.id) {
                 case 0x01F83100: {
-                    // Direct little-endian reconstruction
-                    uint16_t rawTorque = (uint16_t)(frame.data[1] << 8) | frame.data[0];
-                    state.torque(rawTorque);
+                    state.torque((uint16_t)(frame.data[1] << 8) | frame.data[0]);
                     state.cadence(frame.data[2]);
                     break;
                 }

@@ -102,9 +102,12 @@ class ST7789 : public DisplayDriver {
             canvasMajor,
             v,
             v >= 100.0f ? mediumFont : largeFont,
-            state.keyUp,
+            state.keyUpClick,
             2,
             5);
+        if (state.keyUpClick) {
+            state.keyUpClick = false;
+        }
     }
 
     void drawMinor1(float v) override {
@@ -112,9 +115,12 @@ class ST7789 : public DisplayDriver {
             canvasMinor1,
             v,
             v >= 100.0f ? mediumFont : largeFont,
-            state.keyDown,
+            state.keyDownClick,
             1,
             2);
+        if (state.keyDownClick) {
+            state.keyDownClick = false;
+        }
     }
 
     void drawMinor2(float v) override {
@@ -122,9 +128,12 @@ class ST7789 : public DisplayDriver {
             canvasMinor2,
             v,
             v >= 100.0f ? mediumFont : largeFont,
-            state.keyPower,
+            state.keyPowerClick,
             1,
             2);
+        if (state.keyPowerClick) {
+            state.keyPowerClick = false;
+        }
     }
 
     void fillScreen(uint16_t color) override {

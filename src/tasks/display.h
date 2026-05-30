@@ -39,7 +39,7 @@ class Display : public Task {
 
         State::Snapshot s = state.getSnapshot();
 
-        output.drawMajor((float)s.wheelSpeed_x10 / 10.0f);
+        output.drawMajor(s.speed());
         output.drawMinor1((float)s.torque);
         output.drawMinor2((float)s.pasLevel);
 

@@ -1,5 +1,6 @@
 #include "keypad.h"
 
+/*
 #define KEYPAD_DEBOUNCE_US 100000  // 100 ms
 
 void Keypad::keyUpChanged() {
@@ -31,3 +32,4 @@ void Keypad::keyPowerChanged() {
 #endif
     state.keyPower = digitalRead(KEY_POWER) == LOW;
 }
+*/
