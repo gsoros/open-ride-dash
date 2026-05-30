@@ -1,3 +1,6 @@
+#ifndef DISPLAY_H
+#define DISPLAY_H
+
 #include "task.h"
 #include "model/state.h"
 #include "pins.h"
@@ -14,24 +17,14 @@ class Display : public Task {
 
     virtual void setup() {
         output.setup();
-        output.clear();
-        output.setBrightnessPercent(5);
+        brightnessPercent = 20;
+        output.setBrightnessPercent(brightnessPercent);
+        output.splash();
         Task::taskSetup();
+        delay(2000);  // show splash for 2 seconds
     }
 
     virtual void taskRun() override {
-        static uint8_t bl = 0;
-        static bool blDir = true;
-        if (blDir) {
-            bl += 2;
-            if (bl > 99) blDir = false;
-
-        } else {
-            bl -= 2;
-            if (bl < 2) blDir = true;
-        }
-        output.setBrightnessPercent(bl);
-
         ulong t = millis();
         static ulong last = 0;
         if (t - last < 150) return;
@@ -44,29 +37,24 @@ class Display : public Task {
         output.drawMinor2((float)s.pasLevel);
 
         // ESP_LOGD(taskName(), "Update took %d ms, bl=%d", millis() - t, bl);
+    }
 
-        /*
-        // Fade counter
-        if (output.hasBrightnessControl()) {
-            for (uint8_t p = 80; p > 0; p -= 1) {
-                output.setBrightnessPercent(p);
-                delay(1);
-            }
+    void increaseBrightness() {
+        brightnessPercent++;
+        if (brightnessPercent > 100) {
+            brightnessPercent = 100;
+            return;
         }
-        static uint8_t counter = 0;
-        if (counter > 99) counter = 0;
-        char buf[32];
-        snprintf(buf, sizeof(buf), "%d", counter++);
-        output.clear();
-        output.drawText(buf);
-        delay(100);
-        if (output.hasBrightnessControl()) {
-            for (uint8_t p = 0; p <= 80; p += 1) {
-                output.setBrightnessPercent(p);
-                delay(3);
-            }
+        output.setBrightnessPercent(brightnessPercent);
+    }
+
+    void decreaseBrightness() {
+        brightnessPercent--;
+        if (brightnessPercent < 2) {
+            brightnessPercent = 1;
+            return;
         }
-        */
+        output.setBrightnessPercent(brightnessPercent);
     }
 
    protected:
@@ -81,6 +69,7 @@ class Display : public Task {
         TFT_ROTATION,
         TFT_WIDTH,
         TFT_HEIGHT};
+    uint8_t brightnessPercent = 0;
 };
 
 /*
@@ -125,3 +114,5 @@ uint8_t totalPages = sizeof(pages) / sizeof(PageLayout);
 
 
 */
+
+#endif  // DISPLAY_H

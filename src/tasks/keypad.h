@@ -6,9 +6,11 @@
 
 #include "pins.h"
 #include "model/state.h"
+#include "display.h"
 #include "task.h"
 
 extern State state;
+extern Display display;
 
 class Keypad : public Task {
    public:
@@ -24,6 +26,10 @@ class Keypad : public Task {
         keyUp.attachClick([](void* s) { ((Keypad*)s)->keyUpClick(); }, this);
         keyDown.attachClick([](void* s) { ((Keypad*)s)->keyDownClick(); }, this);
         keyPower.attachClick([](void* s) { ((Keypad*)s)->keyPowerClick(); }, this);
+
+        keyUp.attachDuringLongPress([](void* s) { ((Keypad*)s)->keyUpLongPress(); }, this);
+        keyDown.attachDuringLongPress([](void* s) { ((Keypad*)s)->keyDownLongPress(); }, this);
+        keyPower.attachDuringLongPress([](void* s) { ((Keypad*)s)->keyPowerLongPress(); }, this);
 
         Task::taskSetup();
     }
@@ -59,10 +65,29 @@ class Keypad : public Task {
         state.keyPowerClick = true;
     }
 
+    void keyUpLongPress() {
+        ESP_LOGD(taskName(), "Key up long press");
+        if (lastBrightnessChange + 50 > millis()) return;
+        display.increaseBrightness();
+        lastBrightnessChange = millis();
+    }
+
+    void keyDownLongPress() {
+        ESP_LOGD(taskName(), "Key down long press");
+        if (lastBrightnessChange + 50 > millis()) return;
+        display.decreaseBrightness();
+        lastBrightnessChange = millis();
+    }
+
+    void keyPowerLongPress() {
+        ESP_LOGD(taskName(), "Key power long press");
+    }
+
    protected:
     OneButton keyUp;
     OneButton keyDown;
     OneButton keyPower;
+    uint32_t lastBrightnessChange = 0;
 };
 
 #endif  // KEYPAD_H

@@ -35,6 +35,8 @@ class ST7789 : public DisplayDriver {
             while (true) delay(1000);
         }
 
+        clear();
+
         if (!canvasMajor->begin(GFX_SKIP_OUTPUT_BEGIN) ||
             !canvasMinor1->begin(GFX_SKIP_OUTPUT_BEGIN) ||
             !canvasMinor2->begin(GFX_SKIP_OUTPUT_BEGIN)) {
@@ -42,16 +44,15 @@ class ST7789 : public DisplayDriver {
             while (true) delay(1000);
         }
 
-        clear();
-
         canvasMajor->setTextColor(WHITE, BLACK);
         canvasMinor1->setTextColor(WHITE, BLACK);
         canvasMinor2->setTextColor(WHITE, BLACK);
+    }
 
+    void splash() override {
         canvasMajor->fillScreen(BLACK);
         canvasMinor1->fillScreen(BLACK);
         canvasMinor2->fillScreen(BLACK);
-
         canvasMajor->drawRect(0, 0, canvasMajor->width(), canvasMajor->height(), WHITE);
         canvasMinor1->drawRect(0, 0, canvasMinor1->width(), canvasMinor1->height(), WHITE);
         canvasMinor2->drawRect(0, 0, canvasMinor2->width(), canvasMinor2->height(), WHITE);
@@ -59,8 +60,6 @@ class ST7789 : public DisplayDriver {
         canvasMajor->flush();
         canvasMinor1->flush();
         canvasMinor2->flush();
-        setBrightnessPercent(100);
-        delay(2000);  // show rects for 2 seconds
     }
 
     void clear() override {
@@ -98,42 +97,39 @@ class ST7789 : public DisplayDriver {
     }
 
     void drawMajor(float v) override {
+        bool invert = state.keyUpClick;
+        state.keyUpClick = false;
         drawCanvas(
             canvasMajor,
             v,
             v >= 100.0f ? mediumFont : largeFont,
-            state.keyUpClick,
+            invert,
             2,
             5);
-        if (state.keyUpClick) {
-            state.keyUpClick = false;
-        }
     }
 
     void drawMinor1(float v) override {
+        bool invert = state.keyDownClick;
+        state.keyDownClick = false;
         drawCanvas(
             canvasMinor1,
             v,
             v >= 100.0f ? mediumFont : largeFont,
-            state.keyDownClick,
+            invert,
             1,
             2);
-        if (state.keyDownClick) {
-            state.keyDownClick = false;
-        }
     }
 
     void drawMinor2(float v) override {
+        bool invert = state.keyPowerClick;
+        state.keyPowerClick = false;
         drawCanvas(
             canvasMinor2,
             v,
             v >= 100.0f ? mediumFont : largeFont,
-            state.keyPowerClick,
+            invert,
             1,
             2);
-        if (state.keyPowerClick) {
-            state.keyPowerClick = false;
-        }
     }
 
     void fillScreen(uint16_t color) override {
@@ -144,9 +140,23 @@ class ST7789 : public DisplayDriver {
         tft->setRotation(rotation);
     }
 
+    // exponential curve biased towards the low end
     void setBrightnessPercent(uint8_t p) override {
         if (!hasBacklight()) return;
-        analogWrite((uint8_t)bl, (p * 255) / 100);
+        if (p == 0) {
+            analogWrite((uint8_t)bl, 0);
+            return;
+        }
+
+        // loosely follows Weber's law
+        // uint8_t val = (uint8_t)(255.0f * (expf(p / 100.0f) - 1.0f) / (expf(1.0f) - 1.0f));
+
+        // tunable gamma-squared curve
+        constexpr float GAMMA = 3.0f;
+        uint8_t val = (uint8_t)(254.0f * powf(p / 100.0f, GAMMA)) + 1;
+
+        ESP_LOGD(tag, "setBrightnessPercent(%d) -> %d", p, val);
+        analogWrite((uint8_t)bl, val);
     }
 
     bool hasBacklight() override {

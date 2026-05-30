@@ -4,6 +4,7 @@ class DisplayDriver {
    public:
     virtual void setup() = 0;
     virtual void clear() = 0;
+    virtual void splash() = 0;
     virtual void drawText(const char* text) = 0;
     virtual void drawMajor(float v) = 0;
     virtual void drawMinor1(float v) = 0;
