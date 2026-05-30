@@ -45,18 +45,18 @@ class Keypad : public Task {
     void keyUpClick() {
         ESP_LOGD(taskName(), "Key up click");
         display.keyUpClick();
-        auto pasLevel = state.pasLevel();
-        if (pasLevel < 5) {
-            state.pasLevel(pasLevel + 1);
+        auto pasLevelRequested = state.pasLevelRequested();
+        if (pasLevelRequested < 5) {
+            state.pasLevelRequested(pasLevelRequested + 1);
         }
     }
 
     void keyDownClick() {
         ESP_LOGD(taskName(), "Key down click");
         display.keyDownClick();
-        auto pasLevel = state.pasLevel();
-        if (pasLevel > -1) {
-            state.pasLevel(pasLevel - 1);
+        auto pasLevelRequested = state.pasLevelRequested();
+        if (pasLevelRequested > -1) {
+            state.pasLevelRequested(pasLevelRequested - 1);
         }
     }
 
@@ -66,15 +66,26 @@ class Keypad : public Task {
     }
 
     void keyUpLongPress() {
-        ESP_LOGD(taskName(), "Key up long press");
         if (lastBrightnessChange + 50 > millis()) return;
+        static uint32_t lastLog = 0;
+        if (millis() - lastLog > 500) {
+            ESP_LOGD(taskName(), "Key up long press (increase brightness)");
+            lastLog = millis();
+        }
         display.increaseBrightness();
         lastBrightnessChange = millis();
     }
 
     void keyDownLongPress() {
-        ESP_LOGD(taskName(), "Key down long press");
         if (lastBrightnessChange + 50 > millis()) return;
+        bool isWalkAssist = state.pasLevel() == -1;
+        static uint32_t lastLog = 0;
+        if (millis() - lastLog > 500) {
+            ESP_LOGW(taskName(), "Key down long press (%s)",
+                     isWalkAssist ? "walk assist" : "decrease brightness");
+            lastLog = millis();
+        }
+        if (isWalkAssist) return;
         display.decreaseBrightness();
         lastBrightnessChange = millis();
     }

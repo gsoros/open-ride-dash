@@ -4,7 +4,9 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
 
-State::State() {}
+State::State() {
+    mutex = xSemaphoreCreateMutex();
+}
 
 void State::setup() {
     registerApiCommands();
@@ -19,7 +21,7 @@ void State::registerApiCommands() {
             State::Snapshot s = getSnapshot();
             snprintf((char*)reply.data, sizeof(reply.data), "{\"speed\":%.2f,\"pas\":%d,\"torque\":%u,\"cadence\":%u,\"wheelSp\":%.1f,\"current\":%.1f,\"voltage\":%.1f,\"motor\":%uC,\"contr\":%uC,\"wheelM\":%.1f,\"wheelSi\":%u,\"wheelC\":%u}",
                      s.speed(),
-                     s.pasLevel,
+                     s.pasLevelRequested,
                      s.torque,
                      s.cadence,
                      s.wheelSpeed_x10 / 10.0f,
@@ -35,17 +37,35 @@ void State::registerApiCommands() {
         "Usage: state\nShows some current values.");
 }
 
+void State::odo_mx10(uint32_t v) {
+    setUInt32(&_latest.odo_mx10, v);
+}
+uint32_t State::odo_mx10() {
+    return getUInt32(&_latest.odo_mx10);
+}
+void State::trip_mx10(uint32_t v) {
+    setUInt32(&_latest.trip_mx10, v);
+}
+uint32_t State::trip_mx10() {
+    return getUInt32(&_latest.trip_mx10);
+}
+void State::pasLevelRequested(int8_t l) {
+    setInt8(&_latest.pasLevelRequested, l);
+}
+int8_t State::pasLevelRequested() {
+    return getInt8(&_latest.pasLevelRequested);
+}
 void State::pasLevel(int8_t l) {
     setInt8(&_latest.pasLevel, l);
 }
 int8_t State::pasLevel() {
     return getInt8(&_latest.pasLevel);
 }
-void State::torque(uint32_t v) {
-    setUInt32(&_latest.torque, v);
+void State::torque(uint16_t v) {
+    setUInt16(&_latest.torque, v);
 }
-uint32_t State::torque() {
-    return getUInt32(&_latest.torque);
+uint16_t State::torque() {
+    return getUInt16(&_latest.torque);
 }
 void State::cadence(uint8_t v) {
     setUInt8(&_latest.cadence, v);
@@ -104,162 +124,156 @@ uint16_t State::wheelCircumference() {
     return getUInt16(&_latest.wheelCircumference);
 }
 
-State::Snapshot State::getSnapshot() {
-    ensureMutex();
+bool State::aquireMutex() {
+    return xSemaphoreTake(mutex, portMAX_DELAY)  //
+           == pdTRUE;
+}
+
+void State::releaseMutex() {
+    xSemaphoreGive(  //
+        mutex);
+}
+
+State::Snapshot State::getSnapshot(bool withMutex) {
     Snapshot s = {};
-    if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE) {
+    if (!withMutex || (withMutex && aquireMutex())) {
         s = _latest;
-        xSemaphoreGive(mutex);
+        if (withMutex) releaseMutex();
     }
     return s;
 }
 
+void State::setSnapshot(Snapshot s, bool withMutex) {
+    if (!withMutex || (withMutex && aquireMutex())) {
+        _latest = s;
+        if (withMutex) releaseMutex();
+    }
+}
+
 void State::setInt8(int8_t* i, int8_t v) {
-    ensureMutex();
-    if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE) {
+    if (aquireMutex()) {
         *i = v;
-        xSemaphoreGive(mutex);
+        releaseMutex();
     }
 }
 
 void State::setUInt8(uint8_t* i, uint8_t v) {
-    ensureMutex();
-    if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE) {
+    if (aquireMutex()) {
         *i = v;
-        xSemaphoreGive(mutex);
+        releaseMutex();
     }
 }
 
 void State::setInt16(int16_t* i, int16_t v) {
-    ensureMutex();
-    if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE) {
+    if (aquireMutex()) {
         *i = v;
-        xSemaphoreGive(mutex);
+        releaseMutex();
     }
 }
 
 void State::setUInt16(uint16_t* i, uint16_t v) {
-    ensureMutex();
-    if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE) {
+    if (aquireMutex()) {
         *i = v;
-        xSemaphoreGive(mutex);
+        releaseMutex();
     }
 }
 
 void State::setInt32(int32_t* i, int32_t v) {
-    ensureMutex();
-    if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE) {
+    if (aquireMutex()) {
         *i = v;
-        xSemaphoreGive(mutex);
+        releaseMutex();
     }
 }
 
 void State::setUInt32(uint32_t* i, uint32_t v) {
-    ensureMutex();
-    if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE) {
+    if (aquireMutex()) {
         *i = v;
-        xSemaphoreGive(mutex);
+        releaseMutex();
     }
 }
 
 void State::setFloat(float* f, float v) {
-    ensureMutex();
-    if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE) {
+    if (aquireMutex()) {
         *f = v;
-        xSemaphoreGive(mutex);
+        releaseMutex();
     }
 }
 
 void State::setBool(bool* b, bool v) {
-    ensureMutex();
-    if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE) {
+    if (aquireMutex()) {
         *b = v;
-        xSemaphoreGive(mutex);
+        releaseMutex();
     }
 }
 
 int8_t State::getInt8(int8_t* i) {
-    ensureMutex();
     int8_t v = 0;
-    if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE) {
+    if (aquireMutex()) {
         v = *i;
-        xSemaphoreGive(mutex);
+        releaseMutex();
     }
     return v;
 }
 
 uint8_t State::getUInt8(uint8_t* i) {
-    ensureMutex();
     uint8_t v = 0;
-    if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE) {
+    if (aquireMutex()) {
         v = *i;
-        xSemaphoreGive(mutex);
+        releaseMutex();
     }
     return v;
 }
 
 int16_t State::getInt16(int16_t* i) {
-    ensureMutex();
     int16_t v = 0;
-    if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE) {
+    if (aquireMutex()) {
         v = *i;
-        xSemaphoreGive(mutex);
+        releaseMutex();
     }
     return v;
 }
 
 uint16_t State::getUInt16(uint16_t* i) {
-    ensureMutex();
     uint16_t v = 0;
-    if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE) {
+    if (aquireMutex()) {
         v = *i;
-        xSemaphoreGive(mutex);
+        releaseMutex();
     }
     return v;
 }
 
 int32_t State::getInt32(int32_t* i) {
-    ensureMutex();
     int32_t v = 0;
-    if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE) {
+    if (aquireMutex()) {
         v = *i;
-        xSemaphoreGive(mutex);
+        releaseMutex();
     }
     return v;
 }
 
 uint32_t State::getUInt32(uint32_t* i) {
-    ensureMutex();
     uint32_t v = 0;
-    if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE) {
+    if (aquireMutex()) {
         v = *i;
-        xSemaphoreGive(mutex);
+        releaseMutex();
     }
     return v;
 }
 
 float State::getFloat(float* f) {
-    ensureMutex();
     float v = 0.0f;
-    if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE) {
+    if (aquireMutex()) {
         v = *f;
-        xSemaphoreGive(mutex);
+        releaseMutex();
     }
     return v;
 }
 
 bool State::getBool(bool* b) {
-    ensureMutex();
     bool v = false;
-    if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE) {
+    if (aquireMutex()) {
         v = *b;
-        xSemaphoreGive(mutex);
+        releaseMutex();
     }
     return v;
-}
-
-void State::ensureMutex() {
-    if (mutex == nullptr) {
-        mutex = xSemaphoreCreateMutex();
-    }
 }

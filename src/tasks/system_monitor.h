@@ -16,6 +16,7 @@ class SystemMonitor : public Task {
     }
 
     virtual void taskRun() override {
+        return;  // disable for testing
         uint32_t t = millis();
         static uint32_t lastMonitor = 0;
         if (t - lastMonitor >= 10000) {
@@ -30,14 +31,14 @@ class SystemMonitor : public Task {
             }
         }
 
-        static uint32_t lastState = 0;
-        if (t - lastState >= 500) {
-            lastState = t;
+        static uint32_t lastStateLog = 0;
+        if (t - lastStateLog >= 5000) {
+            lastStateLog = t;
             state.getSnapshot();
             State::Snapshot s = state.getSnapshot();
             ESP_LOGI(taskName(), "speed: %.2f, pas: %d, torque: %u, cadence: %u, wheelSp: %.1f, current: %.1f, voltage: %.1f, motorT: %u, contrT: %uC, wheelMax: %.1f, wheelSi: %u, wheelC: %u}",
                      s.speed(),
-                     s.pasLevel,
+                     s.pasLevelRequested,
                      s.torque,
                      s.cadence,
                      s.wheelSpeed_x10 / 10.0f,

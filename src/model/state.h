@@ -6,13 +6,16 @@
 class State {
    public:
     struct Snapshot {
-        uint32_t torque = 0;               // Raw sensor reading (Needs calibration factor to become Nm)
+        uint32_t odo_mx10 = 0;             // m * 10
+        uint32_t trip_mx10 = 0;            // m * 10
+        uint16_t torque = 0;               // Raw sensor reading (Needs calibration factor to become Nm)
         uint16_t wheelSpeed_x10 = 0;       // RPM * 10
         uint16_t wheelMaxSpeed_x100 = 0;   // RPM * 100
         uint16_t batteryVoltage_x100 = 0;  // V * 100
         uint16_t batteryCurrent_x20 = 0;   // A * 20
         uint16_t wheelCircumference = 0;   // mm
-        int8_t pasLevel = 0;               // Pedal Assist Level (-1 walk assist, 0 off, 1-5 PAS)
+        int8_t pasLevelRequested = 0;      // Pedal Assist Level (-1 walk assist, 0 off, 1-5 PAS)
+        int8_t pasLevel = 0;               // - || -
         uint8_t cadence = 0;               // RPM
         uint8_t motorTemp = 0;             // °C
         uint8_t controllerTemp = 0;        // °C
@@ -32,9 +35,9 @@ class State {
 
         // Calculates human mechanical power in Watts
         float humanPower() {
-            // TODO: Replace '1.0f' with raw-to-Nm calibration factor
-            float torqueNm = (float)torque * 1.0f;
-            return (float)cadence * torqueNm * 0.104719f;
+            // TODO: Replace with a real raw-to-Nm calibration factor
+            constexpr float torqueNmFactor = 33.0f;
+            return (float)cadence * (float)torque / torqueNmFactor * 0.104719f;
         }
     };
 
@@ -44,10 +47,16 @@ class State {
 
     void registerApiCommands();
 
+    void odo_mx10(uint32_t v);
+    uint32_t odo_mx10();
+    void trip_mx10(uint32_t v);
+    uint32_t trip_mx10();
+    void pasLevelRequested(int8_t l);
+    int8_t pasLevelRequested();
     void pasLevel(int8_t l);
     int8_t pasLevel();
-    void torque(uint32_t v);
-    uint32_t torque();
+    void torque(uint16_t v);
+    uint16_t torque();
     void cadence(uint8_t v);
     uint8_t cadence();
 
@@ -69,7 +78,10 @@ class State {
     void wheelCircumference(uint16_t v);
     uint16_t wheelCircumference();
 
-    Snapshot getSnapshot();
+    bool aquireMutex();
+    void releaseMutex();
+    Snapshot getSnapshot(bool withMutex = true);
+    void setSnapshot(Snapshot s, bool withMutex = true);
 
    protected:
     Snapshot _latest;

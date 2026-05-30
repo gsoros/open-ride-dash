@@ -27,11 +27,8 @@ class CAN : public Task {
         // settings.mRequestedCANMode = ACANSettings::LoopBackMode;  // Receive own messages
         // TODO: Setup HW filters
         const uint32_t errorCode = ACAN::can.begin(settings);
-        if (errorCode == 0) {
-            ESP_LOGD(taskName(), "Init Success");
-        } else {
+        if (errorCode != 0)
             ESP_LOGE(taskName(), "Init failed, error: 0x%X", errorCode);
-        }
         Task::taskSetup();
     }
 
@@ -57,30 +54,162 @@ class CAN : public Task {
         // https://github.com/andrey-pr/Bafang_M500_M600-Readme/blob/main/CANBUS/readme.md
 
         ACANMessage frame;
-        uint32_t rxLoop = 0;
-        while (ACAN::can.receive(frame)) {
-            received += 1;
 
+        while (ACAN::can.receive(frame)) {
+            received++;
             switch (frame.id) {
-                case 0x01F83100: {
-                    state.torque((uint16_t)(frame.data[1] << 8) | frame.data[0]);
-                    state.cadence(frame.data[2]);
+                case 0x02F83200: {  // Cadence and torque
+                    /*
+                    Working theory:
+
+                    Byte   Field              Detail
+                    [0]    motor status       0x5B = active, 0x5A = shutting down
+                    [1]    sequence counter   +1 every 2 seconds while motor is active, stops when idle
+                    [2]    unknown            always 0x00
+                    [3]    cadence            RPM
+                    [4:5]  torque             750: idle
+                    [6:7]  unknown
+                    */
+                    uint8_t cadence = frame.data[3];
+                    uint16_t torque = ((uint16_t)(frame.data[5] << 8) | frame.data[4]) - 750;
+                    static uint8_t lastCadence = 0;
+                    static uint16_t lastTorque = 0;
+                    if (cadence == lastCadence && torque == lastTorque) break;
+                    lastCadence = cadence;
+                    lastTorque = torque;
+                    float humanPower = 0.0f;
+                    if (state.aquireMutex()) {
+                        State::Snapshot s = state.getSnapshot(false);
+                        s.cadence = cadence;
+                        s.torque = torque;
+                        state.setSnapshot(s, false);
+                        state.releaseMutex();
+                        humanPower = s.humanPower();
+                    }
+                    ESP_LOGD(taskName(), "Parsed: cadence: %u, raw torque: %u, human power: %.1f", cadence, torque, humanPower);
                     break;
                 }
-                case 0x02F83201: {
-                    state.wheelSpeed_x10((uint16_t)(frame.data[1] << 8) | frame.data[0]);
-                    state.batteryCurrent_x20((uint16_t)(frame.data[3] << 8) | frame.data[2]);
-                    state.batteryVoltage_x100((uint16_t)(frame.data[5] << 8) | frame.data[4]);
+
+                case 0x02F83201: {  // Wheel speed, current, voltage, motor temp, controller temp
+                    uint16_t wheelSpeed_x10 = (uint16_t)(frame.data[1] << 8) | frame.data[0];
+                    state.wheelSpeed_x10(wheelSpeed_x10);
+                    uint16_t batteryCurrent_x20 = (uint16_t)(frame.data[3] << 8) | frame.data[2];
+                    state.batteryCurrent_x20(batteryCurrent_x20);
+                    uint16_t batteryVoltage_x100 = (uint16_t)(frame.data[5] << 8) | frame.data[4];
+                    state.batteryVoltage_x100(batteryVoltage_x100);
                     state.motorTemp((int8_t)frame.data[6] - 40);
                     state.controllerTemp((int8_t)frame.data[7] - 40);
+                    char speedBuf[64] = {};
+                    snprintf(speedBuf, sizeof(speedBuf),
+                             "%.1f, current: %.1f, voltage: %.1f",
+                             wheelSpeed_x10 / 10.0f,
+                             batteryCurrent_x20 / 20.0f,
+                             batteryVoltage_x100 / 100.0f);
+                    static char lastSpeedBuf[64] = {};
+                    if (strcmp(speedBuf, lastSpeedBuf) != 0) {
+                        ESP_LOGD(taskName(), "Parsed: Wheel speed: %s", speedBuf);
+                        strncpy(lastSpeedBuf, speedBuf, sizeof(lastSpeedBuf));
+                    }
                     break;
                 }
-                case 0x02F83203: {
+                case 0x02F83203: {  // Wheel max speed, wheel size, wheel circumference
                     state.wheelMaxSpeed_x100((uint16_t)(frame.data[1] << 8) | frame.data[0]);
                     uint8_t highNibble = frame.data[3] >> 4;
                     uint8_t lowNibble = frame.data[2] & 0x0F;
                     state.wheelSize((highNibble * 10) + lowNibble);
                     state.wheelCircumference((uint16_t)(frame.data[5] << 8) | frame.data[4]);
+                    break;
+                }
+                case 0x02F83204: {  // every ~50 ms, data: 0x10000000
+                    static char last02F83204Hexbuf[32] = {};
+                    char hexbuf[32] = {};
+                    hexToStr(hexbuf, sizeof(hexbuf), frame.data, frame.len);
+                    if (strcmp(hexbuf, last02F83204Hexbuf) == 0) break;
+                    ESP_LOGD(taskName(), "Unparsed: ID 0x02F83204 (prob. every ~50 ms), len: %d, data: [%s]", frame.len, hexbuf);
+                    strncpy(last02F83204Hexbuf, hexbuf, sizeof(last02F83204Hexbuf));
+                    break;
+                }
+                case 0x02F83206: {  // PAS level
+                    // byte[0] matches keepalive pasByte values exactly (0x0b, 0x0d, etc.),
+                    // bytes[1:3]  might encode error flags or mode state
+                    int8_t newPas = INT8_MIN;
+                    switch (frame.data[0]) {
+                        case 0x06:  // Walk assist
+                            newPas = -1;
+                            break;
+                        case 0x00:  // Off
+                            newPas = 0;
+                            break;
+                        case 0x0b:
+                            newPas = 1;
+                            break;
+                        case 0x0d:
+                            newPas = 2;
+                            break;
+                        case 0x15:
+                            newPas = 3;
+                            break;
+                        case 0x17:
+                            newPas = 4;
+                            break;
+                        case 0x03:
+                            newPas = 5;
+                            break;
+                        default:
+                            ESP_LOGE(taskName(), "Unknown PAS level: 0x%X", frame.data[0]);
+                            break;
+                    }
+                    if (newPas == INT8_MIN) break;
+                    static int8_t lastPas = INT8_MIN;
+                    if (newPas != lastPas) {
+                        ESP_LOGD(taskName(), "PAS level: %d%s", newPas,
+                                 newPas == 0    ? " (off)"          //
+                                 : newPas == -1 ? " (walk assist)"  //
+                                                : "");
+                        lastPas = newPas;
+                    }
+                    state.pasLevel(newPas);
+                    break;
+                }
+                case 0x02F83210: {  // ??
+                    static char last0x02F83210Hexbuf[32] = {};
+                    char hexbuf[32] = {};
+                    hexToStr(hexbuf, sizeof(hexbuf), frame.data, frame.len);
+                    if (strcmp(hexbuf, last0x02F83210Hexbuf) == 0) break;
+                    ESP_LOGD(taskName(), "Unparsed: ID 0x02F83210, len: %d, data: [%s]", frame.len, hexbuf);
+                    strncpy(last0x02F83210Hexbuf, hexbuf, sizeof(last0x02F83210Hexbuf));
+                    break;
+                }
+                case 0x02F8320E: {  // Odo and trip distance
+                    if (frame.len != 8) {
+                        char hexbuf[32] = {};
+                        hexToStr(hexbuf, sizeof(hexbuf), frame.data, frame.len);
+                        ESP_LOGD(taskName(), "ODO wrong len: %d, data: [%s]", frame.len, hexbuf);
+                        break;
+                    }
+                    uint32_t odo_mx10 = (uint32_t)(frame.data[3] << 24) | (uint32_t)(frame.data[2] << 16) | (uint32_t)(frame.data[1] << 8) | frame.data[0];
+                    uint32_t trip_mx10 = (uint32_t)(frame.data[7] << 24) | (uint32_t)(frame.data[6] << 16) | (uint32_t)(frame.data[5] << 8) | frame.data[4];
+                    state.odo_mx10(odo_mx10);
+                    state.trip_mx10(trip_mx10);
+                    static uint32_t lastOdo = 0;
+                    static uint32_t lastTrip = 0;
+                    if (odo_mx10 != lastOdo || trip_mx10 != lastTrip) {
+                        ESP_LOGD(taskName(), "Parsed: Odometer: %.0f km, trip: %.1f km",
+                                 odo_mx10 / 100.0f, trip_mx10 / 100.0f);
+                        lastOdo = odo_mx10;
+                        lastTrip = trip_mx10;
+                    }
+                    break;
+                }
+
+                default: {
+                    if (frame.data[0] == 0 && frame.data[1] == 0 && frame.data[2] == 0 && frame.data[3] == 0) {
+                        // Ignore empty frames
+                        break;
+                    }
+                    char hexbuf[32] = {};
+                    hexToStr(hexbuf, sizeof(hexbuf), frame.data, frame.len);
+                    ESP_LOGD(taskName(), "Unknown frame ID: 0x%08X len=%d Data: [%s]", frame.id, frame.len, hexbuf);
                     break;
                 }
             }
@@ -106,7 +235,7 @@ class CAN : public Task {
         // Send keepalive message every ~100ms
         if (t - lastKeepalive > 100) {
             uint8_t pasByte = 0x00;
-            switch (state.pasLevel()) {
+            switch (state.pasLevelRequested()) {
                 case -1:  // Walk assist
                     pasByte = 0x06;
                     break;
@@ -140,15 +269,29 @@ class CAN : public Task {
                 lastKeepalive = t;
             }
         }
-
-        // static uint32_t lastLog = 0;
-        // if (t - lastLog > 3000) {
-        //     lastLog = t;
-        //     ESP_LOGD(taskName(), "Sent: %u, Received: %u", sent, received);
-        // }
     }
 
    protected:
+    void
+    hexToStr(char* buf, size_t bufSize,
+             const uint8_t* data, size_t dataSize) {
+        if (bufSize == 0) return;
+        if (dataSize > 0 && bufSize < dataSize * 3) return;
+
+        static const char hex[] = "0123456789ABCDEF";
+
+        char* p = buf;
+
+        for (size_t i = 0; i < dataSize; ++i) {
+            *p++ = hex[data[i] >> 4];
+            *p++ = hex[data[i] & 0x0F];
+
+            if (i + 1 < dataSize)
+                *p++ = ' ';
+        }
+
+        *p = '\0';
+    }
 };
 
 #endif  // CAN_H
