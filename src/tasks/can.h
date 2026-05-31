@@ -37,17 +37,24 @@ class CAN : public Task {
         static uint32_t received = 0;
         static uint16_t rxBufferOverflows = 0;
         static uint16_t txBufferOverflows = 0;
+        static uint32_t lastOverflowLog = 0;
         uint32_t t = millis();
 
         if (ACAN::can.driverReceiveBufferPeakCount() >= ACAN::can.driverReceiveBufferSize()) {
             rxBufferOverflows++;
             ACAN::can.resetDriverReceiveBufferPeakCount();
-            ESP_LOGW(taskName(), "RX Buffer overflows: %u", rxBufferOverflows);
+            if (t - lastOverflowLog > 10000) {
+                ESP_LOGW(taskName(), "RX Buffer overflows: %u", rxBufferOverflows);
+                lastOverflowLog = t;
+            }
         }
         if (ACAN::can.driverTransmitBufferPeakCount() >= ACAN::can.driverTransmitBufferSize()) {
             txBufferOverflows++;
             ACAN::can.resetDriverTransmitBufferPeakCount();
-            ESP_LOGW(taskName(), "TX Buffer overflows: %u", txBufferOverflows);
+            if (t - lastOverflowLog > 10000) {
+                ESP_LOGW(taskName(), "TX Buffer overflows: %u", txBufferOverflows);
+                lastOverflowLog = t;
+            }
         }
 
         // https://github.com/OpenSourceEBike/EV_Display_Bluetooth_Ant/blob/main/firmware/display/can.c
@@ -198,6 +205,18 @@ class CAN : public Task {
                     break;
                 }
 
+                case 0x02F83208: {  // [2] ???
+                    // High-frequency bursts when pedaling: raw torque sensor tick stream?
+                    // 5-8 frames at ~200ms intervals with values like
+                    // 0x2E, 0x30, 0x46, 0x9C that look like inter-pulse timing
+                    uint16_t tick = (uint16_t)(frame.data[1] << 8) | frame.data[0];
+                    char hexbuf[32] = {};
+                    hexToStr(hexbuf, sizeof(hexbuf), frame.data, frame.len);
+                    ESP_LOGD(taskName(), "Unparsed: ID 0x02F83208 (%d: torque tick? ), len: %d, data: [%s]",
+                             tick, frame.len, hexbuf);
+                    break;
+                }
+
                 case 0x02F83210: {  // [8] time in motion counter
                     // B[0:3] = constant 0x1AF10635 (serial or session token),
                     // B[4:7] = increments exactly every 1000ms while the wheel is moving,
@@ -233,10 +252,8 @@ class CAN : public Task {
                 }
 
                 default: {
-                    if (frame.data[0] == 0 && frame.data[1] == 0 && frame.data[2] == 0 && frame.data[3] == 0) {
-                        // Ignore empty frames
-                        break;
-                    }
+                    if (frame.data[0] == 0 && frame.data[1] == 0 && frame.data[2] == 0 && frame.data[3] == 0) break;  // Ignore empty frames
+
                     char hexbuf[32] = {};
                     hexToStr(hexbuf, sizeof(hexbuf), frame.data, frame.len);
                     ESP_LOGD(taskName(), "Unknown frame ID: 0x%08X len=%d Data: [%s]", frame.id, frame.len, hexbuf);
@@ -304,9 +321,8 @@ class CAN : public Task {
     }
 
    protected:
-    void
-    hexToStr(char* buf, size_t bufSize,
-             const uint8_t* data, size_t dataSize) {
+    void hexToStr(char* buf, size_t bufSize,
+                  const uint8_t* data, size_t dataSize) {
         if (bufSize == 0) return;
         if (dataSize > 0 && bufSize < dataSize * 3) return;
 
