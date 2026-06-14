@@ -94,22 +94,6 @@ class ST7789_240x240 : public DisplayDriver {
         METRIC_COUNT        // total number of metrics
     };
 
-    struct Metric {
-        MetricID id;
-        const char* name;  // Short name for the metric, e.g. "Speed", "Cadence", etc.
-        char label[5];     // All-Caps label for the metric, max 4 chars + null terminator
-        const char* unit;
-
-        // Function to get the value of the metric from the State::Snapshot
-        // If the snapshot is null, get the value from the latest state using getSnapshot(true).
-        std::function<uint16_t(State::Snapshot* snapshot)> value = nullptr;
-
-        // Function to format the value of the metric into a string for display
-        // If the value is null, get the value from the latest state using value().
-        // isNumeric is set to true if formatted string is numeric, false if it contains non-numeric characters (e.g. ODO: "12k", PAS: "off", PAS: "wlk").
-        std::function<void(char* buffer, size_t bufferSize, uint16_t* value, bool* isNumeric)> format = nullptr;
-    };
-
     struct PageLayout {
         MetricID major;
         MetricID minor1;
@@ -121,38 +105,6 @@ class ST7789_240x240 : public DisplayDriver {
         const char* name;
         const char* label;
         const char* unit;
-    };
-
-    struct Area {
-        uint8_t width() { return canvas ? (uint8_t)canvas->width() : 0; }
-        uint8_t height() { return canvas ? (uint8_t)canvas->height() : 0; }
-        uint8_t x = 0;
-        uint8_t y = 0;
-        Arduino_Canvas_Mono* canvas = nullptr;
-        GFXfont* twoDigitFont = nullptr;
-        GFXfont* threeDigitFont = nullptr;
-        GFXfont* labelFont = nullptr;
-        std::function<bool(void)> inverted = nullptr;
-        std::function<bool(void)> dirty = nullptr;
-        Area(
-            uint8_t w,
-            uint8_t h,
-            uint8_t x,
-            uint8_t y,
-            Arduino_GFX* bus,
-            GFXfont* twoDigitFont,
-            GFXfont* threeDigitFont,
-            GFXfont* labelFont,
-            std::function<bool(void)> inverted,
-            std::function<bool(void)> dirty) : x(x),
-                                               y(y),
-                                               twoDigitFont(twoDigitFont),
-                                               threeDigitFont(threeDigitFont),
-                                               labelFont(labelFont),
-                                               inverted(inverted),
-                                               dirty(dirty) {
-            canvas = new Arduino_Canvas_Mono((int16_t)w, (int16_t)h, bus, (int16_t)x, (int16_t)y);
-        };
     };
 
     ST7789_240x240(

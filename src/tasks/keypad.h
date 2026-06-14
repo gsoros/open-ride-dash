@@ -71,7 +71,7 @@ class Keypad : public Task {
 
     void keyUpLongPress() {
         if (handlePageMenuChord()) return;
-        if (display.menuActive()) return;
+        // if (display.menuActive()) return;
         if (lastBrightnessChange + 50 > millis()) return;
         static uint32_t lastLog = 0;
         if (millis() - lastLog > 500) {
@@ -84,7 +84,7 @@ class Keypad : public Task {
 
     void keyDownLongPress() {
         if (handlePageMenuChord()) return;
-        if (display.menuActive()) return;
+        // if (display.menuActive()) return;
         if (lastBrightnessChange + 50 > millis()) return;
         bool isWalkAssist = state.pasLevel() == -1;
         static uint32_t lastLog = 0;
