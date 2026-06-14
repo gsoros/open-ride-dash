@@ -4,7 +4,7 @@
 #include <Arduino.h>
 #include <ACAN_ESP32.h>
 
-#include "pins.h"
+#include "config.h"
 #include "model/state.h"
 #include "task.h"
 

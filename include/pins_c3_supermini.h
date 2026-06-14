@@ -6,7 +6,6 @@
 
 #define I2C_SDA 5
 #define I2C_SCL 9
-
 #define MPU_INT 3
 
 #define SPI_SCK 6

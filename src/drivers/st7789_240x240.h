@@ -1,9 +1,11 @@
-#ifndef ST7789_H
-#define ST7789_H
+/* ST7789 240x240 Display Driver */
+
+#ifndef ST7789_240x240_H
+#define ST7789_240x240_H
 
 #include <Arduino_GFX_Library.h>
 
-#include "display.h"
+#include "display_driver.h"
 #include "model/state.h"
 
 extern State state;
@@ -11,14 +13,99 @@ extern State state;
 #include "RobotoMono_bold48pt7b_digits.h"
 #include "RobotoMono_bold30pt7b_digits.h"
 
-class ST7789 : public DisplayDriver {
+class ST7789_240x240 : public DisplayDriver {
    public:
-    ST7789(int8_t cs, int8_t dc, int8_t mosi, int8_t sck, int8_t rst = -1, int8_t bl = -1, uint8_t spi = SPI2_HOST, uint8_t rot = 0, uint16_t w = 240, uint16_t h = 240)
+    /*
+
+    enum MetricID {
+        METRIC_SPEED,
+        METRIC_CADENCE,
+        METRIC_PAS,
+        METRIC_MOTOR_PWR,
+        METRIC_HUMAN_PWR,
+        METRIC_VOLTAGE,
+        METRIC_SOC,
+        METRIC_RANGE,
+        METRIC_HEART_RATE,
+        METRIC_BODY_TEMP,
+        METRIC_COUNT
+    };
+
+    struct Metric {
+        MetricID id;
+        const char* name;
+        float value;
+        const char* unit;
+    };
+
+    // Global struct to hold live data
+    struct TelemetryData {
+        float values[METRIC_COUNT];
+        const char* units[METRIC_COUNT];
+    };
+
+    TelemetryData liveData = {
+        .units = {
+            "km/h",
+            "rpm",
+            "PAS",
+            "W",
+            "W",
+            "V",
+            "%",
+            "km",
+            "bpm",
+            "°C"
+        }
+    };
+
+    // Define what goes on each page
+    struct PageLayout {
+        MetricID major;
+        MetricID minor1;
+        MetricID minor2;
+    };
+
+    PageLayout pages[] = {
+        { METRIC_SPEED,     METRIC_PAS,        METRIC_SOC },       // Page 1: Standard Cruise
+        { METRIC_HUMAN_PWR, METRIC_MOTOR_PWR,  METRIC_CADENCE },   // Page 2: Power & Performance
+        { METRIC_SPEED,     METRIC_HEART_RATE, METRIC_RANGE }      // Page 3: Fitness & Range
+    };
+
+    uint8_t currentPage = 0;
+    uint8_t totalPages = sizeof(pages) / sizeof(PageLayout);
+
+
+    */
+
+    struct Area {
+        uint8_t x = 0;
+        uint8_t y = 0;
+        uint8_t w = 0;
+        uint8_t h = 0;
+        Arduino_Canvas_Mono* canvas = nullptr;
+        GFXfont* twoDigitFont = nullptr;
+        GFXfont* threeDigitFont = nullptr;
+        std::function<bool(void)> inverted = nullptr;
+        std::function<bool(void)> needsRefresh = nullptr;
+    };
+
+    ST7789_240x240(
+        int8_t cs,
+        int8_t dc,
+        int8_t mosi,
+        int8_t sck,
+        int8_t rst = -1,
+        int8_t bl = -1,
+        uint8_t spi = SPI2_HOST,
+        uint8_t rot = 0,
+        uint16_t w = 240,
+        uint16_t h = 240)
         : bl(bl), w(w), h(h) {
         bus = new Arduino_ESP32SPIDMA(dc, cs, sck, mosi, GFX_NOT_DEFINED, spi);
         tft = new Arduino_ST7789(bus, rst, rot, true, w, h);
         // canvas = new Arduino_Canvas_Mono(w, h, tft, 0, 0);
-        // idth 232 is perfectly divisible by 8 (232 / 8 = 29 bytes per row)
+        // width 232 is perfectly divisible by 8 (232 / 8 = 29 bytes per row)
         canvasMajor = new Arduino_Canvas_Mono(232, 140, tft, 4, 0);
         canvasMinor1 = new Arduino_Canvas_Mono((w - 15) / 2, h - 145, tft, 5, 145);
         canvasMinor2 = new Arduino_Canvas_Mono((w - 15) / 2, h - 145, tft, (w - 15) / 2 + 10, 145);
@@ -40,8 +127,10 @@ class ST7789 : public DisplayDriver {
         if (!canvasMajor->begin(GFX_SKIP_OUTPUT_BEGIN) ||
             !canvasMinor1->begin(GFX_SKIP_OUTPUT_BEGIN) ||
             !canvasMinor2->begin(GFX_SKIP_OUTPUT_BEGIN)) {
-            ESP_LOGE(tag, "canvas begin() failed");
-            while (true) delay(1000);
+            while (true) {
+                ESP_LOGE(tag, "canvas begin() failed");
+                delay(1000);
+            }
         }
 
         canvasMajor->setTextColor(WHITE, BLACK);
@@ -62,16 +151,23 @@ class ST7789 : public DisplayDriver {
         canvasMinor2->flush();
     }
 
-    void clear() override {
-        fillScreen(BLACK);
+    virtual void update() override {
+        ulong t = millis();
+        if (t < 2000) return;  // show splash for at least 2 seconds
+        static ulong last = 0;
+        if (t - last < 100) return;  // update at most every 100 ms
+        last = t;
+
+        State::Snapshot s = state.getSnapshot();
+        drawMajor(s.humanPower());
+        drawMinor1((float)s.cadence);
+        drawMinor2((float)s.pasLevel);
+
+        // ESP_LOGD(taskName(), "Update took %d ms", millis() - t);
     }
 
-    void drawText(const char* buf) override {
-        tft->setFont(largeFont);
-        tft->setTextSize(1);
-        tft->setCursor(5, 140);
-        tft->print(buf);
-        tft->flush();
+    void clear() override {
+        fillScreen(BLACK);
     }
 
     void drawCanvas(
@@ -96,7 +192,7 @@ class ST7789 : public DisplayDriver {
         canvas->flush();
     }
 
-    void drawMajor(float v) override {
+    void drawMajor(float v) {
         bool invert = keyUpClick;
         keyUpClick = false;
         drawCanvas(
@@ -108,7 +204,7 @@ class ST7789 : public DisplayDriver {
             5);
     }
 
-    void drawMinor1(float v) override {
+    void drawMinor1(float v) {
         bool invert = keyDownClick;
         keyDownClick = false;
         drawCanvas(
@@ -120,7 +216,7 @@ class ST7789 : public DisplayDriver {
             2);
     }
 
-    void drawMinor2(float v) override {
+    void drawMinor2(float v) {
         bool invert = keyPowerClick;
         keyPowerClick = false;
         drawCanvas(
@@ -164,7 +260,7 @@ class ST7789 : public DisplayDriver {
     }
 
    protected:
-    const char* tag = "ST7789";
+    const char* tag = "ST7789_240x240";
     int8_t bl;
     uint16_t w;
     uint16_t h;
@@ -181,4 +277,4 @@ class ST7789 : public DisplayDriver {
     const GFXfont* mediumFont = &RobotoMono_Bold30pt7b;
 };
 
-#endif  // ST7789_H
+#endif  // ST7789_240x240_H

@@ -1,7 +1,7 @@
 #ifndef MPU_H
 #define MPU_H
 
-#include "pins.h"
+#include "config.h"
 #include "model/state.h"
 #include "task.h"
 

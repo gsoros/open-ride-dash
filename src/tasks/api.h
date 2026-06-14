@@ -70,6 +70,12 @@ class Api : public Task {
             ESP_LOGE(taskName(), "Failed to create request queue");
         }
         registerCommand(
+            "v",
+            [this](const char* args) {
+                return versionCommand(args);
+            },
+            "Usage: v\nReturns the version information.");
+        registerCommand(
             "help",
             [this](const char* args) {
                 return helpCommand(args);
@@ -188,6 +194,17 @@ class Api : public Task {
         strncpy(reply.command, cmd, sizeof(reply.command) - 1);
         reply.command[sizeof(reply.command) - 1] = '\0';
         snprintf((char*)reply.data, sizeof(reply.data), "Unknown command: %s", cmd);
+        reply.length = strlen((char*)reply.data);
+        return reply;
+    }
+
+#if !defined(ORD_NAME) || !defined(ORD_VERSION)
+#error "ORD_NAME and ORD_VERSION must be defined in platformio.ini"
+#endif
+
+    Reply versionCommand(const char* args) {
+        Reply reply = {};
+        snprintf((char*)reply.data, sizeof(reply.data), ORD_NAME " v" ORD_VERSION);
         reply.length = strlen((char*)reply.data);
         return reply;
     }

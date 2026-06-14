@@ -4,7 +4,7 @@
 #include <Arduino.h>
 #include <OneButton.h>
 
-#include "pins.h"
+#include "config.h"
 #include "model/state.h"
 #include "display.h"
 #include "task.h"

@@ -104,7 +104,6 @@ class State {
     float getFloat(float* f);
     bool getBool(bool* b);
 
-    void ensureMutex();
     SemaphoreHandle_t mutex = nullptr;
 };
 

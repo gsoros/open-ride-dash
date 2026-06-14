@@ -125,13 +125,11 @@ uint16_t State::wheelCircumference() {
 }
 
 bool State::aquireMutex() {
-    return xSemaphoreTake(mutex, portMAX_DELAY)  //
-           == pdTRUE;
+    return xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE;
 }
 
 void State::releaseMutex() {
-    xSemaphoreGive(  //
-        mutex);
+    xSemaphoreGive(mutex);
 }
 
 State::Snapshot State::getSnapshot(bool withMutex) {
