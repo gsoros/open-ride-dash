@@ -8,7 +8,7 @@ class State {
     struct Snapshot {
         uint32_t odo_mx10 = 0;             // m * 10
         uint32_t trip_mx10 = 0;            // m * 10
-        uint16_t torque = 0;               // Raw sensor reading (Needs calibration factor to become Nm)
+        uint16_t torque = 0;               // Raw sensor reading (needs calibration factor to become Nm)
         uint16_t wheelSpeed_x10 = 0;       // RPM * 10
         uint16_t wheelMaxSpeed_x100 = 0;   // RPM * 100
         uint16_t batteryVoltage_x100 = 0;  // V * 100
@@ -36,8 +36,9 @@ class State {
         // Calculates human mechanical power in Watts
         float humanPower() {
             // TODO: Replace with a real raw-to-Nm calibration factor
-            constexpr float torqueNmFactor = 33.0f;
-            return (float)cadence * (float)torque / torqueNmFactor * 0.104719f;
+            static constexpr float torqueNmFactor = 33.0f;
+            // cadence (RPM) * torque (Nm) * 2 * pi / 60 to get Watts
+            return (float)cadence * (float)torque / torqueNmFactor * 0.104719755f;
         }
     };
 
@@ -84,6 +85,7 @@ class State {
     void setSnapshot(Snapshot s, bool withMutex = true);
 
    protected:
+    SemaphoreHandle_t mutex = nullptr;
     Snapshot _latest;
 
     void setInt8(int8_t* i, int8_t v);
@@ -103,8 +105,6 @@ class State {
     uint32_t getUInt32(uint32_t* i);
     float getFloat(float* f);
     bool getBool(bool* b);
-
-    SemaphoreHandle_t mutex = nullptr;
 };
 
 #endif  // STATE_H

@@ -21,29 +21,34 @@ class CAN : public Task {
     }
 
     virtual void setup() {
-        ACANSettings settings(250000);
+        ACANSettings settings(250000);  // 250 kb/s, Bafang M500/M600 default
         settings.mTxPin = (gpio_num_t)CAN_TX;
         settings.mRxPin = (gpio_num_t)CAN_RX;
         // settings.mRequestedCANMode = ACANSettings::LoopBackMode;  // Receive own messages
         // TODO: Setup HW filters when all frames are known
         const uint32_t errorCode = ACAN::can.begin(settings);
-        if (errorCode != 0)
-            ESP_LOGE(taskName(), "Init failed, error: 0x%X", errorCode);
+        if (errorCode != 0) {
+            while (true) {
+                ESP_LOGE(taskName(), "can.begin() failed, error: 0x%X", errorCode);
+                delay(1000);
+            }
+        }
         Task::taskSetup();
     }
 
     virtual void taskRun() override {
-        static uint32_t sent = 0;
-        static uint32_t received = 0;
-        static uint16_t rxBufferOverflows = 0;
-        static uint16_t txBufferOverflows = 0;
-        static uint32_t lastOverflowLog = 0;
+        static uint32_t sent = 0;                               // count of sent messages
+        static uint32_t received = 0;                           // count of received messages
+        static uint16_t rxBufferOverflows = 0;                  // count of receive buffer overflows
+        static uint16_t txBufferOverflows = 0;                  // count of transmit buffer overflows
+        static uint32_t lastOverflowLog = 0;                    // timestamp of last overflow log
+        static constexpr uint32_t overflowLogInterval = 10000;  // overflow log interval in ms
         uint32_t t = millis();
 
         if (ACAN::can.driverReceiveBufferPeakCount() >= ACAN::can.driverReceiveBufferSize()) {
             rxBufferOverflows++;
             ACAN::can.resetDriverReceiveBufferPeakCount();
-            if (t - lastOverflowLog > 10000) {
+            if (t - lastOverflowLog > overflowLogInterval) {
                 ESP_LOGW(taskName(), "RX Buffer overflows: %u", rxBufferOverflows);
                 lastOverflowLog = t;
             }
@@ -51,7 +56,7 @@ class CAN : public Task {
         if (ACAN::can.driverTransmitBufferPeakCount() >= ACAN::can.driverTransmitBufferSize()) {
             txBufferOverflows++;
             ACAN::can.resetDriverTransmitBufferPeakCount();
-            if (t - lastOverflowLog > 10000) {
+            if (t - lastOverflowLog > overflowLogInterval) {
                 ESP_LOGW(taskName(), "TX Buffer overflows: %u", txBufferOverflows);
                 lastOverflowLog = t;
             }
