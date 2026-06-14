@@ -523,8 +523,10 @@ void ST7789_240x240::selectMenuItem() {
     switch (selectedMenuItem) {
         case 0:  // DUMMY A
         case 1:  // DUMMY B
-        case 2:  // DUMMY C
-        case 3:  // DUMMY D
+        case 2:  // ANOTHER
+        case 3:  // MENU ITEM
+        case 4:  // SHORT
+        case 5:  // DUMMY F
             ESP_LOGI(tag, "Selected menu item: %s", menuItems[selectedMenuItem]);
             return;
         case MENU_ITEM_COUNT - 1:  // Last item: Exit menu

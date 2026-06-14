@@ -283,9 +283,9 @@ class ST7789_240x240 : public DisplayDriver {
     inline static constexpr const char* menuItems[MENU_ITEM_COUNT] = {
         "DUMMY A",
         "DUMMY B",
-        "DUMMY C",
-        "DUMMY D",
-        "DUMMY E",
+        "ANOTHER",
+        "MENU ITEM",
+        "SHORT",
         "DUMMY F",
         "EXIT",
     };
