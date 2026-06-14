@@ -25,7 +25,7 @@ The empty area at the middle of the display will later be used for graphical ele
 Feel free to ask me any questions about the requirements or the implementation details. The goal of this stage is to implement a basic page switching mechanism with a simple fade transition, and a simple menusystem, to lay the groundwork for the more complex features in later stages.
 
 
-Stage 1
+Stage 1 - Done
 
 Remove the current hard-coded metrics and replace with a page system. Each page will have a set of metrics to display, and the user can switch between pages using the KEY_UP and KEY_DOWN buttons.
 A page switch consists of
@@ -36,14 +36,15 @@ The live metric values are updated every ~100ms, but during the fade transition 
 Update a metric only if it has changed since the last update, to improve performance.
 
 
-Stage 2
+Stage 2 - In Progress
 
 Implement cunfigurable pages. Start with a hard-coded default set. The user can configure which metrics are displayed on each page, and the order of the pages. Settings are saved to non-volatile memory (Preferences) and restored on power-up. Implement page configuration via the API.
 
 
-Stage 3
+Stage 3 - In Progress
 
 Implement a menu system. The user can enter the menu using a simultaneous long press of the KEY_UP and KEY_DOWN buttons, navigate through the menu using the KEY_UP and KEY_DOWN buttons, and select menu items using the KEY_POWER button. The menu system should allow the user to configure the pages and metrics displayed on each page. The menu system should use the API, and be intuitive and easy to use, with clear feedback for the user. Consider using a library for the menu system, or implement a simple custom menu system. The menu system should be easy to extend with new menu items and actions.
+Progress update: Basic menu system implemented in this file, but a generic menu interface should be created in drivers/display_driver.h or a new file, e.g. drivers/display_menu.h, to allow other display drivers to implement their own menu system.
 
 
 General coding guidelines
@@ -82,8 +83,8 @@ class ST7789_240x240 : public DisplayDriver {
         METRIC_PAS,         // Pedal Assist Level, -1 = Walk assist, 0 = Off, 1-5 = PAS levels
         METRIC_MOTOR_PWR,   // Watts
         METRIC_HUMAN_PWR,   // Watts
-        METRIC_VOLTAGE,     // battery voltage
-        METRIC_SOC,         // battery State Of Charge
+        METRIC_VOLTAGE,     // V, battery voltage
+        METRIC_SOC,         // %, battery State Of Charge
         METRIC_MOTOR_TEMP,  // °C
         METRIC_TRIP,        // km, unused, TODO: Parse CAN trip data, add resettable trip functionality
         METRIC_ODO,         // km, unused, TODO: Parse CAN odometer data
