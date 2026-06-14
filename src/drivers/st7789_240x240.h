@@ -4,6 +4,8 @@
 #define ST7789_240x240_H
 
 #include <Arduino_GFX_Library.h>
+#include <cstring>
+#include <functional>
 
 #include "display_driver.h"
 #include "model/state.h"
@@ -70,6 +72,7 @@ keep in mind that GFX fonts are positioned with the baseline at y=0, so the y co
 
 #include "RobotoMono_bold48pt7b_digits.h"
 #include "RobotoMono_bold30pt7b_digits.h"
+#include "RobotoMono_bold30pt7b_caps.h"
 
 class ST7789_240x240 : public DisplayDriver {
    public:
@@ -112,16 +115,12 @@ class ST7789_240x240 : public DisplayDriver {
         MetricID minor2;
     };
 
-    /*
-    PageLayout pages[3] = {
-        {METRIC_SPEED, METRIC_MOTOR_PWR, METRIC_HUMAN_PWR},
-        {METRIC_PAS, METRIC_BODY_TEMP, METRIC_CADENCE},
-        {METRIC_HEART_RATE, METRIC_SOC, METRIC_RANGE}
+    struct MetricDefinition {
+        MetricID id;
+        const char* name;
+        const char* label;
+        const char* unit;
     };
-
-    uint8_t currentPage = 0;
-    uint8_t totalPages = sizeof(pages) / sizeof(PageLayout);
-    */
 
     struct Area {
         uint8_t width() { return canvas ? (uint8_t)canvas->width() : 0; }
@@ -174,6 +173,13 @@ class ST7789_240x240 : public DisplayDriver {
         canvasMajor = new Arduino_Canvas_Mono(232, 140, tft, 4, 0);
         canvasMinor1 = new Arduino_Canvas_Mono((w - 15) / 2, h - 145, tft, 5, 145);
         canvasMinor2 = new Arduino_Canvas_Mono((w - 15) / 2, h - 145, tft, (w - 15) / 2 + 10, 145);
+        canvasMenu = new Arduino_Canvas_Mono(w, h, tft, 0, 0);
+        transitionLabelMajor = new Arduino_Canvas_Mono(232, 140, nullptr);
+        transitionValueMajor = new Arduino_Canvas_Mono(232, 140, nullptr);
+        transitionLabelMinor1 = new Arduino_Canvas_Mono((w - 15) / 2, h - 145, nullptr);
+        transitionValueMinor1 = new Arduino_Canvas_Mono((w - 15) / 2, h - 145, nullptr);
+        transitionLabelMinor2 = new Arduino_Canvas_Mono((w - 15) / 2, h - 145, nullptr);
+        transitionValueMinor2 = new Arduino_Canvas_Mono((w - 15) / 2, h - 145, nullptr);
     }
 
     void setup() override {
@@ -191,7 +197,14 @@ class ST7789_240x240 : public DisplayDriver {
 
         if (!canvasMajor->begin(GFX_SKIP_OUTPUT_BEGIN) ||
             !canvasMinor1->begin(GFX_SKIP_OUTPUT_BEGIN) ||
-            !canvasMinor2->begin(GFX_SKIP_OUTPUT_BEGIN)) {
+            !canvasMinor2->begin(GFX_SKIP_OUTPUT_BEGIN) ||
+            !canvasMenu->begin(GFX_SKIP_OUTPUT_BEGIN) ||
+            !transitionLabelMajor->begin(GFX_SKIP_OUTPUT_BEGIN) ||
+            !transitionValueMajor->begin(GFX_SKIP_OUTPUT_BEGIN) ||
+            !transitionLabelMinor1->begin(GFX_SKIP_OUTPUT_BEGIN) ||
+            !transitionValueMinor1->begin(GFX_SKIP_OUTPUT_BEGIN) ||
+            !transitionLabelMinor2->begin(GFX_SKIP_OUTPUT_BEGIN) ||
+            !transitionValueMinor2->begin(GFX_SKIP_OUTPUT_BEGIN)) {
             while (true) {
                 ESP_LOGE(tag, "canvas begin() failed");
                 delay(1000);
@@ -201,6 +214,7 @@ class ST7789_240x240 : public DisplayDriver {
         canvasMajor->setTextColor(WHITE, BLACK);
         canvasMinor1->setTextColor(WHITE, BLACK);
         canvasMinor2->setTextColor(WHITE, BLACK);
+        canvasMenu->setTextColor(WHITE, BLACK);
     }
 
     void splash() override {
@@ -219,14 +233,34 @@ class ST7789_240x240 : public DisplayDriver {
     virtual void update() override {
         ulong t = millis();
         if (t < 2000) return;  // show splash for at least 2 seconds
-        static ulong last = 0;
-        if (t - last < 100) return;  // update at most every 100 ms
-        last = t;
+
+        if (keyPowerClick) {
+            keyPowerClick = false;
+            handlePowerClick();
+        }
+
+        if (displayMode == MODE_SPLASH) {
+            startPageTransition(currentPage);
+            return;
+        }
+
+        if (displayMode == MODE_MENU) {
+            if (menuDirty) drawMenu();
+            return;
+        }
+
+        if (displayMode == MODE_PAGE_TRANSITION) {
+            if (t - lastTransitionUpdate < PAGE_TRANSITION_UPDATE_MS) return;
+            lastTransitionUpdate = t;
+            drawTransitionFrame(t);
+            return;
+        }
+
+        if (t - lastPageUpdate < PAGE_UPDATE_MS) return;
+        lastPageUpdate = t;
 
         State::Snapshot s = state.getSnapshot();
-        drawMajor(s.humanPower());
-        drawMinor1((float)s.cadence);
-        drawMinor2((float)s.pasLevel);
+        drawPageValues(s, false);
 
         // ESP_LOGD(taskName(), "Update took %d ms", millis() - t);
     }
@@ -235,62 +269,38 @@ class ST7789_240x240 : public DisplayDriver {
         fillScreen(BLACK);
     }
 
-    void drawCanvas(
-        Arduino_Canvas_Mono* canvas,
-        float v,
-        const GFXfont* font,
-        bool invertColors = false,
-        uint8_t size = 1,
-        uint8_t verticalOffset = 0,
-        uint16_t fg = WHITE,
-        uint16_t bg = BLACK) {
-        char buf[4];
-        snprintf(buf, sizeof(buf), "%.0f", v);
-        canvas->setFont(font);
-        canvas->setTextSize(size);
-        uint16_t textColor = invertColors ? bg : fg;
-        uint16_t backgroundColor = invertColors ? fg : bg;
-        canvas->setTextColor(textColor, backgroundColor);
-        canvas->fillRect(0, 0, canvas->width(), canvas->height(), backgroundColor);
-        canvas->setCursor(0, canvas->height() - verticalOffset);
-        canvas->print(buf);
-        canvas->flush();
+    bool menuActive() const {
+        return displayMode == MODE_MENU;
     }
 
-    void drawMajor(float v) {
-        bool invert = keyUpClick;
-        keyUpClick = false;
-        drawCanvas(
-            canvasMajor,
-            v,
-            v >= 100.0f ? mediumFont : largeFont,
-            invert,
-            2,
-            5);
+    void handlePowerClick() {
+        if (displayMode == MODE_MENU) {
+            selectMenuItem();
+            return;
+        }
+        nextPage();
     }
 
-    void drawMinor1(float v) {
-        bool invert = keyDownClick;
-        keyDownClick = false;
-        drawCanvas(
-            canvasMinor1,
-            v,
-            v >= 100.0f ? mediumFont : largeFont,
-            invert,
-            1,
-            2);
+    bool menuPrevious() {
+        if (!menuActive()) return false;
+        selectedMenuItem = selectedMenuItem == 0 ? MENU_ITEM_COUNT - 1 : selectedMenuItem - 1;
+        menuDirty = true;
+        return true;
     }
 
-    void drawMinor2(float v) {
-        bool invert = keyPowerClick;
-        keyPowerClick = false;
-        drawCanvas(
-            canvasMinor2,
-            v,
-            v >= 100.0f ? mediumFont : largeFont,
-            invert,
-            1,
-            2);
+    bool menuNext() {
+        if (!menuActive()) return false;
+        selectedMenuItem = (selectedMenuItem + 1) % MENU_ITEM_COUNT;
+        menuDirty = true;
+        return true;
+    }
+
+    void enterMenu() {
+        if (displayMode == MODE_MENU) return;
+        displayMode = MODE_MENU;
+        selectedMenuItem = 0;
+        menuDirty = true;
+        ESP_LOGI(tag, "Entering display menu");
     }
 
     void fillScreen(uint16_t color) override {
@@ -337,9 +347,470 @@ class ST7789_240x240 : public DisplayDriver {
     Arduino_Canvas_Mono* canvasMajor = nullptr;
     Arduino_Canvas_Mono* canvasMinor1 = nullptr;
     Arduino_Canvas_Mono* canvasMinor2 = nullptr;
+    Arduino_Canvas_Mono* canvasMenu = nullptr;
+    Arduino_Canvas_Mono* transitionLabelMajor = nullptr;
+    Arduino_Canvas_Mono* transitionValueMajor = nullptr;
+    Arduino_Canvas_Mono* transitionLabelMinor1 = nullptr;
+    Arduino_Canvas_Mono* transitionValueMinor1 = nullptr;
+    Arduino_Canvas_Mono* transitionLabelMinor2 = nullptr;
+    Arduino_Canvas_Mono* transitionValueMinor2 = nullptr;
 
     const GFXfont* largeFont = &RobotoMono_Bold48pt7b;
     const GFXfont* mediumFont = &RobotoMono_Bold30pt7b;
+    const GFXfont* labelFont = &RobotoMono_Bold30pt7b_Caps;
+
+    static constexpr uint32_t PAGE_UPDATE_MS = 100;
+    static constexpr uint32_t PAGE_TRANSITION_MS = 1500;
+    static constexpr uint32_t PAGE_TRANSITION_UPDATE_MS = 40;
+    static constexpr uint8_t SLOT_COUNT = 3;
+    static constexpr uint8_t PAGE_COUNT = 3;
+    static constexpr uint8_t MENU_ITEM_COUNT = 2;
+
+    enum DisplayMode {
+        MODE_SPLASH,
+        MODE_PAGE,
+        MODE_PAGE_TRANSITION,
+        MODE_MENU,
+    };
+
+    enum SlotIndex {
+        SLOT_MAJOR = 0,
+        SLOT_MINOR1 = 1,
+        SLOT_MINOR2 = 2,
+    };
+
+    struct MetricSlot {
+        Arduino_Canvas_Mono* canvas;
+        Arduino_Canvas_Mono* labelCanvas;
+        Arduino_Canvas_Mono* valueCanvas;
+        uint8_t valueTextSize;
+        uint8_t labelTextSize;
+        uint8_t valueVerticalOffset;
+        uint8_t labelVerticalOffset;
+    };
+
+    struct RenderedMetric {
+        char value[6] = {};
+        bool valid = false;
+    };
+
+    inline static constexpr MetricDefinition metricDefinitions[METRIC_COUNT] = {
+        {METRIC_SPEED, "Speed", "SPD", "km/h"},
+        {METRIC_CADENCE, "Cadence", "CAD", "RPM"},
+        {METRIC_PAS, "Assist", "PAS", ""},
+        {METRIC_MOTOR_PWR, "Motor Power", "MOW", "W"},
+        {METRIC_HUMAN_PWR, "Human Power", "HUW", "W"},
+        {METRIC_VOLTAGE, "Voltage", "VOL", "V"},
+        {METRIC_SOC, "State of Charge", "SOC", "%"},
+        {METRIC_MOTOR_TEMP, "Motor Temp", "TMP", "C"},
+        {METRIC_TRIP, "Trip", "TRP", "km"},
+        {METRIC_ODO, "Odometer", "ODO", "km"},
+        {METRIC_RANGE, "Range", "RNG", "km"},
+        {METRIC_HEART_RATE, "Heart Rate", "HRT", "bpm"},
+        {METRIC_BODY_TEMP, "Body Temp", "BDY", "C"},
+    };
+
+    inline static constexpr PageLayout defaultPages[PAGE_COUNT] = {
+        {METRIC_SPEED, METRIC_MOTOR_PWR, METRIC_HUMAN_PWR},
+        {METRIC_PAS, METRIC_MOTOR_TEMP, METRIC_CADENCE},
+        {METRIC_HEART_RATE, METRIC_SOC, METRIC_RANGE},
+    };
+
+    inline static constexpr const char* menuItems[MENU_ITEM_COUNT] = {
+        "PAGE",
+        "EXIT",
+    };
+
+    DisplayMode displayMode = MODE_SPLASH;
+    uint8_t currentPage = 0;
+    uint8_t selectedMenuItem = 0;
+    bool menuDirty = false;
+    uint32_t transitionStart = 0;
+    uint32_t lastPageUpdate = 0;
+    uint32_t lastTransitionUpdate = 0;
+    RenderedMetric renderedMetrics[SLOT_COUNT];
+
+    void nextPage() {
+        uint8_t next = (currentPage + 1) % PAGE_COUNT;
+        startPageTransition(next);
+    }
+
+    void startPageTransition(uint8_t page) {
+        if (page >= PAGE_COUNT) {
+            ESP_LOGW(tag, "Ignoring invalid page index: %u", page);
+            return;
+        }
+
+        currentPage = page;
+        displayMode = MODE_PAGE_TRANSITION;
+        transitionStart = millis();
+        lastTransitionUpdate = 0;
+        invalidateRenderedMetrics();
+        clearMetricSlots();
+        drawPageLabels();
+        ESP_LOGD(tag, "Switched to page %u", currentPage);
+    }
+
+    void finishPageTransition() {
+        displayMode = MODE_PAGE;
+        invalidateRenderedMetrics();
+        State::Snapshot s = state.getSnapshot();
+        drawPageValues(s, true);
+        lastPageUpdate = millis();
+    }
+
+    void drawTransitionFrame(uint32_t now) {
+        uint32_t elapsed = now - transitionStart;
+        if (elapsed >= PAGE_TRANSITION_MS) {
+            finishPageTransition();
+            return;
+        }
+
+        State::Snapshot s = state.getSnapshot();
+        uint8_t blendStep = (uint8_t)((elapsed * 17U) / PAGE_TRANSITION_MS);
+        if (blendStep > 16) blendStep = 16;
+
+        for (uint8_t i = 0; i < SLOT_COUNT; i++) {
+            drawTransitionSlot(i, pageMetric(i), s, blendStep);
+        }
+    }
+
+    void drawTransitionSlot(uint8_t slotIndex, MetricID id, State::Snapshot& s, uint8_t blendStep) {
+        MetricSlot slot = metricSlot(slotIndex);
+        const MetricDefinition* metric = metricDefinition(id);
+        if (metric == nullptr || slot.canvas == nullptr || slot.labelCanvas == nullptr || slot.valueCanvas == nullptr) return;
+
+        char value[sizeof(renderedMetrics[slotIndex].value)] = {};
+        bool isNumeric = true;
+        if (!formatMetricValue(id, s, value, sizeof(value), &isNumeric)) return;
+
+        const GFXfont* valueFont = selectValueFont(value, isNumeric);
+        uint8_t valueTextSize = isNumeric ? slot.valueTextSize : slot.labelTextSize;
+        uint8_t valueVerticalOffset = isNumeric ? slot.valueVerticalOffset : slot.labelVerticalOffset;
+
+        renderTextToCanvas(slot.labelCanvas, metric->label, labelFont, slot.labelTextSize, slot.labelVerticalOffset);
+        renderTextToCanvas(slot.valueCanvas, value, valueFont, valueTextSize, valueVerticalOffset);
+        blendMonoCanvases(slot.labelCanvas, slot.valueCanvas, slot.canvas, blendStep);
+        slot.canvas->flush();
+    }
+
+    void clearMetricSlots() {
+        canvasMajor->fillScreen(BLACK);
+        canvasMinor1->fillScreen(BLACK);
+        canvasMinor2->fillScreen(BLACK);
+        canvasMajor->flush();
+        canvasMinor1->flush();
+        canvasMinor2->flush();
+    }
+
+    void invalidateRenderedMetrics() {
+        for (uint8_t i = 0; i < SLOT_COUNT; i++) {
+            renderedMetrics[i].value[0] = '\0';
+            renderedMetrics[i].valid = false;
+        }
+    }
+
+    const PageLayout& currentPageLayout() const {
+        return defaultPages[currentPage];
+    }
+
+    MetricSlot metricSlot(uint8_t slotIndex) const {
+        switch (slotIndex) {
+            case SLOT_MAJOR:
+                return {canvasMajor, transitionLabelMajor, transitionValueMajor, 2, 2, 5, 8};
+            case SLOT_MINOR1:
+                return {canvasMinor1, transitionLabelMinor1, transitionValueMinor1, 1, 1, 2, 2};
+            case SLOT_MINOR2:
+                return {canvasMinor2, transitionLabelMinor2, transitionValueMinor2, 1, 1, 2, 2};
+            default:
+                return {nullptr, nullptr, nullptr, 1, 1, 0, 0};
+        }
+    }
+
+    MetricID pageMetric(uint8_t slotIndex) const {
+        const PageLayout& layout = currentPageLayout();
+        switch (slotIndex) {
+            case SLOT_MAJOR:
+                return layout.major;
+            case SLOT_MINOR1:
+                return layout.minor1;
+            case SLOT_MINOR2:
+                return layout.minor2;
+            default:
+                return METRIC_COUNT;
+        }
+    }
+
+    const MetricDefinition* metricDefinition(MetricID id) const {
+        if (id < 0 || id >= METRIC_COUNT) return nullptr;
+        return &metricDefinitions[id];
+    }
+
+    void drawPageLabels() {
+        for (uint8_t i = 0; i < SLOT_COUNT; i++) {
+            const MetricDefinition* metric = metricDefinition(pageMetric(i));
+            MetricSlot slot = metricSlot(i);
+            if (metric == nullptr || slot.canvas == nullptr) continue;
+            drawSlotText(slot, metric->label, labelFont, slot.labelTextSize, slot.labelVerticalOffset);
+        }
+    }
+
+    void drawPageValues(State::Snapshot& s, bool force, bool remember = true) {
+        for (uint8_t i = 0; i < SLOT_COUNT; i++) {
+            drawMetricValue(i, pageMetric(i), s, force, remember);
+        }
+    }
+
+    void drawMetricValue(uint8_t slotIndex, MetricID id, State::Snapshot& s, bool force, bool remember) {
+        MetricSlot slot = metricSlot(slotIndex);
+        if (slot.canvas == nullptr) return;
+
+        char value[sizeof(renderedMetrics[slotIndex].value)] = {};
+        bool isNumeric = true;
+        if (!formatMetricValue(id, s, value, sizeof(value), &isNumeric)) return;
+
+        RenderedMetric& rendered = renderedMetrics[slotIndex];
+        if (remember && !force && rendered.valid && strcmp(rendered.value, value) == 0) return;
+
+        const GFXfont* font = selectValueFont(value, isNumeric);
+        uint8_t textSize = isNumeric ? slot.valueTextSize : slot.labelTextSize;
+        uint8_t verticalOffset = isNumeric ? slot.valueVerticalOffset : slot.labelVerticalOffset;
+        drawSlotText(slot, value, font, textSize, verticalOffset);
+
+        if (!remember) return;
+        strncpy(rendered.value, value, sizeof(rendered.value) - 1);
+        rendered.value[sizeof(rendered.value) - 1] = '\0';
+        rendered.valid = true;
+    }
+
+    const GFXfont* selectValueFont(const char* value, bool isNumeric) const {
+        if (!isNumeric) return labelFont;
+        return strlen(value) >= 3 ? mediumFont : largeFont;
+    }
+
+    void drawSlotText(
+        MetricSlot& slot,
+        const char* text,
+        const GFXfont* font,
+        uint8_t textSize,
+        uint8_t verticalOffset,
+        bool invertColors = false) {
+        if (slot.canvas == nullptr || text == nullptr || font == nullptr) return;
+
+        renderTextToCanvas(slot.canvas, text, font, textSize, verticalOffset, invertColors);
+        slot.canvas->flush();
+    }
+
+    void renderTextToCanvas(
+        Arduino_Canvas_Mono* canvas,
+        const char* text,
+        const GFXfont* font,
+        uint8_t textSize,
+        uint8_t verticalOffset,
+        bool invertColors = false) {
+        if (canvas == nullptr || text == nullptr || font == nullptr) return;
+
+        uint16_t textColor = invertColors ? BLACK : WHITE;
+        uint16_t backgroundColor = invertColors ? WHITE : BLACK;
+        canvas->setFont(font);
+        canvas->setTextSize(textSize);
+        canvas->setTextColor(textColor, backgroundColor);
+        canvas->fillRect(0, 0, canvas->width(), canvas->height(), backgroundColor);
+
+        int16_t x1 = 0;
+        int16_t y1 = 0;
+        uint16_t textWidth = 0;
+        uint16_t textHeight = 0;
+        canvas->getTextBounds(text, 0, 0, &x1, &y1, &textWidth, &textHeight);
+
+        int16_t cursorX = -x1;
+        if (textWidth < canvas->width()) {
+            cursorX = (canvas->width() - textWidth) / 2 - x1;
+        }
+
+        canvas->setCursor(cursorX, canvas->height() - verticalOffset);
+        canvas->print(text);
+    }
+
+    void blendMonoCanvases(
+        Arduino_Canvas_Mono* fromCanvas,
+        Arduino_Canvas_Mono* toCanvas,
+        Arduino_Canvas_Mono* outputCanvas,
+        uint8_t blendStep) {
+        if (fromCanvas == nullptr || toCanvas == nullptr || outputCanvas == nullptr) return;
+
+        uint8_t* from = fromCanvas->getFramebuffer();
+        uint8_t* to = toCanvas->getFramebuffer();
+        uint8_t* output = outputCanvas->getFramebuffer();
+        if (from == nullptr || to == nullptr || output == nullptr) return;
+
+        uint16_t width = outputCanvas->width();
+        uint16_t height = outputCanvas->height();
+        uint16_t rowBytes = (width + 7) / 8;
+
+        for (uint16_t y = 0; y < height; y++) {
+            for (uint16_t byteX = 0; byteX < rowBytes; byteX++) {
+                uint16_t index = y * rowBytes + byteX;
+                uint8_t fromByte = from[index];
+                uint8_t toByte = to[index];
+                uint8_t outByte = 0;
+
+                for (uint8_t bit = 0; bit < 8; bit++) {
+                    uint16_t x = byteX * 8 + bit;
+                    if (x >= width) break;
+
+                    uint8_t mask = 0x80 >> bit;
+                    bool fromPixel = (fromByte & mask) != 0;
+                    bool toPixel = (toByte & mask) != 0;
+                    bool outPixel = fromPixel;
+
+                    if (fromPixel != toPixel) {
+                        outPixel = bayerThreshold(x, y) < blendStep ? toPixel : fromPixel;
+                    }
+
+                    if (outPixel) outByte |= mask;
+                }
+
+                output[index] = outByte;
+            }
+        }
+    }
+
+    uint8_t bayerThreshold(uint16_t x, uint16_t y) const {
+        static constexpr uint8_t bayer4x4[4][4] = {
+            {0, 8, 2, 10},
+            {12, 4, 14, 6},
+            {3, 11, 1, 9},
+            {15, 7, 13, 5},
+        };
+        return bayer4x4[y & 3][x & 3];
+    }
+
+    bool formatMetricValue(MetricID id, State::Snapshot& s, char* buffer, size_t bufferSize, bool* isNumeric) {
+        if (buffer == nullptr || bufferSize == 0 || isNumeric == nullptr) {
+            ESP_LOGE(tag, "Invalid metric format buffer");
+            return false;
+        }
+
+        *isNumeric = true;
+        switch (id) {
+            case METRIC_SPEED:
+                formatUInt(buffer, bufferSize, roundedMetricValue(s.speed()));
+                return true;
+            case METRIC_CADENCE:
+                formatUInt(buffer, bufferSize, s.cadence);
+                return true;
+            case METRIC_PAS:
+                return formatPasValue(s.pasLevelRequested, buffer, bufferSize, isNumeric);
+            case METRIC_MOTOR_PWR:
+                formatUInt(buffer, bufferSize, roundedMetricValue(s.motorPower()));
+                return true;
+            case METRIC_HUMAN_PWR:
+                formatUInt(buffer, bufferSize, roundedMetricValue(s.humanPower()));
+                return true;
+            case METRIC_VOLTAGE:
+                formatUInt(buffer, bufferSize, roundedMetricValue((float)s.batteryVoltage_x100 / 100.0f));
+                return true;
+            case METRIC_SOC:
+                formatUInt(buffer, bufferSize, 0);
+                return true;
+            case METRIC_MOTOR_TEMP:
+                formatUInt(buffer, bufferSize, s.motorTemp);
+                return true;
+            case METRIC_TRIP:
+                formatUInt(buffer, bufferSize, cappedMetricValue(s.trip_mx10 / 10000));
+                return true;
+            case METRIC_ODO:
+                formatUInt(buffer, bufferSize, cappedMetricValue(s.odo_mx10 / 10000));
+                return true;
+            case METRIC_RANGE:
+            case METRIC_HEART_RATE:
+            case METRIC_BODY_TEMP:
+                formatUInt(buffer, bufferSize, 0);
+                return true;
+            default:
+                ESP_LOGW(tag, "Ignoring invalid metric id: %d", id);
+                return false;
+        }
+    }
+
+    bool formatPasValue(int8_t pas, char* buffer, size_t bufferSize, bool* isNumeric) {
+        if (pas < 0) {
+            *isNumeric = false;
+            snprintf(buffer, bufferSize, "WLK");
+            return true;
+        }
+        if (pas == 0) {
+            *isNumeric = false;
+            snprintf(buffer, bufferSize, "OFF");
+            return true;
+        }
+        formatUInt(buffer, bufferSize, cappedMetricValue((uint32_t)pas));
+        return true;
+    }
+
+    uint16_t roundedMetricValue(float value) const {
+        if (value <= 0.0f) return 0;
+        if (value >= 999.0f) return 999;
+        return (uint16_t)(value + 0.5f);
+    }
+
+    uint16_t cappedMetricValue(uint32_t value) const {
+        return value > 999 ? 999 : (uint16_t)value;
+    }
+
+    void formatUInt(char* buffer, size_t bufferSize, uint16_t value) {
+        snprintf(buffer, bufferSize, "%u", cappedMetricValue(value));
+    }
+
+    void drawMenu() {
+        canvasMenu->setFont(labelFont);
+        canvasMenu->setTextSize(1);
+        canvasMenu->setTextColor(WHITE, BLACK);
+        canvasMenu->fillScreen(BLACK);
+
+        drawMenuLine("MENU", 52, false);
+        for (uint8_t i = 0; i < MENU_ITEM_COUNT; i++) {
+            drawMenuLine(menuItems[i], 118 + (i * 54), i == selectedMenuItem);
+        }
+
+        canvasMenu->flush();
+        menuDirty = false;
+    }
+
+    void drawMenuLine(const char* text, int16_t baseline, bool selected) {
+        if (text == nullptr) return;
+
+        uint16_t textColor = selected ? BLACK : WHITE;
+        uint16_t backgroundColor = selected ? WHITE : BLACK;
+        if (selected) {
+            canvasMenu->fillRect(0, baseline - 42, canvasMenu->width(), 50, WHITE);
+        }
+
+        canvasMenu->setTextColor(textColor, backgroundColor);
+        int16_t x1 = 0;
+        int16_t y1 = 0;
+        uint16_t textWidth = 0;
+        uint16_t textHeight = 0;
+        canvasMenu->getTextBounds(text, 0, 0, &x1, &y1, &textWidth, &textHeight);
+        int16_t cursorX = (canvasMenu->width() - textWidth) / 2 - x1;
+        canvasMenu->setCursor(cursorX, baseline);
+        canvasMenu->print(text);
+    }
+
+    void selectMenuItem() {
+        switch (selectedMenuItem) {
+            case 0:
+                clear();
+                nextPage();
+                return;
+            case 1:
+            default:
+                clear();
+                startPageTransition(currentPage);
+                return;
+        }
+    }
 };
 
 #endif  // ST7789_240x240_H

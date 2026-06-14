@@ -40,11 +40,15 @@ class Keypad : public Task {
         keyUp.tick();
         keyDown.tick();
         keyPower.tick();
+
+        if (!pageMenuChordInProgress()) {
+            pageMenuChordHandled = false;
+        }
     }
 
     void keyUpClick() {
         ESP_LOGD(taskName(), "Key up click");
-        display.keyUpClick();
+        if (display.keyUpClick()) return;
         auto pasLevelRequested = state.pasLevelRequested();
         if (pasLevelRequested < 5) {
             state.pasLevelRequested(pasLevelRequested + 1);
@@ -53,7 +57,7 @@ class Keypad : public Task {
 
     void keyDownClick() {
         ESP_LOGD(taskName(), "Key down click");
-        display.keyDownClick();
+        if (display.keyDownClick()) return;
         auto pasLevelRequested = state.pasLevelRequested();
         if (pasLevelRequested > -1) {
             state.pasLevelRequested(pasLevelRequested - 1);
@@ -66,6 +70,8 @@ class Keypad : public Task {
     }
 
     void keyUpLongPress() {
+        if (handlePageMenuChord()) return;
+        if (display.menuActive()) return;
         if (lastBrightnessChange + 50 > millis()) return;
         static uint32_t lastLog = 0;
         if (millis() - lastLog > 500) {
@@ -77,6 +83,8 @@ class Keypad : public Task {
     }
 
     void keyDownLongPress() {
+        if (handlePageMenuChord()) return;
+        if (display.menuActive()) return;
         if (lastBrightnessChange + 50 > millis()) return;
         bool isWalkAssist = state.pasLevel() == -1;
         static uint32_t lastLog = 0;
@@ -99,6 +107,25 @@ class Keypad : public Task {
     OneButton keyDown;
     OneButton keyPower;
     uint32_t lastBrightnessChange = 0;
+    bool pageMenuChordHandled = false;
+
+    bool pageMenuChordPressed() {
+        return keyUp.isLongPressed() && keyDown.isLongPressed();
+    }
+
+    bool pageMenuChordInProgress() {
+        return !keyUp.isIdle() && !keyDown.isIdle();
+    }
+
+    bool handlePageMenuChord() {
+        if (!pageMenuChordPressed()) return pageMenuChordInProgress();
+        if (!pageMenuChordHandled) {
+            ESP_LOGD(taskName(), "Key up/down long press (menu)");
+            display.enterMenu();
+            pageMenuChordHandled = true;
+        }
+        return true;
+    }
 };
 
 #endif  // KEYPAD_H

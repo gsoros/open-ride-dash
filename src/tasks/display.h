@@ -49,14 +49,20 @@ class Display : public Task {
         output.setBrightnessPercent(brightnessPercent);
     }
 
-    void keyUpClick() {
-        output.keyUpClick = true;
+    bool keyUpClick() {
+        return output.menuPrevious();
     }
-    void keyDownClick() {
-        output.keyDownClick = true;
+    bool keyDownClick() {
+        return output.menuNext();
     }
     void keyPowerClick() {
         output.keyPowerClick = true;
+    }
+    void enterMenu() {
+        output.enterMenu();
+    }
+    bool menuActive() {
+        return output.menuActive();
     }
 
    protected:
