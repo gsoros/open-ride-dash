@@ -486,9 +486,15 @@ void ST7789_240x240::drawMenu() {
     canvasMenu->setTextColor(WHITE, BLACK);
     canvasMenu->fillScreen(BLACK);
 
-    drawMenuLine("MENU", 52, false);
-    for (uint8_t i = 0; i < MENU_ITEM_COUNT; i++) {
-        drawMenuLine(menuItems[i], 118 + (i * 54), i == selectedMenuItem);
+    static constexpr uint8_t MAX_VISIBLE_MENU_ITEMS = 4;
+    static uint8_t scrollOffset = 0;
+    if (selectedMenuItem < scrollOffset) {
+        scrollOffset = selectedMenuItem;
+    } else if (selectedMenuItem >= scrollOffset + MAX_VISIBLE_MENU_ITEMS) {
+        scrollOffset = selectedMenuItem - MAX_VISIBLE_MENU_ITEMS + 1;
+    }
+    for (uint8_t i = scrollOffset; i < MENU_ITEM_COUNT && i < scrollOffset + MAX_VISIBLE_MENU_ITEMS + 1; i++) {
+        drawMenuLine(menuItems[i], 52 + (i - scrollOffset) * 54, i == selectedMenuItem);
     }
 
     canvasMenu->flush();
@@ -500,11 +506,9 @@ void ST7789_240x240::drawMenuLine(const char* text, int16_t baseline, bool selec
 
     uint16_t textColor = selected ? BLACK : WHITE;
     uint16_t backgroundColor = selected ? WHITE : BLACK;
-    if (selected) {
-        canvasMenu->fillRect(0, baseline - 42, canvasMenu->width(), 50, WHITE);
-    }
 
-    canvasMenu->setTextColor(textColor, backgroundColor);
+    canvasMenu->fillRect(0, baseline - 46, canvasMenu->width(), 52, backgroundColor);
+    canvasMenu->setTextColor(textColor);
     int16_t x1 = 0;
     int16_t y1 = 0;
     uint16_t textWidth = 0;
@@ -517,13 +521,22 @@ void ST7789_240x240::drawMenuLine(const char* text, int16_t baseline, bool selec
 
 void ST7789_240x240::selectMenuItem() {
     switch (selectedMenuItem) {
-        case 0:
-            clear();
-            nextPage();
+        case 0:  // DUMMY A
+        case 1:  // DUMMY B
+        case 2:  // DUMMY C
+        case 3:  // DUMMY D
+            ESP_LOGI(tag, "Selected menu item: %s", menuItems[selectedMenuItem]);
             return;
-        case 1:
-        default:
+        case MENU_ITEM_COUNT - 1:  // Last item: Exit menu
+            ESP_LOGI(tag, "Selected menu item: %s", menuItems[selectedMenuItem]);
             clear();
+            displayMode = MODE_PAGE;
+            startPageTransition(currentPage);
+            return;
+        default:
+            ESP_LOGW(tag, "Selected invalid menu item: %d", selectedMenuItem);
+            clear();
+            displayMode = MODE_PAGE;
             startPageTransition(currentPage);
             return;
     }

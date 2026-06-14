@@ -69,6 +69,22 @@ class CAN : public Task {
 
         while (ACAN::can.receive(frame)) {
             received++;
+            /*
+            static uint16_t duplicateCount = 0;
+            static uint32_t lastFrameId = 0;
+            static uint8_t lastFrameData[8] = {};
+            if (frame.id == lastFrameId && memcmp(frame.data, lastFrameData, frame.len) == 0) {
+                duplicateCount++;
+                if (duplicateCount % 10 == 0) {
+                    char hexbuf[32] = {};
+                    hexToStr(hexbuf, sizeof(hexbuf), frame.data, frame.len);
+                    ESP_LOGD(taskName(), "Received duplicate frame ID 0x%X, data: [%s], count: %u", frame.id, hexbuf, duplicateCount);
+                }
+                continue;
+            }
+            lastFrameId = frame.id;
+            memcpy(lastFrameData, frame.data, frame.len);
+            */
             switch (frame.id) {
                 case 0x02F83000: {  // [4] Uptime heartbeat
                     // fires every 10 seconds, B[0:3] LE uint32 is a tick counter where 1 tick = 10 seconds.
@@ -211,12 +227,25 @@ class CAN : public Task {
                 }
 
                 case 0x02F83208: {  // [2] ???
-                    // High-frequency bursts when pedaling: raw torque sensor tick stream?
+                    // High-frequency bursts: raw torque sensor tick stream?
                     // 5-8 frames at ~200ms intervals with values like
                     // 0x2E, 0x30, 0x46, 0x9C that look like inter-pulse timing
                     uint16_t tick = (uint16_t)(frame.data[1] << 8) | frame.data[0];
                     char hexbuf[32] = {};
+                    static char lastHexbuf[32] = {};
                     hexToStr(hexbuf, sizeof(hexbuf), frame.data, frame.len);
+                    if (strcmp(hexbuf, lastHexbuf) == 0) {
+                        static uint32_t lastLog = 0;
+                        static uint16_t numDuplicates = 0;
+                        numDuplicates++;
+                        if (t - lastLog > 15000) {
+                            ESP_LOGD(taskName(), "Received %d duplicate 0x02F83208 frames, tick: %d, data: [%s]", numDuplicates, tick, hexbuf);
+                            lastLog = t;
+                            numDuplicates = 0;
+                        }
+                        break;
+                    }
+                    strncpy(lastHexbuf, hexbuf, sizeof(lastHexbuf));
                     ESP_LOGD(taskName(), "Unparsed: ID 0x02F83208 (%d: torque tick? ), len: %d, data: [%s]",
                              tick, frame.len, hexbuf);
                     break;
