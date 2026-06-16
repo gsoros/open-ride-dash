@@ -185,8 +185,14 @@ void ST7789_240x240::drawTransitionFrame(uint32_t now) {
         return;
     }
 
+    // Show only labels for the first PAGE_TRANSITION_LABEL_ONLY_MS (labels
+    // were already drawn by startPageTransition), then begin the crossfade.
+    if (elapsed < PAGE_TRANSITION_LABEL_ONLY_MS) return;
+
+    uint32_t crossfadeElapsed = elapsed - PAGE_TRANSITION_LABEL_ONLY_MS;
+    uint32_t crossfadeDuration = PAGE_TRANSITION_MS - PAGE_TRANSITION_LABEL_ONLY_MS;
     State::Snapshot s = state.getSnapshot();
-    uint8_t blendStep = (uint8_t)((elapsed * 17U) / PAGE_TRANSITION_MS);
+    uint8_t blendStep = (uint8_t)((crossfadeElapsed * 17U) / crossfadeDuration);
     if (blendStep > 16) blendStep = 16;
 
     for (uint8_t i = 0; i < SLOT_COUNT; i++) {
