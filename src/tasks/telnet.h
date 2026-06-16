@@ -4,6 +4,7 @@
 #include <WiFi.h>
 #include "task.h"
 #include "api.h"
+#include "config.h"
 
 class Telnet : public Task, public ApiClient {
    public:
@@ -64,12 +65,7 @@ class Telnet : public Task, public ApiClient {
                     logClientActive = true;
                     ESP_LOGI(taskName(), "Client connected.");
                     esp_log_set_vprintf(&telnet_vprintf);
-#if defined(ORD_NAME) && defined(ORD_VERSION) && defined(BUILDTAG) && defined(BUILD_TIMESTAMP)
-                    wifiClient.printf("=== Welcome to %s v%s%s b%s ===\n",
-                                      ORD_NAME, ORD_VERSION, BUILDTAG, BUILD_TIMESTAMP);
-#else
-                    wifiClient.println("=== Welcome ===");
-#endif
+                    wifiClient.printf("=== Welcome to %s ===\n", WHOAMI);
                 }
             } else {
                 wifiClient.stop();

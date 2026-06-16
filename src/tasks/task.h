@@ -1,4 +1,5 @@
-#pragma once
+#ifndef TASK_H
+#define TASK_H
 
 #include <Arduino.h>
 #include <freertos/FreeRTOS.h>
@@ -150,3 +151,5 @@ class Task {
         }
     }
 };
+
+#endif  // TASK_H
