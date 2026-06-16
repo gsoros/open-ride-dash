@@ -4,6 +4,7 @@
 #include "task.h"
 #include "model/state.h"
 #include "config.h"
+#include "api.h"
 
 #if ORD_DISPLAY == st7789_240x240
 #include "drivers/st7789_240x240.h"
@@ -13,7 +14,7 @@
 
 extern State state;
 
-class Display : public Task {
+class Display : public Task, public ApiClient {
    public:
     virtual const char* taskName() override {
         return "Display";
@@ -24,6 +25,13 @@ class Display : public Task {
         brightnessPercent = 50;
         output.setBrightnessPercent(brightnessPercent);
         output.splash();
+        apiClientSetup(taskName());
+        api.registerCommand(
+            "nextpage",
+            [this](const char* args) {
+                return nextPageCommand(args);
+            },
+            "Usage: nextpage\nSwitches to the next page.");
         Task::taskSetup();
     }
 
@@ -49,20 +57,35 @@ class Display : public Task {
         output.setBrightnessPercent(brightnessPercent);
     }
 
-    bool keyUpClick() {
+    bool upClicked() {
         return output.menuPrevious();
     }
-    bool keyDownClick() {
+    bool downClicked() {
         return output.menuNext();
     }
-    void keyPowerClick() {
-        output.keyPowerClick = true;
+    void selectClicked() {
+        output.selectClicked = true;
     }
     void enterMenu() {
         output.enterMenu();
     }
     bool menuActive() {
         return output.menuActive();
+    }
+
+    Api::Reply nextPageCommand(const char* args) {
+        ESP_LOGI(taskName(), "Switching to next page");
+        selectClicked();
+        Api::Reply reply = {};
+        reply.code = Api::ReplyCode::SUCCESS;
+        snprintf((char*)reply.data, sizeof(reply.data), "Page switched");
+        return reply;
+    }
+
+    void receiveReply(const Api::Reply& reply) override {
+        char rtext[32];
+        api.replyCodeToString(reply.code, rtext, sizeof(rtext));
+        ESP_LOGD(taskName(), "Received API reply: %s: %s", reply.command, rtext);
     }
 
    protected:

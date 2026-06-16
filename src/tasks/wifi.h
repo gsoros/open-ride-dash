@@ -132,7 +132,7 @@ class Wifi : public Task,
 
         if (newValue.length() > 0) {
             if (!preferencesReady || preferences.putString(key, newValue) == 0) {
-                reply.errorCode = Api::ErrorCode::EXECUTION_ERROR;
+                reply.code = Api::ReplyCode::EXECUTION_ERROR;
                 snprintf((char*)reply.data, sizeof(reply.data), "%s", value.c_str());
                 return reply;
             }
@@ -150,7 +150,7 @@ class Wifi : public Task,
 
         if (newValue.length() > 0) {
             if (!preferencesReady || preferences.putString(hostnameKey, newValue) == 0) {
-                reply.errorCode = Api::ErrorCode::EXECUTION_ERROR;
+                reply.code = Api::ReplyCode::EXECUTION_ERROR;
                 snprintf((char*)reply.data, sizeof(reply.data), "%s", hostname.c_str());
                 return reply;
             }

@@ -17,9 +17,9 @@ class DisplayDriver {
     virtual bool hasBacklight() { return false; };
     virtual bool hasBrightnessControl() { return hasBacklight(); };
 
-    volatile bool keyUpClick = false;
-    volatile bool keyDownClick = false;
-    volatile bool keyPowerClick = false;
+    volatile bool upClicked = false;
+    volatile bool downClicked = false;
+    volatile bool selectClicked = false;
 };
 
 #endif  // DISPLAY_DRIVER_H

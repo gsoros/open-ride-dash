@@ -1,10 +1,12 @@
 #ifndef API_H
 #define API_H
 
-#include "task.h"
-#include "config.h"
+#include <Arduino.h>
 #include <functional>
 #include <cstring>
+
+#include "task.h"
+#include "config.h"
 
 class Api : public Task {
    public:
@@ -26,14 +28,14 @@ class Api : public Task {
         QueueHandle_t replyQueue = nullptr;
     };
 
-    enum ErrorCode {
+    enum ReplyCode {
         SUCCESS = 0,
         UNKNOWN_COMMAND = 1,
         INVALID_ARGS = 2,
         EXECUTION_ERROR = 3,
     };
 
-    void errorCodeToString(uint8_t code, char* buffer, size_t bufferSize) {
+    void replyCodeToString(uint8_t code, char* buffer, size_t bufferSize) {
         const char* str = "Unknown";
         switch (code) {
             case SUCCESS:
@@ -55,7 +57,7 @@ class Api : public Task {
 
     struct Reply {
         char command[COMMAND_NAME_SIZE];
-        uint8_t errorCode = ErrorCode::SUCCESS;
+        uint8_t code = ReplyCode::SUCCESS;
         uint8_t data[REPLY_DATA_SIZE];
         size_t length = 0;
     };
@@ -144,7 +146,7 @@ class Api : public Task {
             Reply reply = handleCommand(req.commandLine);
             // If caller requested a reply, send it back (non-blocking)
             if (req.replyQueue != nullptr) {
-                // ESP_LOGD(taskName(), "Sending reply: (%d) %s", reply.errorCode, reply.data);
+                // ESP_LOGD(taskName(), "Sending reply: (%d) %s", reply.code, reply.data);
                 BaseType_t sent = xQueueSend(req.replyQueue, &reply, 0);
                 if (sent != pdTRUE) {
                     ESP_LOGW(taskName(), "Failed to enqueue reply for command %s", reply.command);
@@ -169,7 +171,7 @@ class Api : public Task {
         while (input[length] != '\0' && input[length] != ' ' && input[length] != '\t' && input[length] != '\r' &&
                input[length] != '\n') {
             if (length >= sizeof(cmd) - 1) {
-                reply.errorCode = ErrorCode::INVALID_ARGS;
+                reply.code = ReplyCode::INVALID_ARGS;
                 snprintf((char*)reply.data, sizeof(reply.data), "Command name too long");
                 reply.length = strlen((char*)reply.data);
                 return reply;
@@ -178,7 +180,7 @@ class Api : public Task {
             ++length;
         }
         if (length == 0) {
-            reply.errorCode = ErrorCode::INVALID_ARGS;
+            reply.code = ReplyCode::INVALID_ARGS;
             snprintf((char*)reply.data, sizeof(reply.data), "Empty command");
             reply.length = strlen((char*)reply.data);
             return reply;
@@ -198,7 +200,7 @@ class Api : public Task {
                 return reply;
             }
         }
-        reply.errorCode = ErrorCode::UNKNOWN_COMMAND;
+        reply.code = ReplyCode::UNKNOWN_COMMAND;
         strncpy(reply.command, cmd, sizeof(reply.command) - 1);
         reply.command[sizeof(reply.command) - 1] = '\0';
         snprintf((char*)reply.data, sizeof(reply.data), "Unknown command: %s", cmd);
@@ -235,7 +237,7 @@ class Api : public Task {
         while (args[length] != '\0' && args[length] != ' ' && args[length] != '\t' && args[length] != '\r' &&
                args[length] != '\n') {
             if (length >= sizeof(command) - 1) {
-                reply.errorCode = ErrorCode::INVALID_ARGS;
+                reply.code = ReplyCode::INVALID_ARGS;
                 snprintf((char*)reply.data, sizeof(reply.data), "Command name too long");
                 return reply;
             }
@@ -246,7 +248,7 @@ class Api : public Task {
         const char* rest = args + length;
         while (*rest == ' ' || *rest == '\t' || *rest == '\r' || *rest == '\n') rest++;
         if (*rest != '\0') {
-            reply.errorCode = ErrorCode::INVALID_ARGS;
+            reply.code = ReplyCode::INVALID_ARGS;
             snprintf((char*)reply.data, sizeof(reply.data), "Usage: help [command]");
             return reply;
         }
@@ -259,7 +261,7 @@ class Api : public Task {
             }
         }
 
-        reply.errorCode = ErrorCode::UNKNOWN_COMMAND;
+        reply.code = ReplyCode::UNKNOWN_COMMAND;
         snprintf((char*)reply.data, sizeof(reply.data), "%s", command);
         return reply;
     }
@@ -269,7 +271,7 @@ class Api : public Task {
         esp_restart();
         // We should never reach this point, but if we do, return an error reply
         Reply reply = {};
-        reply.errorCode = ErrorCode::EXECUTION_ERROR;
+        reply.code = ReplyCode::EXECUTION_ERROR;
         snprintf((char*)reply.data, sizeof(reply.data), "Failed to restart system");
         return reply;
     }
@@ -279,7 +281,7 @@ class Api : public Task {
         int* p = nullptr;
         ESP_LOGI(taskName(), "Dereferencing null pointer, this should cause a crash: %d", *p);
         Reply reply = {};
-        reply.errorCode = ErrorCode::EXECUTION_ERROR;
+        reply.code = ReplyCode::EXECUTION_ERROR;
         snprintf((char*)reply.data, sizeof(reply.data), "Dereferenced null pointer (this should not happen)");
         return reply;
     }

@@ -58,9 +58,9 @@ void ST7789_240x240::update() {
     ulong t = millis();
     if (t < 2000) return;  // show splash for at least 2 seconds
 
-    if (keyPowerClick) {
-        keyPowerClick = false;
-        handlePowerClick();
+    if (selectClicked) {
+        selectClicked = false;
+        handleSelectClick();
     }
 
     if (displayMode == MODE_SPLASH) {
@@ -117,7 +117,7 @@ void ST7789_240x240::setBrightnessPercent(uint8_t p) {
     analogWrite((uint8_t)bl, val);
 }
 
-void ST7789_240x240::handlePowerClick() {
+void ST7789_240x240::handleSelectClick() {
     if (displayMode == MODE_MENU) {
         selectMenuItem();
         return;
@@ -125,6 +125,7 @@ void ST7789_240x240::handlePowerClick() {
     nextPage();
 }
 
+// returns true if the menu is active and the item was changed
 bool ST7789_240x240::menuPrevious() {
     if (!menuActive()) return false;
     selectedMenuItem = selectedMenuItem == 0 ? MENU_ITEM_COUNT - 1 : selectedMenuItem - 1;
@@ -132,6 +133,7 @@ bool ST7789_240x240::menuPrevious() {
     return true;
 }
 
+// returns true if the menu is active and the item was changed
 bool ST7789_240x240::menuNext() {
     if (!menuActive()) return false;
     selectedMenuItem = (selectedMenuItem + 1) % MENU_ITEM_COUNT;

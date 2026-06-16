@@ -145,7 +145,7 @@ class ST7789_240x240 : public DisplayDriver {
     bool hasBacklight() override { return bl >= 0; }
 
     bool menuActive() const { return displayMode == MODE_MENU; }
-    void handlePowerClick();
+    void handleSelectClick();
     bool menuPrevious();
     bool menuNext();
     void enterMenu();
@@ -175,12 +175,12 @@ class ST7789_240x240 : public DisplayDriver {
     const GFXfont* mediumFont = &RobotoMono_Bold30pt7b;
     const GFXfont* labelFont = &RobotoMono_Bold30pt7b_Caps;
 
-    static constexpr uint32_t PAGE_UPDATE_MS = 100;
-    static constexpr uint32_t PAGE_TRANSITION_MS = 1500;
-    static constexpr uint32_t PAGE_TRANSITION_UPDATE_MS = 40;
-    static constexpr uint8_t SLOT_COUNT = 3;
-    static constexpr uint8_t PAGE_COUNT = 3;
-    static constexpr uint8_t MENU_ITEM_COUNT = 7;
+    static constexpr uint32_t PAGE_UPDATE_MS = 100;            // normal update rate
+    static constexpr uint32_t PAGE_TRANSITION_MS = 1500;       // time to crossfade between pages
+    static constexpr uint32_t PAGE_TRANSITION_UPDATE_MS = 40;  // update rate during transition
+    static constexpr uint8_t SLOT_COUNT = 3;                   // number of canvases to draw on each page
+    static constexpr uint8_t PAGE_COUNT = 3;                   // number of pages
+    static constexpr uint8_t MENU_ITEM_COUNT = 7;              // number of menu items
 
     enum DisplayMode {
         MODE_SPLASH,

@@ -106,9 +106,9 @@ class Telnet : public Task, public ApiClient {
         }
 
         char line[300];
-        if (reply.errorCode != Api::ErrorCode::SUCCESS) {
+        if (reply.code != Api::ReplyCode::SUCCESS) {
             char errorText[32];
-            api.errorCodeToString(reply.errorCode, errorText, sizeof(errorText));
+            api.replyCodeToString(reply.code, errorText, sizeof(errorText));
             snprintf(line, sizeof(line), "API [%s] Error (%s): %s",
                      reply.command,
                      errorText,
@@ -192,7 +192,7 @@ class Telnet : public Task, public ApiClient {
         Api::Reply reply = {};
         bool enable = false;
         if (!parseEchoValue(args, &enable)) {
-            reply.errorCode = Api::ErrorCode::INVALID_ARGS;
+            reply.code = Api::ReplyCode::INVALID_ARGS;
             snprintf((char*)reply.data, sizeof(reply.data), "Usage: echo 0|1|True|true|False|false|On|on|Off|off");
             return reply;
         }
