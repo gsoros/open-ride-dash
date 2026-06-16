@@ -21,7 +21,7 @@ class Display : public Task {
 
     virtual void setup() {
         output.setup();
-        brightnessPercent = 20;
+        brightnessPercent = 50;
         output.setBrightnessPercent(brightnessPercent);
         output.splash();
         Task::taskSetup();
