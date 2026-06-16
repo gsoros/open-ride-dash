@@ -64,7 +64,12 @@ class Telnet : public Task, public ApiClient {
                     logClientActive = true;
                     ESP_LOGI(taskName(), "Client connected.");
                     esp_log_set_vprintf(&telnet_vprintf);
+#if defined(ORD_NAME) && defined(ORD_VERSION) && defined(BUILDTAG) && defined(BUILD_TIMESTAMP)
+                    wifiClient.printf("=== Welcome to %s v%s%s b%s ===\n",
+                                      ORD_NAME, ORD_VERSION, BUILDTAG, BUILD_TIMESTAMP);
+#else
                     wifiClient.println("=== Welcome ===");
+#endif
                 }
             } else {
                 wifiClient.stop();
@@ -206,7 +211,7 @@ class Telnet : public Task, public ApiClient {
     uint16_t port = 23;
     WiFiServer wifiServer{port};
     WiFiClient wifiClient;
-    bool echo = true;
+    bool echo = false;
 };
 
 #endif  // TELNET_H

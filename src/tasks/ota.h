@@ -142,7 +142,7 @@ class OTA : public Task, public HasPreferences {
         if (stabilityTestRunning) {
             uint32_t t = millis();
             static uint32_t lastStabilityLog = 0;
-            if (t - lastStabilityLog > 3000) {
+            if (t - lastStabilityLog > 5000) {
                 lastStabilityLog = t;
                 ESP_LOGD(taskName(), "Stability timer: %d/%ds",
                          (t - stabilityTestStartTime) / 1000, stabilityTimeValid / 1000);

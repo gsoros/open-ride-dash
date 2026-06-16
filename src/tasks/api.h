@@ -205,13 +205,13 @@ class Api : public Task {
         return reply;
     }
 
-#if !defined(ORD_NAME) || !defined(ORD_VERSION)
-#error "ORD_NAME and ORD_VERSION must be defined in platformio.ini"
+#if !defined(ORD_NAME) || !defined(ORD_VERSION) || !defined(BUILD_TIMESTAMP) || !defined(BUILDTAG)
+#error "ORD_NAME, ORD_VERSION, BUILDTAG, and BUILD_TIMESTAMP must be defined "
 #endif
 
     Reply versionCommand(const char* args) {
         Reply reply = {};
-        snprintf((char*)reply.data, sizeof(reply.data), ORD_NAME " v" ORD_VERSION);
+        snprintf((char*)reply.data, sizeof(reply.data), ORD_NAME " v" ORD_VERSION BUILDTAG " b" BUILD_TIMESTAMP);
         reply.length = strlen((char*)reply.data);
         return reply;
     }
