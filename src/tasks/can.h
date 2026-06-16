@@ -42,7 +42,7 @@ class CAN : public Task {
         static uint16_t rxBufferOverflows = 0;                  // count of receive buffer overflows
         static uint16_t txBufferOverflows = 0;                  // count of transmit buffer overflows
         static uint32_t lastOverflowLog = 0;                    // timestamp of last overflow log
-        static constexpr uint32_t overflowLogInterval = 10000;  // overflow log interval in ms
+        static constexpr uint32_t overflowLogInterval = 60000;  // overflow log interval in ms
         uint32_t t = millis();
 
         if (ACAN::can.driverReceiveBufferPeakCount() >= ACAN::can.driverReceiveBufferSize()) {
@@ -290,6 +290,23 @@ class CAN : public Task {
 
                     char hexbuf[32] = {};
                     hexToStr(hexbuf, sizeof(hexbuf), frame.data, frame.len);
+                    static char lastHexbuf[32] = {};
+                    static uint16_t repeatedCount = 0;
+                    static uint32_t lastRepeatLog = 0;
+                    if (strcmp(hexbuf, lastHexbuf) == 0) {
+                        repeatedCount++;
+                        if (lastRepeatLog == 0 || millis() - lastRepeatLog > 10000) {  // Log repeated frames after 10 seconds
+                            ESP_LOGD(taskName(), "Unknown frame repeated %d times ID: 0x%08X len=%d Data: [%s]",
+                                     repeatedCount, frame.id, frame.len, hexbuf);
+                            repeatedCount = 0;  // Reset counter
+                            lastRepeatLog = millis();
+                        }
+                        break;
+                    } else {
+                        repeatedCount = 0;  // Reset counter on new frame
+                        lastRepeatLog = 0;  // Reset log timer
+                    }
+                    strncpy(lastHexbuf, hexbuf, sizeof(lastHexbuf));
                     ESP_LOGD(taskName(), "Unknown frame ID: 0x%08X len=%d Data: [%s]", frame.id, frame.len, hexbuf);
                     break;
                 }

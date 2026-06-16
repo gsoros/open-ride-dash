@@ -1,18 +1,40 @@
+#ifndef WIFI_H
+#define WIFI_H
+
 #include <WiFi.h>
 #include <ESPmDNS.h>
 #include <Preferences.h>
 #include "task.h"
+#include "has_preferences.h"
 #include "config.h"
 #include "api.h"
 
-class Wifi : public Task {
+class Wifi : public Task,
+             public HasPreferences {
    public:
     virtual const char* taskName() override {
         return "WiFi";
     }
 
     virtual void setup() {
-        setupPreferences();
+        ssid = default_wifi_ssid;
+        password = default_wifi_password;
+        hostname = default_hostname;
+
+        if (preferencesSetup(taskName())) {
+            if (preferences.isKey(ssidKey) && preferences.isKey(passwordKey)) {
+                ssid = preferences.getString(ssidKey, default_wifi_ssid);
+                password = preferences.getString(passwordKey, default_wifi_password);
+            } else {
+                ESP_LOGI(taskName(), "WiFi credentials not found in preferences, using defaults");
+            }
+            if (preferences.isKey(hostnameKey))
+                hostname = preferences.getString(hostnameKey, default_hostname);
+            else
+                ESP_LOGI(taskName(), "Hostname not found in preferences, using defaults");
+        } else
+            ESP_LOGE(taskName(), "Failed to open preferences, using defaults");
+
         registerApiCommands();
 
         WiFi.mode(WIFI_MODE_STA);
@@ -21,10 +43,10 @@ class Wifi : public Task {
         ESP_LOGI(taskName(), "Connecting to WiFi SSID: %s", ssid.c_str());
         /*
         unsigned long start = millis();
-        while (WiFi.status() != WL_CONNECTED && millis() - start < 10000) {
+        while (isConnected() && millis() - start < 10000) {
             delay(250);
         }
-        if (WiFi.status() != WL_CONNECTED) {
+        if (!isConnected()) {
             ESP_LOGW(taskName(), "WiFi connect failed");
         } else {
             ESP_LOGI(taskName(), "WiFi connected, IP: %s", WiFi.localIP().toString().c_str());
@@ -40,7 +62,7 @@ class Wifi : public Task {
         static ulong last = 0;
         if (millis() - last > 10000) {
             last = millis();
-            if (WiFi.status() != WL_CONNECTED) {
+            if (!isConnected()) {
                 ESP_LOGW(taskName(), "WiFi not connected to '%s', password: '%s'", ssid.c_str(), password.c_str());
             }
         }
@@ -59,10 +81,14 @@ class Wifi : public Task {
 
     void waitForConnection() {
         waitForReady();
-        while (WiFi.status() != WL_CONNECTED) {
+        while (!isConnected()) {
             ESP_LOGD(taskName(), "Waiting for connection...");
             delay(100);
         }
+    }
+
+    bool isConnected() const {
+        return WiFi.status() == WL_CONNECTED;
     }
 
     const char* getHostname() const {
@@ -70,38 +96,13 @@ class Wifi : public Task {
     }
 
    protected:
-    static constexpr const char* preferencesNamespace = "wifi";
     static constexpr const char* ssidKey = "ssid";
     static constexpr const char* passwordKey = "password";
     static constexpr const char* hostnameKey = "hostname";
-    bool setupDone = false;
-
-    Preferences preferences;
     String ssid;
     String password;
     String hostname;
-    bool preferencesReady = false;
-
-    void setupPreferences() {
-        ssid = default_wifi_ssid;
-        password = default_wifi_password;
-        hostname = default_hostname;
-
-        preferencesReady = preferences.begin(preferencesNamespace, false);
-        if (!preferencesReady) {
-            ESP_LOGE(taskName(), "Failed to open WiFi preferences, using defaults");
-            return;
-        }
-
-        if (preferences.isKey(ssidKey) && preferences.isKey(passwordKey)) {
-            ssid = preferences.getString(ssidKey, default_wifi_ssid);
-            password = preferences.getString(passwordKey, default_wifi_password);
-        } else {
-            ESP_LOGI(taskName(), "WiFi credentials not found in preferences, using defaults");
-        }
-
-        hostname = preferences.getString(hostnameKey, default_hostname);
-    }
+    bool setupDone = false;
 
     void registerApiCommands() {
         api.registerCommand(
@@ -160,3 +161,5 @@ class Wifi : public Task {
         return reply;
     }
 };
+
+#endif  // WIFI_H

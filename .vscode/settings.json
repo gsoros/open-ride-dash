@@ -37,5 +37,13 @@
       ".continue/**/*.yaml",
       "file:///home/g/wrk/open-ride-dash/.continue/agents/openrouter.yaml"
     ]
-  }
+  },
+  "idf.currentSetup": "/home/g/.espressif/v5.5.3/esp-idf",
+  "idf.customExtraVars": {},
+  "clangd.path": "/home/g/.espressif/tools/esp-clang/esp-19.1.2_20250312/esp-clang/bin/clangd",
+  "clangd.arguments": [
+    "--background-index",
+    "--query-driver=**",
+    "--compile-commands-dir=/home/g/wrk/open-ride-dash/build"
+  ]
 }

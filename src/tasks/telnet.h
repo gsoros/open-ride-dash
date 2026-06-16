@@ -1,3 +1,6 @@
+#ifndef TELNET_H
+#define TELNET_H
+
 #include <WiFi.h>
 #include "task.h"
 #include "api.h"
@@ -147,6 +150,14 @@ class Telnet : public Task, public ApiClient {
         return res;
     }
 
+    void flush() {
+#ifdef FEATURE_SERIAL
+        Serial.flush();
+#endif
+        bool client = instance && instance->wifiClient && instance->wifiClient.connected();
+        if (client) instance->wifiClient.flush();
+    }
+
    protected:
     static bool parseEchoValue(const char* args, bool* value) {
         while (*args == ' ' || *args == '\t') ++args;
@@ -197,3 +208,5 @@ class Telnet : public Task, public ApiClient {
     WiFiClient wifiClient;
     bool echo = true;
 };
+
+#endif  // TELNET_H

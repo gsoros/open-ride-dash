@@ -87,6 +87,13 @@ class Api : public Task {
                 return restartCommand(args);
             },
             "Usage: restart\nRestarts the system.");
+        registerCommand(
+            "nullpointer",
+            [this](const char* args) {
+                return nullpointerCommand(args);
+            },
+            "Usage: nullpointer\nSimulates a null pointer dereference for testing.");
+
         Task::taskSetup();
     }
 
@@ -267,6 +274,16 @@ class Api : public Task {
         Reply reply = {};
         reply.errorCode = ErrorCode::EXECUTION_ERROR;
         snprintf((char*)reply.data, sizeof(reply.data), "Failed to restart system");
+        return reply;
+    }
+
+    Reply nullpointerCommand(const char* args) {
+        ESP_LOGI(taskName(), "Simulating null pointer dereference for testing...");
+        int* p = nullptr;
+        ESP_LOGI(taskName(), "Dereferencing null pointer, this should cause a crash: %d", *p);
+        Reply reply = {};
+        reply.errorCode = ErrorCode::EXECUTION_ERROR;
+        snprintf((char*)reply.data, sizeof(reply.data), "Dereferenced null pointer (this should not happen)");
         return reply;
     }
 };
