@@ -209,7 +209,7 @@ void ST7789_240x240::drawTransitionSlot(uint8_t slotIndex, MetricID id, State::S
     bool isNumeric = true;
     if (!formatMetricValue(id, s, value, sizeof(value), &isNumeric)) return;
 
-    const GFXfont* valueFont = selectValueFont(value, isNumeric);
+    const uint8_t* valueFont = selectValueFont(value, isNumeric);
     uint8_t valueTextSize = isNumeric ? slot.valueTextSize : slot.labelTextSize;
     uint8_t valueVerticalOffset = isNumeric ? slot.valueVerticalOffset : slot.labelVerticalOffset;
 
@@ -242,7 +242,7 @@ const ST7789_240x240::PageLayout& ST7789_240x240::currentPageLayout() const {
 ST7789_240x240::MetricSlot ST7789_240x240::metricSlot(uint8_t slotIndex) const {
     switch (slotIndex) {
         case SLOT_MAJOR:
-            return {canvasMajor, transitionLabelMajor, transitionValueMajor, 2, 2, 5, 8};
+            return {canvasMajor, transitionLabelMajor, transitionValueMajor, 2, 2, 4, 8};
         case SLOT_MINOR1:
             return {canvasMinor1, transitionLabelMinor1, transitionValueMinor1, 1, 1, 2, 2};
         case SLOT_MINOR2:
@@ -297,7 +297,7 @@ void ST7789_240x240::drawMetricValue(uint8_t slotIndex, MetricID id, State::Snap
     RenderedMetric& rendered = renderedMetrics[slotIndex];
     if (remember && !force && rendered.valid && strcmp(rendered.value, value) == 0) return;
 
-    const GFXfont* font = selectValueFont(value, isNumeric);
+    const uint8_t* font = selectValueFont(value, isNumeric);
     uint8_t textSize = isNumeric ? slot.valueTextSize : slot.labelTextSize;
     uint8_t verticalOffset = isNumeric ? slot.valueVerticalOffset : slot.labelVerticalOffset;
     drawSlotText(slot, value, font, textSize, verticalOffset);
@@ -308,7 +308,7 @@ void ST7789_240x240::drawMetricValue(uint8_t slotIndex, MetricID id, State::Snap
     rendered.valid = true;
 }
 
-const GFXfont* ST7789_240x240::selectValueFont(const char* value, bool isNumeric) const {
+const uint8_t* ST7789_240x240::selectValueFont(const char* value, bool isNumeric) const {
     if (!isNumeric) return labelFont;
     return strlen(value) >= 3 ? mediumFont : largeFont;
 }
@@ -316,7 +316,7 @@ const GFXfont* ST7789_240x240::selectValueFont(const char* value, bool isNumeric
 void ST7789_240x240::drawSlotText(
     MetricSlot& slot,
     const char* text,
-    const GFXfont* font,
+    const uint8_t* font,
     uint8_t textSize,
     uint8_t verticalOffset,
     bool invertColors) {
@@ -329,7 +329,7 @@ void ST7789_240x240::drawSlotText(
 void ST7789_240x240::renderTextToCanvas(
     Arduino_Canvas_Mono* canvas,
     const char* text,
-    const GFXfont* font,
+    const uint8_t* font,
     uint8_t textSize,
     uint8_t verticalOffset,
     bool invertColors) {
@@ -489,8 +489,8 @@ void ST7789_240x240::formatUInt(char* buffer, size_t bufferSize, uint16_t value)
 }
 
 void ST7789_240x240::drawMenu() {
-    canvasMenu->setFont(labelFont);
-    canvasMenu->setTextSize(1);
+    canvasMenu->setFont(menuFont);
+    canvasMenu->setTextSize(2);
     canvasMenu->setTextColor(WHITE, BLACK);
     canvasMenu->fillScreen(BLACK);
 
@@ -501,8 +501,9 @@ void ST7789_240x240::drawMenu() {
     } else if (selectedMenuItem >= scrollOffset + MAX_VISIBLE_MENU_ITEMS) {
         scrollOffset = selectedMenuItem - MAX_VISIBLE_MENU_ITEMS + 1;
     }
+    // Layout with 20px font: tile height ~32px, baseline ~34, spacing ~36
     for (uint8_t i = scrollOffset; i < MENU_ITEM_COUNT && i < scrollOffset + MAX_VISIBLE_MENU_ITEMS + 1; i++) {
-        drawMenuLine(menuItems[i], 52 + (i - scrollOffset) * 54, i == selectedMenuItem);
+        drawMenuLine(menuItems[i], 34 + (i - scrollOffset) * 36, i == selectedMenuItem);
     }
 
     canvasMenu->flush();
@@ -515,7 +516,7 @@ void ST7789_240x240::drawMenuLine(const char* text, int16_t baseline, bool selec
     uint16_t textColor = selected ? BLACK : WHITE;
     uint16_t backgroundColor = selected ? WHITE : BLACK;
 
-    canvasMenu->fillRect(0, baseline - 46, canvasMenu->width(), 52, backgroundColor);
+    canvasMenu->fillRect(0, baseline - 30, canvasMenu->width(), 34, backgroundColor);
     canvasMenu->setTextColor(textColor);
     int16_t x1 = 0;
     int16_t y1 = 0;

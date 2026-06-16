@@ -71,9 +71,13 @@ Keep in mind that GFX fonts are positioned with the baseline at y=0, so the y co
 
 extern State state;
 
-#include "RobotoMono_bold48pt7b_digits.h"
-#include "RobotoMono_bold30pt7b_digits.h"
-#include "RobotoMono_bold30pt7b_caps.h"
+#ifndef U8G2_FONT_SECTION
+#define U8G2_FONT_SECTION(name) __attribute__((section(".text." name)))
+#endif
+
+#include "fonts_u8g2/RobotoMono_Bold_90px.h"
+#include "fonts_u8g2/RobotoMono_Bold_48px_alpha_digits.h"
+#include "fonts_u8g2/RobotoMono_Regular_20px.h"
 
 class ST7789_240x240 : public DisplayDriver {
    public:
@@ -171,9 +175,10 @@ class ST7789_240x240 : public DisplayDriver {
     Arduino_Canvas_Mono* transitionLabelMinor2 = nullptr;
     Arduino_Canvas_Mono* transitionValueMinor2 = nullptr;
 
-    const GFXfont* largeFont = &RobotoMono_Bold48pt7b;
-    const GFXfont* mediumFont = &RobotoMono_Bold30pt7b;
-    const GFXfont* labelFont = &RobotoMono_Bold30pt7b_Caps;
+    const uint8_t* largeFont = u8g2_font_RobotoMono_Bold_90px;
+    const uint8_t* mediumFont = u8g2_font_RobotoMono_Bold_48px_alpha_digits;
+    const uint8_t* labelFont = u8g2_font_RobotoMono_Bold_48px_alpha_digits;
+    const uint8_t* menuFont = u8g2_font_RobotoMono_Regular_20px;
 
     static constexpr uint32_t PAGE_UPDATE_MS = 100;                 // normal update rate
     static constexpr uint32_t PAGE_TRANSITION_MS = 2000;            // time to blend between labels and next page
@@ -266,9 +271,9 @@ class ST7789_240x240 : public DisplayDriver {
     void drawPageLabels();
     void drawPageValues(State::Snapshot& s, bool force, bool remember = true);
     void drawMetricValue(uint8_t slotIndex, MetricID id, State::Snapshot& s, bool force, bool remember);
-    const GFXfont* selectValueFont(const char* value, bool isNumeric) const;
-    void drawSlotText(MetricSlot& slot, const char* text, const GFXfont* font, uint8_t textSize, uint8_t verticalOffset, bool invertColors = false);
-    void renderTextToCanvas(Arduino_Canvas_Mono* canvas, const char* text, const GFXfont* font, uint8_t textSize, uint8_t verticalOffset, bool invertColors = false);
+    const uint8_t* selectValueFont(const char* value, bool isNumeric) const;
+    void drawSlotText(MetricSlot& slot, const char* text, const uint8_t* font, uint8_t textSize, uint8_t verticalOffset, bool invertColors = false);
+    void renderTextToCanvas(Arduino_Canvas_Mono* canvas, const char* text, const uint8_t* font, uint8_t textSize, uint8_t verticalOffset, bool invertColors = false);
     void blendMonoCanvases(Arduino_Canvas_Mono* fromCanvas, Arduino_Canvas_Mono* toCanvas, Arduino_Canvas_Mono* outputCanvas, uint8_t blendStep);
     uint8_t bayerThreshold(uint16_t x, uint16_t y) const;
     bool formatMetricValue(MetricID id, State::Snapshot& s, char* buffer, size_t bufferSize, bool* isNumeric);
