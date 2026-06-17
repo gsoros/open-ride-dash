@@ -9,7 +9,27 @@ State::State() {
 }
 
 void State::setup() {
+    if (!preferencesSetup("state"))
+        ESP_LOGE(tag, "preferencesSetup() failed");
+    if (!restoreFromPreferences())
+        ESP_LOGE(tag, "restoreFromPreferences() failed");
     registerApiCommands();
+    ESP_LOGD(tag, "Initialized");
+}
+
+bool State::restoreFromPreferences() {
+    if (!preferencesReady) {
+        ESP_LOGE(tag, "restoreFromPreferences() preferences not ready");
+        return false;
+    }
+    uint16_t capacity = (uint16_t)preferences.getUInt("batteryCapacity_Wh", DEFAULT_BATTERY_CAPACITY_Wh);
+    ESP_LOGD(tag, "restoreFromPreferences() batteryCapacity_Wh: %u", capacity);
+    if (capacity < 10 || capacity > 10000) {
+        ESP_LOGW(tag, "restoreFromPreferences() batteryCapacity_Wh out of range, using default %u", DEFAULT_BATTERY_CAPACITY_Wh);
+        capacity = DEFAULT_BATTERY_CAPACITY_Wh;
+    }
+    batteryCapacity_Wh(capacity, false);
+    return true;
 }
 
 void State::registerApiCommands() {
@@ -72,6 +92,20 @@ void State::cadence(uint8_t v) {
 }
 uint8_t State::cadence() {
     return getUInt8(&_latest.cadence);
+}
+
+void State::batteryCapacity_Wh(uint16_t v, bool persist) {
+    setUInt16(&_latest.batteryCapacity_Wh, v);
+    if (persist) {
+        if (!preferencesReady) {
+            ESP_LOGE(tag, "batteryCapacity_Wh() preferences not ready");
+            return;
+        }
+        preferences.putUInt("batteryCapacity_Wh", v);
+    }
+}
+uint16_t State::batteryCapacity_Wh() {
+    return getUInt16(&_latest.batteryCapacity_Wh);
 }
 
 void State::wheelSpeed_x10(uint16_t v) {

@@ -437,7 +437,7 @@ bool ST7789_240x240::formatMetricValue(MetricID id, State::Snapshot& s, char* bu
             formatUInt(buffer, bufferSize, roundedMetricValue((float)s.batteryVoltage_x100 / 100.0f));
             return true;
         case METRIC_SOC:
-            formatUInt(buffer, bufferSize, 0);
+            formatUInt(buffer, bufferSize, s.soc());
             return true;
         case METRIC_MOTOR_TEMP:
             formatUInt(buffer, bufferSize, s.motorTemp);
@@ -445,13 +445,27 @@ bool ST7789_240x240::formatMetricValue(MetricID id, State::Snapshot& s, char* bu
         case METRIC_TRIP:
             formatUInt(buffer, bufferSize, cappedMetricValue(s.trip_mx10 / 10000));
             return true;
-        case METRIC_ODO:
-            formatUInt(buffer, bufferSize, cappedMetricValue(s.odo_mx10 / 10000));
+        case METRIC_ODO: {
+            uint32_t km = cappedMetricValue(s.odo_mx10 / 10000);
+            if (km < 1000) {
+                formatUInt(buffer, bufferSize, km);
+            } else if (km < 10000) {
+                // 1234 → "1k2"
+                snprintf(buffer, bufferSize, "%uk%u", km / 1000, (km % 1000) / 100);
+            } else {
+                // 12345 → "12k"  (drop sub-k precision, it's an odo not a surgery)
+                snprintf(buffer, bufferSize, "%uk", km / 1000);
+            }
             return true;
+        }
         case METRIC_RANGE:
-        case METRIC_HEART_RATE:
-        case METRIC_BODY_TEMP:
-            formatUInt(buffer, bufferSize, 0);
+            formatUInt(buffer, bufferSize, roundedMetricValue((float)s.range()));
+            return true;
+        case METRIC_HEART_RATE:  // TODO: Implement live heart rate
+            formatUInt(buffer, bufferSize, 123);
+            return true;
+        case METRIC_BODY_TEMP:  // TODO: Implement live body temperature
+            formatUInt(buffer, bufferSize, 365);
             return true;
         default:
             ESP_LOGW(tag, "Ignoring invalid metric id: %d", id);

@@ -14,10 +14,12 @@ constexpr const char* default_wifi_ssid = "myNetwork";
 constexpr const char* default_wifi_password = "myPassword";
 
 #ifndef ORD_NAME
+// keep the format, build_info.py will parse this
 #define ORD_NAME "OpenRideDash"
 #endif
 
 #ifndef ORD_SHORT_NAME
+// keep the format, build_info.py will parse this
 #define ORD_SHORT_NAME "ord"
 #endif
 
@@ -28,11 +30,5 @@ constexpr const char* default_hostname = ORD_SHORT_NAME;
 #endif
 
 #define TFT_ROTATION 0
-
-#if defined(ORD_VERSION) && defined(BUILDTAG) && defined(BUILD_TIMESTAMP)
-#define WHOAMI ORD_NAME " v" ORD_VERSION STR(BUILDTAG) " b" BUILD_TIMESTAMP
-#else
-#define WHOAMI ORD_NAME
-#endif
 
 #endif  // CONFIG_H

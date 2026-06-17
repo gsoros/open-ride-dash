@@ -5,6 +5,7 @@
 #include "task.h"
 #include "api.h"
 #include "config.h"
+#include "build_info.h"  // whoami
 
 class Telnet : public Task, public ApiClient {
    public:
@@ -65,7 +66,7 @@ class Telnet : public Task, public ApiClient {
                     logClientActive = true;
                     ESP_LOGI(taskName(), "Client connected.");
                     esp_log_set_vprintf(&telnet_vprintf);
-                    wifiClient.printf("=== Welcome to %s ===\n", WHOAMI);
+                    wifiClient.printf("=== Welcome to %s ===\n", whoami);
                 }
             } else {
                 wifiClient.stop();

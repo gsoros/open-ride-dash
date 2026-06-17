@@ -8,6 +8,11 @@
 #include "task.h"
 #include "config.h"
 
+#include "model/state.h"
+extern State state;
+
+#include "build_info.h"  // whoami
+
 class Api : public Task {
    public:
     static constexpr size_t COMMAND_NAME_SIZE = 32;
@@ -96,6 +101,12 @@ class Api : public Task {
                 return nullpointerCommand(args);
             },
             "Usage: nullpointer\nSimulates a null pointer dereference for testing.");
+        registerCommand(
+            "battery",
+            [this](const char* args) {
+                return batteryCapacityCommand(args);
+            },
+            "Usage: battery [capacity]\nGets or sets the battery capacity in Wh.");
 
         Task::taskSetup();
     }
@@ -210,7 +221,7 @@ class Api : public Task {
 
     Reply versionCommand(const char* args) {
         Reply reply = {};
-        snprintf((char*)reply.data, sizeof(reply.data), WHOAMI);
+        snprintf((char*)reply.data, sizeof(reply.data), "%s", whoami);
         reply.length = strlen((char*)reply.data);
         return reply;
     }
@@ -284,6 +295,45 @@ class Api : public Task {
         reply.code = ReplyCode::EXECUTION_ERROR;
         snprintf((char*)reply.data, sizeof(reply.data), "Dereferenced null pointer (this should not happen)");
         return reply;
+    }
+
+    Reply batteryCapacityCommand(const char* args) {
+        Reply reply = {};
+        if (args == nullptr) args = "";
+        while (*args == ' ' || *args == '\t' || *args == '\r' || *args == '\n') args++;
+
+        // get batteryCapacity_Wh
+        if (*args == '\0') {
+            snprintf((char*)reply.data, sizeof(reply.data), "%u", state.batteryCapacity_Wh());
+            return reply;
+        }
+
+        // set batteryCapacity_Wh
+        char token[6] = {};
+        size_t length = 0;
+        while (args[length] != '\0' && args[length] != ' ' && args[length] != '\t' && args[length] != '\r' &&
+               args[length] != '\n') {
+            if (length >= sizeof(token) - 1) return reply;
+            token[length] = args[length];
+            ++length;
+        }
+
+        const char* rest = args + length;
+        while (*rest == ' ' || *rest == '\t' || *rest == '\r' || *rest == '\n') ++rest;
+        if (*rest != '\0') return reply;
+
+        uint16_t value = 0;
+        if (!parseUInt16(token, &value)) return reply;
+        state.batteryCapacity_Wh(value);
+        snprintf((char*)reply.data, sizeof(reply.data), "Battery capacity set to %u Wh", value);
+        return reply;
+    }
+
+    bool parseUInt16(const char* token, uint16_t* value) {
+        if (token == nullptr || value == nullptr) return false;
+        char* end = nullptr;
+        *value = (uint16_t)strtoul(token, &end, 10);
+        return end != nullptr && *end == '\0';
     }
 };
 

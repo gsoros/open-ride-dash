@@ -89,7 +89,7 @@ class CAN : public Task {
                 case 0x02F83000: {  // [4] Uptime heartbeat
                     // fires every 10 seconds, B[0:3] LE uint32 is a tick counter where 1 tick = 10 seconds.
                     static uint32_t lastUptime = 0;
-                    uint32_t uptime_sx10 = (uint32_t)(frame.data[3] << 24) | (uint32_t)(frame.data[2] << 16) | (uint32_t)(frame.data[1] << 8) | frame.data[0];
+                    uint32_t uptime_sx10 = ((uint32_t)frame.data[3] << 24) | ((uint32_t)frame.data[2] << 16) | ((uint32_t)frame.data[1] << 8) | (uint32_t)frame.data[0];
                     if (uptime_sx10 == lastUptime) break;
                     lastUptime = uptime_sx10;
                     ESP_LOGD(taskName(), "Parsed: uptime: %.2f minutes", uptime_sx10 / 6.0f);
@@ -109,7 +109,8 @@ class CAN : public Task {
                     [6:7]  unknown
                     */
                     uint8_t cadence = frame.data[3];
-                    uint16_t torque = ((uint16_t)(frame.data[5] << 8) | frame.data[4]) - 750;
+                    uint16_t torque = (((uint16_t)frame.data[5] << 8) | (uint16_t)frame.data[4]) - 750;
+                    uint16_t unknown = (((uint16_t)frame.data[7] << 8) | (uint16_t)frame.data[6]);
                     static uint8_t lastCadence = 0;
                     static uint16_t lastTorque = 0;
                     if (cadence == lastCadence && torque == lastTorque) break;
@@ -124,16 +125,16 @@ class CAN : public Task {
                         state.releaseMutex();
                         humanPower = s.humanPower();
                     }
-                    ESP_LOGD(taskName(), "Parsed: cadence: %u, raw torque: %u, human power: %.1f", cadence, torque, humanPower);
+                    ESP_LOGD(taskName(), "Parsed: cadence: %u, raw torque: %u, human power: %.1f, unknown: %u", cadence, torque, humanPower, unknown);
                     break;
                 }
 
                 case 0x02F83201: {  // [8] Wheel speed, current, voltage, motor temp, controller temp
-                    uint16_t wheelSpeed_x10 = (uint16_t)(frame.data[1] << 8) | frame.data[0];
+                    uint16_t wheelSpeed_x10 = ((uint16_t)frame.data[1] << 8) | (uint16_t)frame.data[0];
                     state.wheelSpeed_x10(wheelSpeed_x10);
-                    uint16_t batteryCurrent_x20 = (uint16_t)(frame.data[3] << 8) | frame.data[2];
+                    uint16_t batteryCurrent_x20 = ((uint16_t)frame.data[3] << 8) | (uint16_t)frame.data[2];
                     state.batteryCurrent_x20(batteryCurrent_x20);
-                    uint16_t batteryVoltage_x100 = (uint16_t)(frame.data[5] << 8) | frame.data[4];
+                    uint16_t batteryVoltage_x100 = ((uint16_t)frame.data[5] << 8) | (uint16_t)frame.data[4];
                     state.batteryVoltage_x100(batteryVoltage_x100);
                     state.motorTemp((int8_t)frame.data[6] - 40);
                     state.controllerTemp((int8_t)frame.data[7] - 40);
@@ -152,11 +153,11 @@ class CAN : public Task {
                 }
 
                 case 0x02F83203: {  // [8] Wheel max speed, wheel size, wheel circumference
-                    uint16_t wheelMaxSpeed_x100 = (uint16_t)(frame.data[1] << 8) | frame.data[0];
+                    uint16_t wheelMaxSpeed_x100 = ((uint16_t)frame.data[1] << 8) | (uint16_t)frame.data[0];
                     uint8_t highNibble = frame.data[3] >> 4;
                     uint8_t lowNibble = frame.data[2] & 0x0F;
                     uint8_t wheelSize = (highNibble * 10) + lowNibble;
-                    uint16_t wheelCircumference = (uint16_t)(frame.data[5] << 8) | frame.data[4];
+                    uint16_t wheelCircumference = ((uint16_t)frame.data[5] << 8) | (uint16_t)frame.data[4];
                     static uint16_t lastWheelMaxSpeed = 0;
                     static uint8_t lastWheelSize = 0;
                     static uint16_t lastWheelCircumference = 0;
@@ -164,7 +165,7 @@ class CAN : public Task {
                     lastWheelMaxSpeed = wheelMaxSpeed_x100;
                     lastWheelSize = wheelSize;
                     lastWheelCircumference = wheelCircumference;
-                    state.wheelMaxSpeed_x100((uint16_t)(frame.data[1] << 8) | frame.data[0]);
+                    state.wheelMaxSpeed_x100(((uint16_t)frame.data[1] << 8) | (uint32_t)frame.data[0]);
                     state.wheelSize(wheelSize);
                     state.wheelCircumference(wheelCircumference);
                     ESP_LOGD(taskName(),
@@ -230,7 +231,7 @@ class CAN : public Task {
                     // High-frequency bursts: raw torque sensor tick stream?
                     // 5-8 frames at ~200ms intervals with values like
                     // 0x2E, 0x30, 0x46, 0x9C that look like inter-pulse timing
-                    uint16_t tick = (uint16_t)(frame.data[1] << 8) | frame.data[0];
+                    uint16_t tick = ((uint16_t)frame.data[1] << 8) | (uint16_t)frame.data[0];
                     char hexbuf[32] = {};
                     static char lastHexbuf[32] = {};
                     hexToStr(hexbuf, sizeof(hexbuf), frame.data, frame.len);
@@ -256,7 +257,7 @@ class CAN : public Task {
                     // B[4:7] = increments exactly every 1000ms while the wheel is moving,
                     // pauses when stationary. Likely time-in-motion seconds
                     static uint32_t lastTimeInMotion = 0;
-                    uint32_t timeInMotion = (uint32_t)(frame.data[7] << 24) | (uint32_t)(frame.data[6] << 16) | (uint32_t)(frame.data[5] << 8) | frame.data[4];
+                    uint32_t timeInMotion = ((uint32_t)frame.data[7] << 24) | ((uint32_t)frame.data[6] << 16) | ((uint32_t)frame.data[5] << 8) | (uint32_t)frame.data[4];
                     if (timeInMotion == lastTimeInMotion) break;
                     lastTimeInMotion = timeInMotion;
                     ESP_LOGD(taskName(), "Parsed time-in-motion: %d", timeInMotion);
@@ -270,8 +271,8 @@ class CAN : public Task {
                         ESP_LOGD(taskName(), "ODO wrong len: %d, data: [%s]", frame.len, hexbuf);
                         break;
                     }
-                    uint32_t odo_mx10 = (uint32_t)(frame.data[3] << 24) | (uint32_t)(frame.data[2] << 16) | (uint32_t)(frame.data[1] << 8) | frame.data[0];
-                    uint32_t trip_mx10 = (uint32_t)(frame.data[7] << 24) | (uint32_t)(frame.data[6] << 16) | (uint32_t)(frame.data[5] << 8) | frame.data[4];
+                    uint32_t odo_mx10 = ((uint32_t)frame.data[3] << 24) | ((uint32_t)frame.data[2] << 16) | ((uint32_t)frame.data[1] << 8) | (uint32_t)frame.data[0];
+                    uint32_t trip_mx10 = ((uint32_t)frame.data[7] << 24) | ((uint32_t)frame.data[6] << 16) | ((uint32_t)frame.data[5] << 8) | (uint32_t)frame.data[4];
                     state.odo_mx10(odo_mx10);
                     state.trip_mx10(trip_mx10);
                     static uint32_t lastOdo = 0;
@@ -363,7 +364,16 @@ class CAN : public Task {
 
             keepalive.data[1] = pasByte;
 
-            if (ACAN::can.tryToSend(keepalive)) {
+            if (!ACAN::can.tryToSend(keepalive)) {
+                static uint32_t lastSendFailLog = 0;
+                static uint32_t lastSendFailCount = 0;
+                lastSendFailCount++;
+                if (t - lastSendFailLog > 60000) {
+                    ESP_LOGW(taskName(), "Failed to send %u keepalive messages", lastSendFailCount);
+                    lastSendFailCount = 0;
+                    lastSendFailLog = t;
+                }
+            } else {
                 sent += 1;
                 lastKeepalive = t;
             }
