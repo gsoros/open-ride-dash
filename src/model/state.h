@@ -45,16 +45,27 @@ class State : public HasPreferences {
         // Calculates human mechanical power in Watts
         float humanPower() {
             // TODO: Replace with a real raw-to-Nm calibration factor
-            static constexpr float torqueNmFactor = 33.0f;
-            // cadence (RPM) * torque (Nm) * 2 * pi / 60 to get Watts
+            constexpr float torqueNmFactor = 33.0f;
+            // power (W) = cadence (RPM) * torque (Nm) * 2 * pi / 60
             float p = (float)cadence * (float)torque / torqueNmFactor * 0.104719755f;
+
+            // Simple exponential moving average
+            static float filtered = -1.0f;  // uninitialised sentinel
+            constexpr float alpha = 0.1f;   // smoohing fatctor (0 < alpha ≤ 1)
+
+            if (filtered < 0.0f) {
+                // First call – seed the filter
+                filtered = p;
+            } else {
+                filtered = alpha * p + (1.0f - alpha) * filtered;
+            }
 
             static uint32_t lastLog = 0;
             if (millis() - lastLog > 1000) {
-                ESP_LOGD(tag, "humanPower() Cadence: %u, Torque: %u, Power: %.1f", cadence, torque, p);
+                ESP_LOGD(tag, "humanPower() Cadence: %u, Torque: %u, Power: %.1f", cadence, torque, filtered);
                 lastLog = millis();
             }
-            return p;
+            return filtered;
         }
 
         // Estimates live battery state of charge in %
@@ -62,16 +73,17 @@ class State : public HasPreferences {
         // assumes a constant sag factor (10A pack discharge results in 0.03V drop per cell)
         // uses a typical INR21700-50E discharge curve
         // does not consider pack temperature
+        // uses a simple exponential moving average filter
         float soc() {
-            static constexpr float minCellVoltage = 3.3f;
-            static constexpr float maxCellVoltage = 4.2f;
-            static constexpr uint8_t numCells = 13;     // 48V nominal pack voltage
-            static constexpr float sagFactor = 0.003f;  // Vcell/Apack (10A → 0.03V sag)
+            constexpr float minCellVoltage = 3.3f;
+            constexpr float maxCellVoltage = 4.2f;
+            constexpr uint8_t numCellsSeries = 13;  // 48V nominal pack voltage
+            constexpr float sagFactor = 0.003f;     // Vcell/Apack (10A → 0.03V sag)
             float soc = -1.0f;
 
             // INR21700-50E discharge curve: {voltage, soc%}
             // Derived from typical 0.2C discharge curve, 3.3–4.2V range
-            static constexpr float curve[][2] = {
+            constexpr float curve[][2] = {
                 {4.20f, 100.0f},  // surface charge effect, cell "relaxes" after a full charge top-up
                 {4.10f, 100.0f},  // flat — no interpolation artifact, just 100% across the top
                 {4.05f, 85.0f},
@@ -91,13 +103,13 @@ class State : public HasPreferences {
                 {3.35f, 1.0f},
                 {3.30f, 0.0f},
             };
-            static constexpr size_t curveLen = sizeof(curve) / sizeof(curve[0]);
+            constexpr size_t curveLen = sizeof(curve) / sizeof(curve[0]);
 
             float packVoltage = (float)batteryVoltage_x100 / 100.0f;
             float current = (float)batteryCurrent_x20 / 20.0f;
 
             // Compensate for voltage sag: estimate open-circuit voltage
-            float cellVoltage = (packVoltage / numCells) + (current * sagFactor);
+            float cellVoltage = (packVoltage / numCellsSeries) + (current * sagFactor);
 
             // Clamp to curve bounds
             if (soc < 0.0f && cellVoltage >= curve[0][0]) soc = curve[0][1];
@@ -115,48 +127,72 @@ class State : public HasPreferences {
                 }
             }
 
+            // Simple exponential moving average
+            static float filtered = -1.0f;  // uninitialised sentinel
+            constexpr float alpha = 0.1f;   // smoohing fatctor (0 < alpha ≤ 1)
+
+            if (filtered < 0.0f) {
+                // First call – seed the filter
+                filtered = soc;
+            } else {
+                filtered = alpha * soc + (1.0f - alpha) * filtered;
+            }
+
             static uint32_t lastLog = 0;
             if (millis() - lastLog > 1000) {
-                ESP_LOGD(tag, "soc() Cell voltage: %.1f, SOC: %.1f%%", cellVoltage, soc);
+                ESP_LOGD(tag, "soc() Cell voltage: %.3f, SOC: %.1f%%", cellVoltage, filtered);
                 lastLog = millis();
             }
 
-            return soc < 0.0f ? 0.0f :  //
-                       soc > 100.0f ? 100.0f
-                                    : soc;
+            return filtered < 0.0f ? 0.0f :  // clamp to 0-100%
+                       filtered > 100.0f ? 100.0f
+                                         : filtered;
         }
 
         // Calculates live range estimation in km
-        // TODO: consider adding a moving average filter to smooth out the output
+        // Uses a simple exponential moving average filter
         float range() {
             float speed_kmph = speed();
             float soc_pct = soc();
             float humanP_W = humanPower();
             float motorP_W = motorPower();
-            float range = -1.0f;
+            float rawRange = -1.0f;
 
-            if (range < 0.0f && speed_kmph < 0.5f || motorP_W <= 0.0f) range = 0.0f;
+            if (rawRange < 0.0f && (speed_kmph < 0.5f || motorP_W <= 0.0f))
+                rawRange = 0.0f;
 
             float remainingEnergy_Wh = batteryCapacity_Wh * (soc_pct / 100.0f);
-
-            // Efficiency: Wh per km (motor only — human power is free)
             float motorEfficiency_WhPerKm = motorP_W / speed_kmph;
 
-            // Guard against insane values (e.g. spinning wheel stationary)
             if (motorEfficiency_WhPerKm > 50.0f || motorEfficiency_WhPerKm < 0.5f)
-                range = 0.0f;
+                rawRange = 0.0f;
 
-            // No need to guard against divide by zero, < 0.5f is already checked
-            if (range < 0.0f) range = remainingEnergy_Wh / motorEfficiency_WhPerKm;
+            if (rawRange < 0.0f)
+                rawRange = remainingEnergy_Wh / motorEfficiency_WhPerKm;
 
+            // Simple exponential moving average
+            static float filteredRange = -1.0f;  // uninitialised sentinel
+            constexpr float alpha = 0.1f;        // smoohing fatctor (0 < alpha ≤ 1)
+
+            if (filteredRange < 0.0f) {
+                // First call – seed the filter
+                filteredRange = rawRange;
+            } else {
+                filteredRange = alpha * rawRange + (1.0f - alpha) * filteredRange;
+            }
+
+            // Logging (shows both raw and filtered for tuning)
             static uint32_t lastLog = 0;
             if (millis() - lastLog > 1000) {
-                ESP_LOGD(tag, "range() Speed: %.1f km/h, Motor power: %.1f W, Human power: %.1f W, Remaining energy: %.1f Wh, Range: %.1f km",
-                         speed_kmph, motorP_W, humanP_W, remainingEnergy_Wh, range);
+                ESP_LOGD(tag,
+                         "range() Speed: %.1f km/h, Motor: %.1f W, Human: %.1f W, "
+                         "Energy: %.1f Wh, Raw: %.1f km, Filtered: %.1f km",
+                         speed_kmph, motorP_W, humanP_W, remainingEnergy_Wh,
+                         rawRange, filteredRange);
                 lastLog = millis();
             }
 
-            return range;
+            return filteredRange;
         }
     };
 
