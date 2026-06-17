@@ -75,9 +75,9 @@ extern State state;
 #define U8G2_FONT_SECTION(name) __attribute__((section(".text." name)))
 #endif
 
-#include "fonts_u8g2/RobotoMono_Bold_90px.h"
-#include "fonts_u8g2/RobotoMono_Bold_48px_alpha_digits.h"
-#include "fonts_u8g2/RobotoMono_Regular_20px.h"
+#include "fonts/u8g2/RobotoMono_Bold_90px.h"
+#include "fonts/u8g2/RobotoMono_Bold_48px_alpha_digits.h"
+#include "fonts/u8g2/RobotoMono_Regular_20px.h"
 
 class ST7789_240x240 : public DisplayDriver {
    public:
