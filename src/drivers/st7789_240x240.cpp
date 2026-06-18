@@ -74,10 +74,21 @@ void ST7789_240x240::update() {
         return;
     }
 
+    State::Snapshot s = state.getSnapshot();
+
+    if (_displayMode == MODE_PAS_FEEDBACK) {
+        if (startPasFeedbackIfNeeded(t, s)) return;
+        if (t - _lastPasFeedbackUpdate < PAGE_TRANSITION_UPDATE_MS) return;
+        _lastPasFeedbackUpdate = t;
+        drawPasFeedbackFrame(t, s);
+        return;
+    }
+
+    if (startPasFeedbackIfNeeded(t, s)) return;
+
     if (t - _lastPageUpdate < PAGE_UPDATE_MS) return;
     _lastPageUpdate = t;
 
-    State::Snapshot s = state.getSnapshot();
     drawPageValues(s, false);
 
     // ESP_LOGD(taskName(), "Update took %d ms", millis() - t);
@@ -152,6 +163,7 @@ void ST7789_240x240::startPageTransition(uint8_t page) {
     _displayMode = MODE_PAGE_TRANSITION;
     _transitionStart = millis();
     _lastTransitionUpdate = 0;
+    _lastPasFeedbackUpdate = 0;
     invalidateRenderedMetrics();
     clearMetricSlots();
     drawPageLabels();
@@ -173,12 +185,12 @@ void ST7789_240x240::drawTransitionFrame(uint32_t now) {
         return;
     }
 
-    // Show only labels for the first PAGE_TRANSITION_LABEL_ONLY_MS (labels
+    // Show only labels for the first PAGE_TRANSITION_STATIC_MS (labels
     // were already drawn by startPageTransition), then begin the crossfade.
-    if (elapsed < PAGE_TRANSITION_LABEL_ONLY_MS) return;
+    if (elapsed < PAGE_TRANSITION_STATIC_MS) return;
 
-    uint32_t crossfadeElapsed = elapsed - PAGE_TRANSITION_LABEL_ONLY_MS;
-    uint32_t crossfadeDuration = PAGE_TRANSITION_MS - PAGE_TRANSITION_LABEL_ONLY_MS;
+    uint32_t crossfadeElapsed = elapsed - PAGE_TRANSITION_STATIC_MS;
+    uint32_t crossfadeDuration = PAGE_TRANSITION_MS - PAGE_TRANSITION_STATIC_MS;
     State::Snapshot s = state.getSnapshot();
     uint8_t blendStep = (uint8_t)((crossfadeElapsed * 17U) / crossfadeDuration);
     if (blendStep > 16) blendStep = 16;
@@ -203,6 +215,90 @@ void ST7789_240x240::drawTransitionSlot(uint8_t slotIndex, MetricID id, State::S
 
     renderTextToCanvas(slot.labelCanvas, metric->label, labelFont, slot.labelTextSize, slot.labelVerticalOffset);
     renderTextToCanvas(slot.valueCanvas, value, valueFont, valueTextSize, valueVerticalOffset);
+    blendMonoCanvases(slot.labelCanvas, slot.valueCanvas, slot.canvas, blendStep);
+    slot.canvas->flush();
+}
+
+bool ST7789_240x240::startPasFeedbackIfNeeded(uint32_t now, State::Snapshot& s) {
+    if (!_pasFeedbackInitialized) {
+        _lastCanPasLevel = s.pasLevel;
+        _pasFeedbackInitialized = true;
+        return false;
+    }
+
+    if (s.pasLevel == _lastCanPasLevel) return false;
+    _lastCanPasLevel = s.pasLevel;
+
+    if (pageIncludesMetric(METRIC_PAS)) return false;
+
+    startPasFeedback(s, now);
+    return true;
+}
+
+void ST7789_240x240::startPasFeedback(State::Snapshot& s, uint32_t now) {
+    _displayMode = MODE_PAS_FEEDBACK;
+    _pasFeedbackStart = now;
+    _lastPasFeedbackUpdate = now;
+    drawPasFeedbackValue(s);
+}
+
+void ST7789_240x240::finishPasFeedback(State::Snapshot& s) {
+    _displayMode = MODE_PAGE;
+    drawMetricValue(SLOT_MAJOR, pageMetric(SLOT_MAJOR), s, true, true);
+    _lastPageUpdate = millis();
+}
+
+void ST7789_240x240::drawPasFeedbackFrame(uint32_t now, State::Snapshot& s) {
+    uint32_t elapsed = now - _pasFeedbackStart;
+    if (elapsed >= PAGE_TRANSITION_STATIC_MS + PAS_FEEDBACK_FADE_MS) {
+        finishPasFeedback(s);
+        return;
+    }
+
+    if (elapsed < PAGE_TRANSITION_STATIC_MS) return;
+
+    uint32_t fadeElapsed = elapsed - PAGE_TRANSITION_STATIC_MS;
+    uint8_t blendStep = (uint8_t)((fadeElapsed * 17U) / PAS_FEEDBACK_FADE_MS);
+    if (blendStep > 16) blendStep = 16;
+    drawPasFeedbackBlend(s, blendStep);
+}
+
+void ST7789_240x240::drawPasFeedbackValue(State::Snapshot& s) {
+    MetricSlot slot = metricSlot(SLOT_MAJOR);
+    if (slot.canvas == nullptr) return;
+
+    char value[sizeof(_renderedMetrics[SLOT_MAJOR].value)] = {};
+    bool isNumeric = true;
+    if (!formatPasValue(s.pasLevel, value, sizeof(value), &isNumeric)) return;
+
+    const uint8_t* font = selectValueFont(value, isNumeric);
+    uint8_t textSize = isNumeric ? slot.valueTextSize : slot.labelTextSize;
+    uint8_t verticalOffset = isNumeric ? slot.valueVerticalOffset : slot.labelVerticalOffset;
+    drawSlotText(slot, value, font, textSize, verticalOffset);
+}
+
+void ST7789_240x240::drawPasFeedbackBlend(State::Snapshot& s, uint8_t blendStep) {
+    MetricSlot slot = metricSlot(SLOT_MAJOR);
+    if (slot.canvas == nullptr || slot.labelCanvas == nullptr || slot.valueCanvas == nullptr) return;
+
+    char pasValue[sizeof(_renderedMetrics[SLOT_MAJOR].value)] = {};
+    bool pasIsNumeric = true;
+    if (!formatPasValue(s.pasLevel, pasValue, sizeof(pasValue), &pasIsNumeric)) return;
+
+    char targetValue[sizeof(_renderedMetrics[SLOT_MAJOR].value)] = {};
+    bool targetIsNumeric = true;
+    if (!formatMetricValue(pageMetric(SLOT_MAJOR), s, targetValue, sizeof(targetValue), &targetIsNumeric)) return;
+
+    const uint8_t* pasFont = selectValueFont(pasValue, pasIsNumeric);
+    uint8_t pasTextSize = pasIsNumeric ? slot.valueTextSize : slot.labelTextSize;
+    uint8_t pasVerticalOffset = pasIsNumeric ? slot.valueVerticalOffset : slot.labelVerticalOffset;
+
+    const uint8_t* targetFont = selectValueFont(targetValue, targetIsNumeric);
+    uint8_t targetTextSize = targetIsNumeric ? slot.valueTextSize : slot.labelTextSize;
+    uint8_t targetVerticalOffset = targetIsNumeric ? slot.valueVerticalOffset : slot.labelVerticalOffset;
+
+    renderTextToCanvas(slot.labelCanvas, pasValue, pasFont, pasTextSize, pasVerticalOffset);
+    renderTextToCanvas(slot.valueCanvas, targetValue, targetFont, targetTextSize, targetVerticalOffset);
     blendMonoCanvases(slot.labelCanvas, slot.valueCanvas, slot.canvas, blendStep);
     slot.canvas->flush();
 }
@@ -252,6 +348,13 @@ ST7789_240x240::MetricID ST7789_240x240::pageMetric(uint8_t slotIndex) const {
         default:
             return METRIC_COUNT;
     }
+}
+
+bool ST7789_240x240::pageIncludesMetric(MetricID id) const {
+    for (uint8_t i = 0; i < SLOT_COUNT; i++) {
+        if (pageMetric(i) == id) return true;
+    }
+    return false;
 }
 
 const ST7789_240x240::MetricDefinition* ST7789_240x240::metricDefinition(MetricID id) const {

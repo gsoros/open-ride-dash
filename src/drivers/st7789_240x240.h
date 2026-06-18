@@ -182,16 +182,18 @@ class ST7789_240x240 : public DisplayDriver {
     const uint8_t* menuFont = u8g2_font_RobotoMono_Bold_24px_alpha_digits;
 
     static constexpr uint32_t PAGE_UPDATE_MS = 100;                 // normal update rate
-    static constexpr uint32_t PAGE_TRANSITION_MS = 2000;            // time to blend between labels and next page
-    static constexpr uint32_t PAGE_TRANSITION_LABEL_ONLY_MS = 500;  // show labels only before blend begins
-    static constexpr uint32_t PAGE_TRANSITION_UPDATE_MS = 40;       // update rate during transition
-    static constexpr uint8_t SLOT_COUNT = 3;                        // number of canvases to draw on each page
-    static constexpr uint8_t PAGE_COUNT = 3;                        // number of pages
+    static constexpr uint32_t PAGE_TRANSITION_MS = 2000;        // total page transition time
+    static constexpr uint32_t PAGE_TRANSITION_STATIC_MS = 500;  // static hold time before blend begins
+    static constexpr uint32_t PAGE_TRANSITION_UPDATE_MS = 40;   // update rate during transition
+    static constexpr uint32_t PAS_FEEDBACK_FADE_MS = PAGE_TRANSITION_MS - PAGE_TRANSITION_STATIC_MS;
+    static constexpr uint8_t SLOT_COUNT = 3;                    // number of canvases to draw on each page
+    static constexpr uint8_t PAGE_COUNT = 3;                    // number of pages
 
     enum DisplayMode {
         MODE_SPLASH,
         MODE_PAGE,
         MODE_PAGE_TRANSITION,
+        MODE_PAS_FEEDBACK,
         MODE_MENU,
     };
 
@@ -243,17 +245,28 @@ class ST7789_240x240 : public DisplayDriver {
     uint32_t _transitionStart = 0;
     uint32_t _lastPageUpdate = 0;
     uint32_t _lastTransitionUpdate = 0;
+    uint32_t _pasFeedbackStart = 0;
+    uint32_t _lastPasFeedbackUpdate = 0;
+    int8_t _lastCanPasLevel = 0;
+    bool _pasFeedbackInitialized = false;
     RenderedMetric _renderedMetrics[SLOT_COUNT];
 
     void startPageTransition(uint8_t page);
     void finishPageTransition();
     void drawTransitionFrame(uint32_t now);
     void drawTransitionSlot(uint8_t slotIndex, MetricID id, State::Snapshot& s, uint8_t blendStep);
+    bool startPasFeedbackIfNeeded(uint32_t now, State::Snapshot& s);
+    void startPasFeedback(State::Snapshot& s, uint32_t now);
+    void finishPasFeedback(State::Snapshot& s);
+    void drawPasFeedbackFrame(uint32_t now, State::Snapshot& s);
+    void drawPasFeedbackValue(State::Snapshot& s);
+    void drawPasFeedbackBlend(State::Snapshot& s, uint8_t blendStep);
     void clearMetricSlots();
     void invalidateRenderedMetrics();
     const PageLayout& currentPageLayout() const;
     MetricSlot metricSlot(uint8_t slotIndex) const;
     MetricID pageMetric(uint8_t slotIndex) const;
+    bool pageIncludesMetric(MetricID id) const;
     const MetricDefinition* metricDefinition(MetricID id) const;
     void drawPageLabels();
     void drawPageValues(State::Snapshot& s, bool force, bool remember = true);
