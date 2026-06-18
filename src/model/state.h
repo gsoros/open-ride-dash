@@ -16,8 +16,8 @@ class State : public HasPreferences {
         uint16_t batteryCurrent_x20 = 0;                            // A * 20
         uint16_t wheelCircumference = 0;                            // mm
         uint16_t batteryCapacity_Wh = DEFAULT_BATTERY_CAPACITY_Wh;  // Wh
-        int8_t pasLevelRequested = 0;                               // Pedal Assist Level (-1 walk assist, 0 off, 1-5 PAS)
-        int8_t pasLevel = 0;                                        // - || -
+        int8_t pasLevelRequested = 0;                               // Pedal Assist Level (-1 walk assist, 0 off, 1-5 PAS) requested by UI
+        int8_t pasLevel = 0;                                        // Actual PAS level updated by CAN
         uint8_t cadence = 0;                                        // RPM
         uint8_t motorTemp = 0;                                      // °C
         uint8_t controllerTemp = 0;                                 // °C

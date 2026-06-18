@@ -15,3 +15,4 @@ include/ttf
 .vscode/settings.json
 can-capture-savvy.csv
 can0.pcapng
+src/build_info.cpp
