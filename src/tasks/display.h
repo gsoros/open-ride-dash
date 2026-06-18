@@ -153,6 +153,9 @@ class Display : public Task, public ApiClient {
             case UiEvent::MenuChord:
                 menu.enterMenu();
                 return;
+            default:
+                ESP_LOGW(taskName(), "Unhandled UI event: %u", (uint8_t)event);
+                return;
         }
     }
 
