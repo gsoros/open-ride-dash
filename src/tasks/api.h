@@ -302,13 +302,13 @@ class Api : public Task {
         if (args == nullptr) args = "";
         while (*args == ' ' || *args == '\t' || *args == '\r' || *args == '\n') args++;
 
-        // get batteryCapacity_Wh
+        // get batteryCapacity
         if (*args == '\0') {
-            snprintf((char*)reply.data, sizeof(reply.data), "%u", state.batteryCapacity_Wh());
+            snprintf((char*)reply.data, sizeof(reply.data), "%u", state.batteryCapacity());
             return reply;
         }
 
-        // set batteryCapacity_Wh
+        // set batteryCapacity
         char token[6] = {};
         size_t length = 0;
         while (args[length] != '\0' && args[length] != ' ' && args[length] != '\t' && args[length] != '\r' &&
@@ -324,7 +324,7 @@ class Api : public Task {
 
         uint16_t value = 0;
         if (!parseUInt16(token, &value)) return reply;
-        state.batteryCapacity_Wh(value);
+        state.batteryCapacity(value);
         snprintf((char*)reply.data, sizeof(reply.data), "Battery capacity set to %u Wh", value);
         return reply;
     }

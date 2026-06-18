@@ -22,13 +22,13 @@ bool State::restoreFromPreferences() {
         ESP_LOGE(tag, "restoreFromPreferences() preferences not ready");
         return false;
     }
-    uint16_t capacity = (uint16_t)preferences.getUInt("batteryCapacity_Wh", DEFAULT_BATTERY_CAPACITY_Wh);
-    ESP_LOGD(tag, "restoreFromPreferences() batteryCapacity_Wh: %u", capacity);
+    uint16_t capacity = (uint16_t)preferences.getUInt("batteryCapacity", DEFAULT_BATTERY_CAPACITY);
+    ESP_LOGD(tag, "restoreFromPreferences() batteryCapacity: %u", capacity);
     if (capacity < 10 || capacity > 10000) {
-        ESP_LOGW(tag, "restoreFromPreferences() batteryCapacity_Wh out of range, using default %u", DEFAULT_BATTERY_CAPACITY_Wh);
-        capacity = DEFAULT_BATTERY_CAPACITY_Wh;
+        ESP_LOGW(tag, "restoreFromPreferences() batteryCapacity out of range, using default %u", DEFAULT_BATTERY_CAPACITY);
+        capacity = DEFAULT_BATTERY_CAPACITY;
     }
-    batteryCapacity_Wh(capacity, false);
+    batteryCapacity(capacity, false);
     return true;
 }
 
@@ -94,18 +94,18 @@ uint8_t State::cadence() {
     return getUInt8(&_latest.cadence);
 }
 
-void State::batteryCapacity_Wh(uint16_t v, bool persist) {
-    setUInt16(&_latest.batteryCapacity_Wh, v);
+void State::batteryCapacity(uint16_t v, bool persist) {
+    setUInt16(&_latest.batteryCapacity, v);
     if (persist) {
         if (!preferencesReady) {
-            ESP_LOGE(tag, "batteryCapacity_Wh() preferences not ready");
+            ESP_LOGE(tag, "batteryCapacity() preferences not ready");
             return;
         }
-        preferences.putUInt("batteryCapacity_Wh", v);
+        preferences.putUInt("batteryCapacity", v);
     }
 }
-uint16_t State::batteryCapacity_Wh() {
-    return getUInt16(&_latest.batteryCapacity_Wh);
+uint16_t State::batteryCapacity() {
+    return getUInt16(&_latest.batteryCapacity);
 }
 
 void State::wheelSpeed_x10(uint16_t v) {

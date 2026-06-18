@@ -7,21 +7,22 @@
 class State : public HasPreferences {
    public:
     struct Snapshot {
-        uint32_t odo_mx10 = 0;                                      // m * 10
-        uint32_t trip_mx10 = 0;                                     // m * 10
-        uint16_t torque = 0;                                        // Raw sensor reading (needs calibration factor to become Nm)
-        uint16_t wheelSpeed_x10 = 0;                                // RPM * 10
-        uint16_t wheelMaxSpeed_x100 = 0;                            // RPM * 100
-        uint16_t batteryVoltage_x100 = 0;                           // V * 100
-        uint16_t batteryCurrent_x20 = 0;                            // A * 20
-        uint16_t wheelCircumference = 0;                            // mm
-        uint16_t batteryCapacity_Wh = DEFAULT_BATTERY_CAPACITY_Wh;  // Wh
-        int8_t pasLevelRequested = 0;                               // Pedal Assist Level (-1 walk assist, 0 off, 1-5 PAS) requested by UI
-        int8_t pasLevel = 0;                                        // Actual PAS level updated by CAN
-        uint8_t cadence = 0;                                        // RPM
-        uint8_t motorTemp = 0;                                      // °C
-        uint8_t controllerTemp = 0;                                 // °C
-        uint8_t wheelSize = 0;                                      // inches
+        uint32_t odo_mx10 = 0;             // m * 10
+        uint32_t trip_mx10 = 0;            // m * 10
+        uint16_t torque = 0;               // Raw sensor reading (needs calibration factor to become Nm)
+        uint16_t wheelSpeed_x10 = 0;       // RPM * 10
+        uint16_t wheelMaxSpeed_x100 = 0;   // RPM * 100
+        uint16_t batteryVoltage_x100 = 0;  // V * 100
+        uint16_t batteryCurrent_x20 = 0;   // A * 20
+        uint16_t wheelCircumference = 0;   // mm
+        uint16_t batteryCapacity =         // Wh
+            DEFAULT_BATTERY_CAPACITY;      //
+        int8_t pasLevelRequested = 0;      // Pedal Assist Level (-1 walk assist, 0 off, 1-5 PAS) requested by UI
+        int8_t pasLevel = 0;               // Actual PAS level updated by CAN
+        uint8_t cadence = 0;               // RPM
+        uint8_t motorTemp = 0;             // °C
+        uint8_t controllerTemp = 0;        // °C
+        uint8_t wheelSize = 0;             // inches
 
         // Calculates speed in km/h
         float speed() {
@@ -52,7 +53,6 @@ class State : public HasPreferences {
             // Simple exponential moving average
             static float filtered = -1.0f;  // uninitialised sentinel
             constexpr float alpha = 0.1f;   // smoohing fatctor (0 < alpha ≤ 1)
-
             if (filtered < 0.0f) {
                 // First call – seed the filter
                 filtered = p;
@@ -130,7 +130,6 @@ class State : public HasPreferences {
             // Simple exponential moving average
             static float filtered = -1.0f;  // uninitialised sentinel
             constexpr float alpha = 0.1f;   // smoohing fatctor (0 < alpha ≤ 1)
-
             if (filtered < 0.0f) {
                 // First call – seed the filter
                 filtered = soc;
@@ -161,7 +160,7 @@ class State : public HasPreferences {
             if (rawRange < 0.0f && (speed_kmph < 0.5f || motorP_W <= 0.0f))
                 rawRange = 0.0f;
 
-            float remainingEnergy_Wh = batteryCapacity_Wh * (soc_pct / 100.0f);
+            float remainingEnergy_Wh = batteryCapacity * (soc_pct / 100.0f);
             float motorEfficiency_WhPerKm = motorP_W / speed_kmph;
 
             if (motorEfficiency_WhPerKm > 50.0f || motorEfficiency_WhPerKm < 0.5f)
@@ -173,7 +172,6 @@ class State : public HasPreferences {
             // Simple exponential moving average
             static float filteredRange = -1.0f;  // uninitialised sentinel
             constexpr float alpha = 0.1f;        // smoohing fatctor (0 < alpha ≤ 1)
-
             if (filteredRange < 0.0f) {
                 // First call – seed the filter
                 filteredRange = rawRange;
@@ -216,8 +214,8 @@ class State : public HasPreferences {
     uint16_t torque();
     void cadence(uint8_t v);
     uint8_t cadence();
-    void batteryCapacity_Wh(uint16_t v, bool persist = true);
-    uint16_t batteryCapacity_Wh();
+    void batteryCapacity(uint16_t v, bool persist = true);
+    uint16_t batteryCapacity();
 
     void wheelSpeed_x10(uint16_t v);
     uint16_t wheelSpeed_x10();
@@ -246,7 +244,7 @@ class State : public HasPreferences {
     SemaphoreHandle_t mutex = nullptr;
     Snapshot _latest;
 
-    static constexpr uint16_t DEFAULT_BATTERY_CAPACITY_Wh = 720;
+    static constexpr uint16_t DEFAULT_BATTERY_CAPACITY = 720;  // Wh
 
     void setInt8(int8_t* i, int8_t v);
     void setUInt8(uint8_t* i, uint8_t v);
