@@ -7,9 +7,9 @@
 extern State state;
 
 void ST7789_240x240::setup() {
-    if (bl >= 0) {
-        pinMode(bl, OUTPUT);
-        digitalWrite(bl, LOW);
+    if (bl_pin >= 0) {
+        pinMode(bl_pin, OUTPUT);
+        digitalWrite(bl_pin, LOW);
     }
 
     if (!tft->begin()) {
@@ -56,32 +56,32 @@ void ST7789_240x240::splash() {
 
 void ST7789_240x240::update() {
     ulong t = millis();
-    if (t < 2000) return;  // show splash for at least 2 seconds
+    if (t < 3000) return;  // show splash for at least 3 seconds
 
     if (selectClicked) {
         selectClicked = false;
         handleSelectClick();
     }
 
-    if (displayMode == MODE_SPLASH) {
-        startPageTransition(currentPage);
+    if (_displayMode == MODE_SPLASH) {
+        startPageTransition(_currentPage);
         return;
     }
 
-    if (displayMode == MODE_MENU) {
-        if (menuDirty) drawMenu();
+    if (_displayMode == MODE_MENU) {
+        if (_menuDirty) drawMenu();
         return;
     }
 
-    if (displayMode == MODE_PAGE_TRANSITION) {
-        if (t - lastTransitionUpdate < PAGE_TRANSITION_UPDATE_MS) return;
-        lastTransitionUpdate = t;
+    if (_displayMode == MODE_PAGE_TRANSITION) {
+        if (t - _lastTransitionUpdate < PAGE_TRANSITION_UPDATE_MS) return;
+        _lastTransitionUpdate = t;
         drawTransitionFrame(t);
         return;
     }
 
-    if (t - lastPageUpdate < PAGE_UPDATE_MS) return;
-    lastPageUpdate = t;
+    if (t - _lastPageUpdate < PAGE_UPDATE_MS) return;
+    _lastPageUpdate = t;
 
     State::Snapshot s = state.getSnapshot();
     drawPageValues(s, false);
@@ -105,7 +105,7 @@ void ST7789_240x240::fillScreen(uint16_t color) {
 void ST7789_240x240::setBrightnessPercent(uint8_t p) {
     if (!hasBacklight()) return;
     if (p == 0) {
-        analogWrite((uint8_t)bl, 0);
+        analogWrite((uint8_t)bl_pin, 0);
         return;
     }
 
@@ -114,11 +114,11 @@ void ST7789_240x240::setBrightnessPercent(uint8_t p) {
     uint8_t val = (uint8_t)(254.0f * powf(p / 100.0f, GAMMA)) + 1;
 
     ESP_LOGD(tag, "setBrightnessPercent(%d) -> %d", p, val);
-    analogWrite((uint8_t)bl, val);
+    analogWrite((uint8_t)bl_pin, val);
 }
 
 void ST7789_240x240::handleSelectClick() {
-    if (displayMode == MODE_MENU) {
+    if (_displayMode == MODE_MENU) {
         selectMenuItem();
         return;
     }
@@ -128,30 +128,34 @@ void ST7789_240x240::handleSelectClick() {
 // returns true if the menu is active and the item was changed
 bool ST7789_240x240::menuPrevious() {
     if (!menuActive()) return false;
-    selectedMenuItem = selectedMenuItem == 0 ? MENU_ITEM_COUNT - 1 : selectedMenuItem - 1;
-    menuDirty = true;
+    _selectedMenuItem = _selectedMenuItem == 0 ? MENU_ITEM_COUNT - 1 : _selectedMenuItem - 1;
+    _menuDirty = true;
     return true;
 }
 
 // returns true if the menu is active and the item was changed
 bool ST7789_240x240::menuNext() {
     if (!menuActive()) return false;
-    selectedMenuItem = (selectedMenuItem + 1) % MENU_ITEM_COUNT;
-    menuDirty = true;
+    _selectedMenuItem = (_selectedMenuItem + 1) % MENU_ITEM_COUNT;
+    _menuDirty = true;
     return true;
 }
 
 void ST7789_240x240::enterMenu() {
-    if (displayMode == MODE_MENU) return;
-    displayMode = MODE_MENU;
-    selectedMenuItem = 0;
-    menuDirty = true;
+    if (_displayMode == MODE_MENU) return;
+    _displayMode = MODE_MENU;
+    _selectedMenuItem = 0;
+    _menuDirty = true;
     ESP_LOGI(tag, "Entering display menu");
 }
 
 void ST7789_240x240::nextPage() {
-    uint8_t next = (currentPage + 1) % PAGE_COUNT;
+    uint8_t next = (_currentPage + 1) % PAGE_COUNT;
     startPageTransition(next);
+}
+
+uint8_t ST7789_240x240::currentPage() {
+    return _currentPage;
 }
 
 void ST7789_240x240::startPageTransition(uint8_t page) {
@@ -160,26 +164,26 @@ void ST7789_240x240::startPageTransition(uint8_t page) {
         return;
     }
 
-    currentPage = page;
-    displayMode = MODE_PAGE_TRANSITION;
-    transitionStart = millis();
-    lastTransitionUpdate = 0;
+    _currentPage = page;
+    _displayMode = MODE_PAGE_TRANSITION;
+    _transitionStart = millis();
+    _lastTransitionUpdate = 0;
     invalidateRenderedMetrics();
     clearMetricSlots();
     drawPageLabels();
-    ESP_LOGD(tag, "Switched to page %u", currentPage);
+    ESP_LOGD(tag, "Switched to page %u", _currentPage);
 }
 
 void ST7789_240x240::finishPageTransition() {
-    displayMode = MODE_PAGE;
+    _displayMode = MODE_PAGE;
     invalidateRenderedMetrics();
     State::Snapshot s = state.getSnapshot();
     drawPageValues(s, true);
-    lastPageUpdate = millis();
+    _lastPageUpdate = millis();
 }
 
 void ST7789_240x240::drawTransitionFrame(uint32_t now) {
-    uint32_t elapsed = now - transitionStart;
+    uint32_t elapsed = now - _transitionStart;
     if (elapsed >= PAGE_TRANSITION_MS) {
         finishPageTransition();
         return;
@@ -205,7 +209,7 @@ void ST7789_240x240::drawTransitionSlot(uint8_t slotIndex, MetricID id, State::S
     const MetricDefinition* metric = metricDefinition(id);
     if (metric == nullptr || slot.canvas == nullptr || slot.labelCanvas == nullptr || slot.valueCanvas == nullptr) return;
 
-    char value[sizeof(renderedMetrics[slotIndex].value)] = {};
+    char value[sizeof(_renderedMetrics[slotIndex].value)] = {};
     bool isNumeric = true;
     if (!formatMetricValue(id, s, value, sizeof(value), &isNumeric)) return;
 
@@ -230,13 +234,13 @@ void ST7789_240x240::clearMetricSlots() {
 
 void ST7789_240x240::invalidateRenderedMetrics() {
     for (uint8_t i = 0; i < SLOT_COUNT; i++) {
-        renderedMetrics[i].value[0] = '\0';
-        renderedMetrics[i].valid = false;
+        _renderedMetrics[i].value[0] = '\0';
+        _renderedMetrics[i].valid = false;
     }
 }
 
 const ST7789_240x240::PageLayout& ST7789_240x240::currentPageLayout() const {
-    return defaultPages[currentPage];
+    return defaultPages[_currentPage];
 }
 
 ST7789_240x240::MetricSlot ST7789_240x240::metricSlot(uint8_t slotIndex) const {
@@ -280,21 +284,35 @@ void ST7789_240x240::drawPageLabels() {
     }
 }
 
+/*
+    Draws all metric values to all slots.
+    s: snapshot of the current state
+    force: if true, always draw the value, even if it hasn't changed
+    remember: if true, remember the value and don't redraw it if it hasn't changed
+*/
 void ST7789_240x240::drawPageValues(State::Snapshot& s, bool force, bool remember) {
     for (uint8_t i = 0; i < SLOT_COUNT; i++) {
         drawMetricValue(i, pageMetric(i), s, force, remember);
     }
 }
 
+/*
+    Draws a single metric value to a slot.
+    slotIndex: index of the slot to draw to
+    id: metric to draw
+    s: snapshot of the current state
+    force: if true, always draw the value, even if it hasn't changed
+    remember: if true, remember the value and don't redraw it if it hasn't changed
+*/
 void ST7789_240x240::drawMetricValue(uint8_t slotIndex, MetricID id, State::Snapshot& s, bool force, bool remember) {
     MetricSlot slot = metricSlot(slotIndex);
     if (slot.canvas == nullptr) return;
 
-    char value[sizeof(renderedMetrics[slotIndex].value)] = {};
+    char value[sizeof(_renderedMetrics[slotIndex].value)] = {};
     bool isNumeric = true;
     if (!formatMetricValue(id, s, value, sizeof(value), &isNumeric)) return;
 
-    RenderedMetric& rendered = renderedMetrics[slotIndex];
+    RenderedMetric& rendered = _renderedMetrics[slotIndex];
     if (remember && !force && rendered.valid && strcmp(rendered.value, value) == 0) return;
 
     const uint8_t* font = selectValueFont(value, isNumeric);
@@ -447,14 +465,14 @@ bool ST7789_240x240::formatMetricValue(MetricID id, State::Snapshot& s, char* bu
             return true;
         case METRIC_ODO: {
             uint32_t km = cappedMetricValue(s.odo_mx10 / 10000);
-            if (km < 1000) {
+            if (km < 1000) {  // <= 999
                 formatUInt(buffer, bufferSize, km);
-            } else if (km < 10000) {
-                // 1234 → "1k2"
+            } else if (km < 10000) {  // 1234 → "1k2"
                 snprintf(buffer, bufferSize, "%uk%u", km / 1000, (km % 1000) / 100);
-            } else {
-                // 12345 → "12k"  (drop sub-k precision, it's an odo not a surgery)
+                *isNumeric = false;
+            } else {  // 12345 → "12k"  (drop sub-k precision, it's an odo not a surgery)
                 snprintf(buffer, bufferSize, "%uk", km / 1000);
+                *isNumeric = false;
             }
             return true;
         }
@@ -465,7 +483,7 @@ bool ST7789_240x240::formatMetricValue(MetricID id, State::Snapshot& s, char* bu
             formatUInt(buffer, bufferSize, 123);
             return true;
         case METRIC_BODY_TEMP:  // TODO: Implement live body temperature
-            formatUInt(buffer, bufferSize, 365);
+            snprintf(buffer, bufferSize, "%.1f", 36.5f);
             return true;
         default:
             ESP_LOGW(tag, "Ignoring invalid metric id: %d", id);
@@ -474,6 +492,7 @@ bool ST7789_240x240::formatMetricValue(MetricID id, State::Snapshot& s, char* bu
 }
 
 bool ST7789_240x240::formatPasValue(int8_t pas, char* buffer, size_t bufferSize, bool* isNumeric) {
+    *isNumeric = true;
     if (pas < 0) {
         *isNumeric = false;
         snprintf(buffer, bufferSize, "WLK");
@@ -504,24 +523,23 @@ void ST7789_240x240::formatUInt(char* buffer, size_t bufferSize, uint16_t value)
 
 void ST7789_240x240::drawMenu() {
     canvasMenu->setFont(menuFont);
-    canvasMenu->setTextSize(2);
+    canvasMenu->setTextSize(1);
     canvasMenu->setTextColor(WHITE, BLACK);
     canvasMenu->fillScreen(BLACK);
 
-    static constexpr uint8_t MAX_VISIBLE_MENU_ITEMS = 4;
+    constexpr uint8_t MAX_VISIBLE_MENU_ITEMS = 7;
     static uint8_t scrollOffset = 0;
-    if (selectedMenuItem < scrollOffset) {
-        scrollOffset = selectedMenuItem;
-    } else if (selectedMenuItem >= scrollOffset + MAX_VISIBLE_MENU_ITEMS) {
-        scrollOffset = selectedMenuItem - MAX_VISIBLE_MENU_ITEMS + 1;
+    if (_selectedMenuItem < scrollOffset) {
+        scrollOffset = _selectedMenuItem;
+    } else if (_selectedMenuItem >= scrollOffset + MAX_VISIBLE_MENU_ITEMS - 1) {
+        scrollOffset = _selectedMenuItem - MAX_VISIBLE_MENU_ITEMS + 2;
     }
-    // Layout with 20px font: tile height ~32px, baseline ~34, spacing ~36
     for (uint8_t i = scrollOffset; i < MENU_ITEM_COUNT && i < scrollOffset + MAX_VISIBLE_MENU_ITEMS + 1; i++) {
-        drawMenuLine(menuItems[i], 34 + (i - scrollOffset) * 36, i == selectedMenuItem);
+        drawMenuLine(menuItems[i], 34 + (i - scrollOffset) * 36, i == _selectedMenuItem);
     }
 
     canvasMenu->flush();
-    menuDirty = false;
+    _menuDirty = false;
 }
 
 void ST7789_240x240::drawMenuLine(const char* text, int16_t baseline, bool selected) {
@@ -532,6 +550,7 @@ void ST7789_240x240::drawMenuLine(const char* text, int16_t baseline, bool selec
 
     canvasMenu->fillRect(0, baseline - 30, canvasMenu->width(), 34, backgroundColor);
     canvasMenu->setTextColor(textColor);
+    /* // centered
     int16_t x1 = 0;
     int16_t y1 = 0;
     uint16_t textWidth = 0;
@@ -539,30 +558,29 @@ void ST7789_240x240::drawMenuLine(const char* text, int16_t baseline, bool selec
     canvasMenu->getTextBounds(text, 0, 0, &x1, &y1, &textWidth, &textHeight);
     int16_t cursorX = (canvasMenu->width() - textWidth) / 2 - x1;
     canvasMenu->setCursor(cursorX, baseline);
+    */
+    // left aligned
+    canvasMenu->setCursor(5, baseline);
     canvasMenu->print(text);
 }
 
 void ST7789_240x240::selectMenuItem() {
-    switch (selectedMenuItem) {
-        case 0:  // DUMMY A
-        case 1:  // DUMMY B
-        case 2:  // ANOTHER
-        case 3:  // MENU ITEM
-        case 4:  // SHORT
-        case 5:  // DUMMY F
-            ESP_LOGI(tag, "Selected menu item: %s", menuItems[selectedMenuItem]);
+    switch (_selectedMenuItem) {
+        case 0:  //
+        case 1:  //
+        case 2:  //
+        case 3:  //
+        case 4:  //
+        case 5:  //
+            ESP_LOGI(tag, "Selected menu item: %s", menuItems[_selectedMenuItem]);
             return;
         case MENU_ITEM_COUNT - 1:  // Last item: Exit menu
-            ESP_LOGI(tag, "Selected menu item: %s", menuItems[selectedMenuItem]);
-            clear();
-            displayMode = MODE_PAGE;
-            startPageTransition(currentPage);
-            return;
+            ESP_LOGI(tag, "Selected menu item: %s", menuItems[_selectedMenuItem]);
+            break;
         default:
-            ESP_LOGW(tag, "Selected invalid menu item: %d", selectedMenuItem);
-            clear();
-            displayMode = MODE_PAGE;
-            startPageTransition(currentPage);
-            return;
+            ESP_LOGW(tag, "Unhandled menu item: %d", _selectedMenuItem);
     }
+    clear();
+    _displayMode = MODE_PAGE;
+    startPageTransition(_currentPage);
 }

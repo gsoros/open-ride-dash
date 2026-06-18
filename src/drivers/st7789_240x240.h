@@ -75,9 +75,9 @@ extern State state;
 #define U8G2_FONT_SECTION(name) __attribute__((section(".text." name)))
 #endif
 
-#include "fonts/u8g2/RobotoMono_Bold_90px.h"
-#include "fonts/u8g2/RobotoMono_Bold_48px_alpha_digits.h"
-#include "fonts/u8g2/RobotoMono_Regular_20px.h"
+#include "fonts/u8g2/RobotoMono_Bold_90px_digits.h"
+#include "fonts/u8g2/RobotoMono_Bold_48px_caps_digits.h"
+#include "fonts/u8g2/RobotoMono_Regular_24px_alpha_digits.h"
 
 class ST7789_240x240 : public DisplayDriver {
    public:
@@ -122,21 +122,19 @@ class ST7789_240x240 : public DisplayDriver {
         uint8_t rot = 0,
         uint16_t w = 240,
         uint16_t h = 240)
-        : bl(bl), w(w), h(h) {
+        : bl_pin(bl), width(w), height(h) {
         bus = new Arduino_ESP32SPIDMA(dc, cs, sck, mosi, GFX_NOT_DEFINED, spi);
         tft = new Arduino_ST7789(bus, rst, rot, true, w, h);
-        // canvas = new Arduino_Canvas_Mono(w, h, tft, 0, 0);
-        // width 232 is perfectly divisible by 8 (232 / 8 = 29 bytes per row)
-        canvasMajor = new Arduino_Canvas_Mono(232, 140, tft, 4, 0);
-        canvasMinor1 = new Arduino_Canvas_Mono((w - 15) / 2, h - 145, tft, 5, 145);
-        canvasMinor2 = new Arduino_Canvas_Mono((w - 15) / 2, h - 145, tft, (w - 15) / 2 + 10, 145);
+        canvasMajor = new Arduino_Canvas_Mono(w - 8, 140, tft, 4, 0);
+        canvasMinor1 = new Arduino_Canvas_Mono((w - 16) / 2, h - 144, tft, 4, 144);
+        canvasMinor2 = new Arduino_Canvas_Mono((w - 16) / 2, h - 144, tft, (w - 16) / 2 + 12, 144);
         canvasMenu = new Arduino_Canvas_Mono(w, h, tft, 0, 0);
-        transitionLabelMajor = new Arduino_Canvas_Mono(232, 140, nullptr);
-        transitionValueMajor = new Arduino_Canvas_Mono(232, 140, nullptr);
-        transitionLabelMinor1 = new Arduino_Canvas_Mono((w - 15) / 2, h - 145, nullptr);
-        transitionValueMinor1 = new Arduino_Canvas_Mono((w - 15) / 2, h - 145, nullptr);
-        transitionLabelMinor2 = new Arduino_Canvas_Mono((w - 15) / 2, h - 145, nullptr);
-        transitionValueMinor2 = new Arduino_Canvas_Mono((w - 15) / 2, h - 145, nullptr);
+        transitionLabelMajor = new Arduino_Canvas_Mono(canvasMajor->width(), canvasMajor->height(), nullptr);
+        transitionValueMajor = new Arduino_Canvas_Mono(canvasMajor->width(), canvasMajor->height(), nullptr);
+        transitionLabelMinor1 = new Arduino_Canvas_Mono(canvasMinor1->width(), canvasMinor1->height(), nullptr);
+        transitionValueMinor1 = new Arduino_Canvas_Mono(canvasMinor1->width(), canvasMinor1->height(), nullptr);
+        transitionLabelMinor2 = new Arduino_Canvas_Mono(canvasMinor2->width(), canvasMinor2->height(), nullptr);
+        transitionValueMinor2 = new Arduino_Canvas_Mono(canvasMinor2->width(), canvasMinor2->height(), nullptr);
     }
 
     void setup() override;
@@ -146,9 +144,12 @@ class ST7789_240x240 : public DisplayDriver {
     void fillScreen(uint16_t color) override;
     void setRotation(uint8_t rotation) override;
     void setBrightnessPercent(uint8_t p) override;
-    bool hasBacklight() override { return bl >= 0; }
+    bool hasBacklight() override { return bl_pin >= 0; }
 
-    bool menuActive() const { return displayMode == MODE_MENU; }
+    void nextPage() override;
+    uint8_t currentPage() override;
+
+    bool menuActive() const { return _displayMode == MODE_MENU; }
     void handleSelectClick();
     bool menuPrevious();
     bool menuNext();
@@ -156,9 +157,9 @@ class ST7789_240x240 : public DisplayDriver {
 
    protected:
     const char* tag = "ST7789_240x240";
-    int8_t bl;
-    uint16_t w;
-    uint16_t h;
+    int8_t bl_pin;    // backlight pin, -1 if not used
+    uint16_t width;   // display width
+    uint16_t height;  // display height
 
     Arduino_DataBus* bus = nullptr;
     Arduino_GFX* tft = nullptr;
@@ -175,10 +176,10 @@ class ST7789_240x240 : public DisplayDriver {
     Arduino_Canvas_Mono* transitionLabelMinor2 = nullptr;
     Arduino_Canvas_Mono* transitionValueMinor2 = nullptr;
 
-    const uint8_t* largeFont = u8g2_font_RobotoMono_Bold_90px;
-    const uint8_t* mediumFont = u8g2_font_RobotoMono_Bold_48px_alpha_digits;
-    const uint8_t* labelFont = u8g2_font_RobotoMono_Bold_48px_alpha_digits;
-    const uint8_t* menuFont = u8g2_font_RobotoMono_Regular_20px;
+    const uint8_t* largeFont = u8g2_font_RobotoMono_Bold_90px_digits;
+    const uint8_t* mediumFont = u8g2_font_RobotoMono_Bold_48px_caps_digits;
+    const uint8_t* labelFont = u8g2_font_RobotoMono_Bold_48px_caps_digits;
+    const uint8_t* menuFont = u8g2_font_RobotoMono_Bold_24px_alpha_digits;
 
     static constexpr uint32_t PAGE_UPDATE_MS = 100;                 // normal update rate
     static constexpr uint32_t PAGE_TRANSITION_MS = 2000;            // time to blend between labels and next page
@@ -186,7 +187,7 @@ class ST7789_240x240 : public DisplayDriver {
     static constexpr uint32_t PAGE_TRANSITION_UPDATE_MS = 40;       // update rate during transition
     static constexpr uint8_t SLOT_COUNT = 3;                        // number of canvases to draw on each page
     static constexpr uint8_t PAGE_COUNT = 3;                        // number of pages
-    static constexpr uint8_t MENU_ITEM_COUNT = 7;                   // number of menu items
+    static constexpr uint8_t MENU_ITEM_COUNT = 16;                  // number of menu items
 
     enum DisplayMode {
         MODE_SPLASH,
@@ -239,25 +240,33 @@ class ST7789_240x240 : public DisplayDriver {
     };
 
     inline static constexpr const char* menuItems[MENU_ITEM_COUNT] = {
-        "DUMMY A",
-        "DUMMY B",
-        "ANOTHER",
-        "MENU ITEM",
-        "SHORT",
-        "DUMMY F",
-        "EXIT",
+        "Dummy 1",
+        "Dummy 2",
+        "Another menu item",
+        "Item with a long name",
+        "Short",
+        "Dummy 6",
+        "Dummy 7",
+        "Dummy 8",
+        "Dummy 9",
+        "Dummy 10",
+        "Dummy 11",
+        "Dummy 12",
+        "Dummy 13",
+        "Dummy 14",
+        "Dummy 15",
+        "Exit",
     };
 
-    DisplayMode displayMode = MODE_SPLASH;
-    uint8_t currentPage = 0;
-    uint8_t selectedMenuItem = 0;
-    bool menuDirty = false;
-    uint32_t transitionStart = 0;
-    uint32_t lastPageUpdate = 0;
-    uint32_t lastTransitionUpdate = 0;
-    RenderedMetric renderedMetrics[SLOT_COUNT];
+    DisplayMode _displayMode = MODE_SPLASH;
+    uint8_t _currentPage = 0;
+    uint8_t _selectedMenuItem = 0;
+    bool _menuDirty = false;
+    uint32_t _transitionStart = 0;
+    uint32_t _lastPageUpdate = 0;
+    uint32_t _lastTransitionUpdate = 0;
+    RenderedMetric _renderedMetrics[SLOT_COUNT];
 
-    void nextPage();
     void startPageTransition(uint8_t page);
     void finishPageTransition();
     void drawTransitionFrame(uint32_t now);

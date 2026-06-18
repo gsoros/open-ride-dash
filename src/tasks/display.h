@@ -75,10 +75,10 @@ class Display : public Task, public ApiClient {
 
     Api::Reply nextPageCommand(const char* args) {
         ESP_LOGI(taskName(), "Switching to next page");
-        selectClicked();
+        output.nextPage();
         Api::Reply reply = {};
         reply.code = Api::ReplyCode::SUCCESS;
-        snprintf((char*)reply.data, sizeof(reply.data), "Page switched");
+        snprintf((char*)reply.data, sizeof(reply.data), "Page %d", output.currentPage());
         return reply;
     }
 

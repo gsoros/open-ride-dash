@@ -36,7 +36,7 @@ class State : public HasPreferences {
 
             static uint32_t lastLog = 0;
             if (millis() - lastLog > 1000) {
-                ESP_LOGD(tag, "motorPower()Current: %.1f, Voltage: %.1f, Power: %.1f", current, voltage, power);
+                ESP_LOGD(tag, "motorPower() Current: %.1f, Voltage: %.1f, Power: %.1f", current, voltage, power);
                 lastLog = millis();
             }
             return power;

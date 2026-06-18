@@ -17,6 +17,9 @@ class DisplayDriver {
     virtual bool hasBacklight() { return false; };
     virtual bool hasBrightnessControl() { return hasBacklight(); };
 
+    virtual void nextPage() {};
+    virtual uint8_t currentPage() { return 0; };
+
     volatile bool upClicked = false;
     volatile bool downClicked = false;
     volatile bool selectClicked = false;
