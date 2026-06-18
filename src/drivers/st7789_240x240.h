@@ -7,10 +7,10 @@ Preparation
 
 Analyze the mockups include/display_mockups/*.png.
 Calculate the pixel coordinates of each metric area, and define a data structure to hold the coordinates and dimensions of each area. Define a data structure to hold the metrics to be displayed on each page, and the order of the pages. Define a data structure to hold the menu items and their actions.
-The font we are using is Roboto Mono. Define the required font sizes and character ranges, I will generate the GFX font files using the fontconvert utility.
+The font we are using is Roboto Mono.
 Displaying metric units is not necessary at this stage.
 The empty area at the middle of the display will later be used for graphical elements like a speedometer and a battery level indicator, icons for BLE and WiFi, etc. For now we can just leave it blank.
-Feel free to ask me any questions about the requirements or the implementation details. The goal of this stage is to implement a basic page switching mechanism with a simple fade transition, and a simple menusystem, to lay the groundwork for the more complex features in later stages.
+Feel free to ask me any questions about the requirements or the implementation details. The goal of this stage is to implement a basic page switching mechanism with a simple fade transition, and a simple menu system, to lay the groundwork for the more complex features in later stages.
 
 
 Stage 1 - Done
@@ -32,8 +32,7 @@ Implement cunfigurable pages. Start with a hard-coded default set. The user can 
 Stage 3 - In Progress
 
 Implement a menu system. The user can enter the menu using a simultaneous long press of the KEY_UP and KEY_DOWN buttons, navigate through the menu using the KEY_UP and KEY_DOWN buttons, and select menu items using the KEY_POWER button. The menu system should allow the user to configure the pages and metrics displayed on each page. The menu system should use the API, and be intuitive and easy to use, with clear feedback for the user. Consider using a library for the menu system, or implement a simple custom menu system. The menu system should be easy to extend with new menu items and actions.
-Progress update: Basic menu system implemented in this unit, but a generic menu interface should be created in drivers/display_driver.h or a new file, e.g. drivers/display_menu.h, to allow other display drivers to choose to implement their own menu system.
-TODO: Refactor the current menu implementation toward a small MVC-style UI layer before adding real menu actions.
+Progress update: Basic menu state and input routing moved into a small MVC-style UI layer before adding real menu actions.
   - Keypad should only translate physical button state into UI events such as UpClick, DownClick, SelectClick, UpLongPress, DownLongPress, and MenuChord.
   - A display-independent UI/Menu controller should own menu state and behavior: enterMenu(), previousMenuItem(), nextMenuItem(), selectMenuItem(), and exitMenu().
   - Menu handlers should live in the controller or model/API layer, not in the keypad task or display driver.
@@ -58,11 +57,7 @@ Prefer local static variables over class-level variables.
 
 Avoid repeated code. Use functions and classes to encapsulate common functionality.
 
-The data structures below are suggestions only. You are free to use your own data structures and algorithms as long as they meet the requirements and are efficient and maintainable. For example, the Metric struct may be implemented as a class with methods for getting and formatting the value, instead of using function pointers. But keep memory usage and performance in mind, as this is an embedded system with limited resources.
-
 We are using monochrome graphics for maximum readability and memory efficiency. In later stages we can consider using a limited number of colors for highlighting, but the primary focus is on readability and clarity.
-
-Keep in mind that GFX fonts are positioned with the baseline at y=0, so the y coordinate of the text is the baseline, not the top of the text. This is important for aligning text and graphics correctly. To render text cleanly at the top-left of a bounding box, the cursor Y position must be offset downward by the font's internal ascender height (font_struct->glyName->yOffset).
 
 */
 
@@ -75,6 +70,7 @@ Keep in mind that GFX fonts are positioned with the baseline at y=0, so the y co
 
 #include "display_driver.h"
 #include "model/state.h"
+#include "ui/menu_controller.h"
 
 extern State state;
 
@@ -156,11 +152,8 @@ class ST7789_240x240 : public DisplayDriver {
     void nextPage() override;
     uint8_t currentPage() override;
 
-    bool menuActive() const { return _displayMode == MODE_MENU; }
-    void handleSelectClick();
-    bool menuPrevious();
-    bool menuNext();
-    void enterMenu();
+    bool showMenu(const MenuSnapshot& menu);
+    void exitMenu();
 
    protected:
     const char* tag = "ST7789_240x240";
@@ -194,7 +187,6 @@ class ST7789_240x240 : public DisplayDriver {
     static constexpr uint32_t PAGE_TRANSITION_UPDATE_MS = 40;       // update rate during transition
     static constexpr uint8_t SLOT_COUNT = 3;                        // number of canvases to draw on each page
     static constexpr uint8_t PAGE_COUNT = 3;                        // number of pages
-    static constexpr uint8_t MENU_ITEM_COUNT = 16;                  // number of menu items
 
     enum DisplayMode {
         MODE_SPLASH,
@@ -246,29 +238,8 @@ class ST7789_240x240 : public DisplayDriver {
         {METRIC_HEART_RATE, METRIC_SOC, METRIC_RANGE},
     };
 
-    inline static constexpr const char* menuItems[MENU_ITEM_COUNT] = {
-        "Dummy 1",
-        "Dummy 2",
-        "Another menu item",
-        "Item with a long name",
-        "Short",
-        "Dummy 6",
-        "Dummy 7",
-        "Dummy 8",
-        "Dummy 9",
-        "Dummy 10",
-        "Dummy 11",
-        "Dummy 12",
-        "Dummy 13",
-        "Dummy 14",
-        "Dummy 15",
-        "Exit",
-    };
-
     DisplayMode _displayMode = MODE_SPLASH;
     uint8_t _currentPage = 0;
-    uint8_t _selectedMenuItem = 0;
-    bool _menuDirty = false;
     uint32_t _transitionStart = 0;
     uint32_t _lastPageUpdate = 0;
     uint32_t _lastTransitionUpdate = 0;
@@ -297,9 +268,8 @@ class ST7789_240x240 : public DisplayDriver {
     uint16_t roundedMetricValue(float value) const;
     uint16_t cappedMetricValue(uint32_t value) const;
     void formatUInt(char* buffer, size_t bufferSize, uint16_t value);
-    void drawMenu();
+    void drawMenu(const MenuSnapshot& menu);
     void drawMenuLine(const char* text, int16_t baseline, bool selected);
-    void selectMenuItem();
 };
 
 #endif  // ST7789_240x240_H

@@ -58,19 +58,12 @@ void ST7789_240x240::update() {
     ulong t = millis();
     if (t < 3000) return;  // show splash for at least 3 seconds
 
-    if (selectClicked) {
-        selectClicked = false;
-        handleSelectClick();
-        return;
-    }
-
     if (_displayMode == MODE_SPLASH) {
         startPageTransition(_currentPage);
         return;
     }
 
     if (_displayMode == MODE_MENU) {
-        if (_menuDirty) drawMenu();
         return;
     }
 
@@ -118,36 +111,22 @@ void ST7789_240x240::setBrightnessPercent(uint8_t p) {
     analogWrite((uint8_t)bl_pin, val);
 }
 
-void ST7789_240x240::handleSelectClick() {
-    if (_displayMode == MODE_MENU) {
-        selectMenuItem();
-        return;
-    }
-    nextPage();
-}
+bool ST7789_240x240::showMenu(const MenuSnapshot& menu) {
+    if (!menu.active || menu.items == nullptr || menu.itemCount == 0) return false;
 
-// returns true if the menu is active and the item was changed
-bool ST7789_240x240::menuPrevious() {
-    if (!menuActive()) return false;
-    _selectedMenuItem = _selectedMenuItem == 0 ? MENU_ITEM_COUNT - 1 : _selectedMenuItem - 1;
-    _menuDirty = true;
-    return true;
-}
-
-// returns true if the menu is active and the item was changed
-bool ST7789_240x240::menuNext() {
-    if (!menuActive()) return false;
-    _selectedMenuItem = (_selectedMenuItem + 1) % MENU_ITEM_COUNT;
-    _menuDirty = true;
-    return true;
-}
-
-void ST7789_240x240::enterMenu() {
-    if (_displayMode == MODE_MENU) return;
+    bool enteringMenu = _displayMode != MODE_MENU;
     _displayMode = MODE_MENU;
-    _selectedMenuItem = 0;
-    _menuDirty = true;
-    ESP_LOGI(tag, "Entering display menu");
+    if (!enteringMenu && !menu.dirty) return false;
+
+    drawMenu(menu);
+    return true;
+}
+
+void ST7789_240x240::exitMenu() {
+    if (_displayMode != MODE_MENU) return;
+    canvasMenu->fillScreen(BLACK);
+    canvasMenu->flush();
+    startPageTransition(_currentPage);
 }
 
 void ST7789_240x240::nextPage() {
@@ -526,7 +505,7 @@ void ST7789_240x240::formatUInt(char* buffer, size_t bufferSize, uint16_t value)
     snprintf(buffer, bufferSize, "%u", cappedMetricValue(value));
 }
 
-void ST7789_240x240::drawMenu() {
+void ST7789_240x240::drawMenu(const MenuSnapshot& menu) {
     canvasMenu->setFont(menuFont);
     canvasMenu->setTextSize(1);
     canvasMenu->setTextColor(WHITE, BLACK);
@@ -534,17 +513,24 @@ void ST7789_240x240::drawMenu() {
 
     constexpr uint8_t MAX_VISIBLE_MENU_ITEMS = 7;
     static uint8_t scrollOffset = 0;
-    if (_selectedMenuItem < scrollOffset) {
-        scrollOffset = _selectedMenuItem;
-    } else if (_selectedMenuItem >= scrollOffset + MAX_VISIBLE_MENU_ITEMS - 1) {
-        scrollOffset = _selectedMenuItem - MAX_VISIBLE_MENU_ITEMS + 2;
+    if (menu.selectedItem < scrollOffset) {
+        scrollOffset = menu.selectedItem;
+    } else if (menu.selectedItem >= scrollOffset + MAX_VISIBLE_MENU_ITEMS - 1) {  // -1 because the last item may not be fully visible
+        scrollOffset = menu.selectedItem - MAX_VISIBLE_MENU_ITEMS + 2;            // +2 to make sure the selected item is fully visible
     }
-    for (uint8_t i = scrollOffset; i < MENU_ITEM_COUNT && i < scrollOffset + MAX_VISIBLE_MENU_ITEMS + 1; i++) {
-        drawMenuLine(menuItems[i], 34 + (i - scrollOffset) * 36, i == _selectedMenuItem);
+    if (scrollOffset >= menu.itemCount) {
+        scrollOffset = 0;
+    }
+
+    uint8_t end = scrollOffset + MAX_VISIBLE_MENU_ITEMS;
+    if (end > menu.itemCount) {
+        end = menu.itemCount;
+    }
+    for (uint8_t i = scrollOffset; i < end; i++) {
+        drawMenuLine(menu.items[i], 34 + (i - scrollOffset) * 36, i == menu.selectedItem);
     }
 
     canvasMenu->flush();
-    _menuDirty = false;
 }
 
 void ST7789_240x240::drawMenuLine(const char* text, int16_t baseline, bool selected) {
@@ -567,28 +553,4 @@ void ST7789_240x240::drawMenuLine(const char* text, int16_t baseline, bool selec
     // left aligned
     canvasMenu->setCursor(5, baseline);
     canvasMenu->print(text);
-}
-
-void ST7789_240x240::selectMenuItem() {
-    switch (_selectedMenuItem) {
-        case 0:  //
-        case 1:  //
-        case 2:  //
-        case 3:  //
-        case 4:  //
-        case 5:  //
-            // menu handlers will be called here
-            ESP_LOGI(tag, "Selected menu item: %s", menuItems[_selectedMenuItem]);
-            return;
-        case MENU_ITEM_COUNT - 1:  // Last item: Exit menu
-            ESP_LOGI(tag, "Selected menu item: %s", menuItems[_selectedMenuItem]);
-            break;
-        default:
-            ESP_LOGW(tag, "Unhandled menu item: %d", _selectedMenuItem);
-    }
-    // clear menu canvas
-    canvasMenu->fillScreen(BLACK);
-    canvasMenu->flush();
-    // display labels and transition to values
-    startPageTransition(_currentPage);
 }

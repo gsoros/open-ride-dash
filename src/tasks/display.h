@@ -1,10 +1,15 @@
 #ifndef DISPLAY_H
 #define DISPLAY_H
 
+#include <freertos/FreeRTOS.h>
+#include <freertos/queue.h>
+
 #include "task.h"
 #include "model/state.h"
 #include "config.h"
 #include "api.h"
+#include "ui/menu_controller.h"
+#include "ui/ui_events.h"
 
 #if ORD_DISPLAY == st7789_240x240
 #include "drivers/st7789_240x240.h"
@@ -25,6 +30,10 @@ class Display : public Task, public ApiClient {
         brightnessPercent = 50;
         output.setBrightnessPercent(brightnessPercent);
         output.splash();
+        uiEventQueue = xQueueCreate(UI_EVENT_QUEUE_LENGTH, sizeof(UiEvent));
+        if (uiEventQueue == nullptr) {
+            ESP_LOGE(taskName(), "Failed to create UI event queue");
+        }
         apiClientSetup(taskName());
         api.registerCommand(
             "nextpage",
@@ -36,6 +45,8 @@ class Display : public Task, public ApiClient {
     }
 
     virtual void taskRun() override {
+        processUiEvents();
+        syncMenuDisplay();
         output.update();
     }
 
@@ -57,20 +68,17 @@ class Display : public Task, public ApiClient {
         output.setBrightnessPercent(brightnessPercent);
     }
 
-    bool upClicked() {
-        return output.menuPrevious();
-    }
-    bool downClicked() {
-        return output.menuNext();
-    }
-    void selectClicked() {
-        output.selectClicked = true;
-    }
-    void enterMenu() {
-        output.enterMenu();
-    }
-    bool menuActive() {
-        return output.menuActive();
+    bool queueUiEvent(UiEvent event) {
+        if (uiEventQueue == nullptr) {
+            ESP_LOGE(taskName(), "UI event queue is null");
+            return false;
+        }
+        BaseType_t res = xQueueSend(uiEventQueue, &event, 0);
+        if (res != pdTRUE) {
+            ESP_LOGW(taskName(), "UI event queue full, dropping event %u", (uint8_t)event);
+            return false;
+        }
+        return true;
     }
 
     Api::Reply nextPageCommand(const char* args) {
@@ -89,6 +97,8 @@ class Display : public Task, public ApiClient {
     }
 
    protected:
+    static constexpr UBaseType_t UI_EVENT_QUEUE_LENGTH = 16;
+
     ST7789_240x240 output{
         TFT_CS,
         TFT_DC,
@@ -98,7 +108,106 @@ class Display : public Task, public ApiClient {
         TFT_BL,
         SPI2_HOST,
         TFT_ROTATION};
+    MenuController menu;
+    QueueHandle_t uiEventQueue = nullptr;
     uint8_t brightnessPercent = 0;
+    uint32_t lastBrightnessChange = 0;
+    uint32_t lastLongPressLog = 0;
+    bool menuShown = false;
+
+    void processUiEvents() {
+        if (uiEventQueue == nullptr) return;
+
+        UiEvent event;
+        while (xQueueReceive(uiEventQueue, &event, 0) == pdTRUE) {
+            handleUiEvent(event);
+        }
+    }
+
+    void handleUiEvent(UiEvent event) {
+        switch (event) {
+            case UiEvent::UpClick:
+                if (menu.previousMenuItem()) return;
+                adjustPasLevel(1);
+                return;
+            case UiEvent::DownClick:
+                if (menu.nextMenuItem()) return;
+                adjustPasLevel(-1);
+                return;
+            case UiEvent::SelectClick:
+                if (menu.active()) {
+                    menu.selectMenuItem();
+                    return;
+                }
+                output.nextPage();
+                return;
+            case UiEvent::UpLongPress:
+                handleUpLongPress();
+                return;
+            case UiEvent::DownLongPress:
+                handleDownLongPress();
+                return;
+            case UiEvent::PowerLongPress:
+                ESP_LOGD(taskName(), "Key power long press");
+                return;
+            case UiEvent::MenuChord:
+                menu.enterMenu();
+                return;
+        }
+    }
+
+    void syncMenuDisplay() {
+        if (menu.active()) {
+            MenuSnapshot snapshot = menu.snapshot();
+            if (output.showMenu(snapshot)) {
+                menu.markRendered();
+            }
+            menuShown = true;
+            return;
+        }
+
+        if (!menuShown) return;
+        output.exitMenu();
+        menu.markRendered();
+        menuShown = false;
+    }
+
+    void adjustPasLevel(int8_t delta) {
+        int8_t pasLevelRequested = state.pasLevelRequested();
+        int8_t next = pasLevelRequested + delta;
+        if (next < -1 || next > 5) return;
+        state.pasLevelRequested(next);
+    }
+
+    void handleUpLongPress() {
+        if (menu.active()) return;
+        if (lastBrightnessChange + 50 > millis()) return;
+        if (shouldLogLongPress()) {
+            ESP_LOGD(taskName(), "Key up long press (increase brightness)");
+        }
+        increaseBrightness();
+        lastBrightnessChange = millis();
+    }
+
+    void handleDownLongPress() {
+        if (menu.active()) return;
+        if (lastBrightnessChange + 50 > millis()) return;
+        bool isWalkAssist = state.pasLevel() == -1;
+        if (shouldLogLongPress()) {
+            ESP_LOGW(taskName(), "Key down long press (%s)",
+                     isWalkAssist ? "walk assist" : "decrease brightness");
+        }
+        if (isWalkAssist) return;
+        decreaseBrightness();
+        lastBrightnessChange = millis();
+    }
+
+    bool shouldLogLongPress() {
+        uint32_t now = millis();
+        if (now - lastLongPressLog <= 500) return false;
+        lastLongPressLog = now;
+        return true;
+    }
 };
 
 #endif  // DISPLAY_H

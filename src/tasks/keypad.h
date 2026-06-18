@@ -5,11 +5,10 @@
 #include <OneButton.h>
 
 #include "config.h"
-#include "model/state.h"
 #include "display.h"
 #include "task.h"
+#include "ui/ui_events.h"
 
-extern State state;
 extern Display display;
 
 class Keypad : public Task {
@@ -48,65 +47,38 @@ class Keypad : public Task {
 
     void keyUpClick() {
         ESP_LOGD(taskName(), "Key up click");
-        if (display.upClicked()) return;
-        auto pasLevelRequested = state.pasLevelRequested();
-        if (pasLevelRequested < 5) {
-            state.pasLevelRequested(pasLevelRequested + 1);
-        }
+        display.queueUiEvent(UiEvent::UpClick);
     }
 
     void keyDownClick() {
         ESP_LOGD(taskName(), "Key down click");
-        if (display.downClicked()) return;
-        auto pasLevelRequested = state.pasLevelRequested();
-        if (pasLevelRequested > -1) {
-            state.pasLevelRequested(pasLevelRequested - 1);
-        }
+        display.queueUiEvent(UiEvent::DownClick);
     }
 
     void keyPowerClick() {
         ESP_LOGD(taskName(), "Key power click");
-        display.selectClicked();
+        display.queueUiEvent(UiEvent::SelectClick);
     }
 
     void keyUpLongPress() {
         if (handlePageMenuChord()) return;
-        // if (display.menuActive()) return;
-        if (lastBrightnessChange + 50 > millis()) return;
-        static uint32_t lastLog = 0;
-        if (millis() - lastLog > 500) {
-            ESP_LOGD(taskName(), "Key up long press (increase brightness)");
-            lastLog = millis();
-        }
-        display.increaseBrightness();
-        lastBrightnessChange = millis();
+        display.queueUiEvent(UiEvent::UpLongPress);
     }
 
     void keyDownLongPress() {
         if (handlePageMenuChord()) return;
-        // if (display.menuActive()) return;
-        if (lastBrightnessChange + 50 > millis()) return;
-        bool isWalkAssist = state.pasLevel() == -1;
-        static uint32_t lastLog = 0;
-        if (millis() - lastLog > 500) {
-            ESP_LOGW(taskName(), "Key down long press (%s)",
-                     isWalkAssist ? "walk assist" : "decrease brightness");
-            lastLog = millis();
-        }
-        if (isWalkAssist) return;
-        display.decreaseBrightness();
-        lastBrightnessChange = millis();
+        display.queueUiEvent(UiEvent::DownLongPress);
     }
 
     void keyPowerLongPress() {
         ESP_LOGD(taskName(), "Key power long press");
+        display.queueUiEvent(UiEvent::PowerLongPress);
     }
 
    protected:
     OneButton keyUp;
     OneButton keyDown;
     OneButton keyPower;
-    uint32_t lastBrightnessChange = 0;
     bool pageMenuChordHandled = false;
 
     bool pageMenuChordPressed() {
@@ -121,7 +93,7 @@ class Keypad : public Task {
         if (!pageMenuChordPressed()) return pageMenuChordInProgress();
         if (!pageMenuChordHandled) {
             ESP_LOGD(taskName(), "Key up/down long press (menu)");
-            display.enterMenu();
+            display.queueUiEvent(UiEvent::MenuChord);
             pageMenuChordHandled = true;
         }
         return true;

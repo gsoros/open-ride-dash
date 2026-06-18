@@ -19,10 +19,6 @@ class DisplayDriver {
 
     virtual void nextPage() {};
     virtual uint8_t currentPage() { return 0; };
-
-    volatile bool upClicked = false;
-    volatile bool downClicked = false;
-    volatile bool selectClicked = false;
 };
 
 #endif  // DISPLAY_DRIVER_H
