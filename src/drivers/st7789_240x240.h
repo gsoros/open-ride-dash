@@ -33,6 +33,13 @@ Stage 3 - In Progress
 
 Implement a menu system. The user can enter the menu using a simultaneous long press of the KEY_UP and KEY_DOWN buttons, navigate through the menu using the KEY_UP and KEY_DOWN buttons, and select menu items using the KEY_POWER button. The menu system should allow the user to configure the pages and metrics displayed on each page. The menu system should use the API, and be intuitive and easy to use, with clear feedback for the user. Consider using a library for the menu system, or implement a simple custom menu system. The menu system should be easy to extend with new menu items and actions.
 Progress update: Basic menu system implemented in this unit, but a generic menu interface should be created in drivers/display_driver.h or a new file, e.g. drivers/display_menu.h, to allow other display drivers to choose to implement their own menu system.
+TODO: Refactor the current menu implementation toward a small MVC-style UI layer before adding real menu actions.
+  - Keypad should only translate physical button state into UI events such as UpClick, DownClick, SelectClick, UpLongPress, DownLongPress, and MenuChord.
+  - A display-independent UI/Menu controller should own menu state and behavior: enterMenu(), previousMenuItem(), nextMenuItem(), selectMenuItem(), and exitMenu().
+  - Menu handlers should live in the controller or model/API layer, not in the keypad task or display driver.
+  - Display drivers should only render the current UI snapshot, including menu title/items/selection/dirty state, and should not execute menu actions.
+  - Communication from keypad to UI should use a small FreeRTOS queue or equivalent synchronized event path instead of cross-task mutable flags.
+  - Keep Display as a facade/task initially if useful, but make ST7789_240x240 a renderer for page/menu snapshots so display hardware can be swapped more easily.
 
 
 General coding guidelines

@@ -61,6 +61,7 @@ void ST7789_240x240::update() {
     if (selectClicked) {
         selectClicked = false;
         handleSelectClick();
+        return;
     }
 
     if (_displayMode == MODE_SPLASH) {
@@ -158,6 +159,10 @@ uint8_t ST7789_240x240::currentPage() {
     return _currentPage;
 }
 
+/*
+    Starts a page transition to the given page by first clearing the metric slots, then drawing the labels and starting the crossfade to the values.
+    page: index of the page to transition to
+*/
 void ST7789_240x240::startPageTransition(uint8_t page) {
     if (page >= PAGE_COUNT) {
         ESP_LOGW(tag, "Ignoring invalid page index: %u", page);
@@ -572,6 +577,7 @@ void ST7789_240x240::selectMenuItem() {
         case 3:  //
         case 4:  //
         case 5:  //
+            // menu handlers will be called here
             ESP_LOGI(tag, "Selected menu item: %s", menuItems[_selectedMenuItem]);
             return;
         case MENU_ITEM_COUNT - 1:  // Last item: Exit menu
@@ -580,7 +586,9 @@ void ST7789_240x240::selectMenuItem() {
         default:
             ESP_LOGW(tag, "Unhandled menu item: %d", _selectedMenuItem);
     }
-    clear();
-    _displayMode = MODE_PAGE;
+    // clear menu canvas
+    canvasMenu->fillScreen(BLACK);
+    canvasMenu->flush();
+    // display labels and transition to values
     startPageTransition(_currentPage);
 }

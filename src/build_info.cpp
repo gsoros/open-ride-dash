@@ -7,5 +7,5 @@
 #include "config.h"
 
 const char* ord_version = "0.1.1";
-const char* build_timestamp = "2026-06-18_02:11:05";
-const char* whoami = "OpenRideDash v0.1.1-" STR(BUILDTAG) " b2026-06-18_02:11:05";
+const char* build_timestamp = "2026-06-18_02:22:36";
+const char* whoami = "OpenRideDash v0.1.1-" STR(BUILDTAG) " b2026-06-18_02:22:36";
