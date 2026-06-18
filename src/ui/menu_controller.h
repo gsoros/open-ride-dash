@@ -33,7 +33,7 @@ class MenuController {
    protected:
     static constexpr const char* tag = "MenuController";
     static constexpr uint8_t MENU_ITEM_COUNT = 16;
-    static constexpr uint8_t EXIT_MENU_ITEM = MENU_ITEM_COUNT - 1;
+    static constexpr uint8_t EXIT_MENU_ITEM = MENU_ITEM_COUNT - 1;  // Last item is "Exit"
 
     inline static constexpr const char* MENU_ITEMS[MENU_ITEM_COUNT] = {
         "Dummy 1",
