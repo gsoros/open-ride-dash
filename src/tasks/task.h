@@ -1,6 +1,10 @@
 #ifndef TASK_H
 #define TASK_H
 
+/*
+ * Task abstraction, FreeRTOS implementation.
+ */
+
 #include <Arduino.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
@@ -10,9 +14,9 @@ class TaskFrequency {
    public:
     /*
      * frequencyHz: behavior selection:
-     *     - `> 0`: call `taskRun()` periodically at this frequency (Hz).
-     *     - `== 0`: never call `taskRun()` (task will suspend after `taskSetup()`).
-     *     - `< 0`: call `taskRun()` continuously with a minimal yield.
+     *     - `> 0`: call `taskRun()` periodically at this frequency (Hz)
+     *     - `== 0`: never call `taskRun()`
+     *     - `< 0`: call `taskRun()` continuously with a minimal yield
      */
     TaskFrequency(float frequencyHz = -1.0f) {
         hz(frequencyHz);
@@ -53,9 +57,6 @@ class TaskFrequency {
 
 class Task {
    public:
-    // If you override this method, you must call `taskSetup()` from your `setup()` method.
-    virtual void taskSetup() {};
-
     // The main loop of the task. This method will be called periodically at the given frequency.
     virtual void taskRun() {};
 
@@ -65,11 +66,11 @@ class Task {
     /*
      * Start the task with the given frequency (Hz), stack size (bytes), and priority.
      * - `frequency`: behavior selection:
-     *     - `> 0`: call `taskRun()` periodically at this frequency (Hz).
-     *     - `== 0`: never call `taskRun()` (task will suspend after `taskSetup()`).
-     *     - `< 0`: call `taskRun()` continuously with a minimal yield.
-     * - `stack`: requested stack size in bytes. If 0, uses `configMINIMAL_STACK_SIZE`.
-     * - `priority`: FreeRTOS priority. If -1, defaults to 1.
+     *     - `> 0`: call `taskRun()` periodically at this frequency (Hz)
+     *     - `== 0`: never call `taskRun()`
+     *     - `< 0`: call `taskRun()` continuously with a minimal yield
+     * - `stack`: requested stack size in bytes. If 0, uses `configMINIMAL_STACK_SIZE`
+     * - `priority`: FreeRTOS priority. If -1, defaults to 1
      */
     virtual bool taskStart(float frequency = -1.0f, uint32_t stack = 0, int8_t priority = -1) {
         _taskFrequency.hz(frequency);
@@ -201,10 +202,6 @@ class Task {
             vTaskDelete(nullptr);
             return;
         }
-
-        // We could call self->taskSetup() here, but sometimes it's necessary to have control
-        // over whether and when setup() runs (tasks with shared resources, etc.), so we'll leave
-        // it to the subclass to call it.
 
         TickType_t ticks = self->_taskFrequency.ticks();  // initial wait before first run
         while (self->_taskRunning.load(std::memory_order_acquire)) {

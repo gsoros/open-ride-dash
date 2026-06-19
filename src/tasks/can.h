@@ -33,7 +33,6 @@ class CAN : public Task {
                 delay(1000);
             }
         }
-        Task::taskSetup();
     }
 
     virtual void taskRun() override {

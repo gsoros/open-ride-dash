@@ -41,7 +41,6 @@ class Display : public Task, public ApiClient {
                 return nextPageCommand(args);
             },
             "Usage: nextpage\nSwitches to the next page.");
-        Task::taskSetup();
     }
 
     virtual void taskRun() override {

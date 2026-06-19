@@ -10,7 +10,6 @@ class Blink : public Task {
 
     virtual void setup() {
         pinMode(ONBOARD_LED, OUTPUT);
-        Task::taskSetup();
     }
 
     virtual void taskRun() override {

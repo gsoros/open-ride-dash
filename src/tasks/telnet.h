@@ -28,7 +28,6 @@ class Telnet : public Task, public ApiClient {
                 return setEchoCommand(args);
             },
             "Usage: echo 0|1|True|true|False|false|On|on|Off|off\nEnables or disables Telnet input echo.");
-        Task::taskSetup();
     }
 
     virtual void taskRun() override {

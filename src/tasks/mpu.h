@@ -14,7 +14,6 @@ class MPU : public Task {
     }
 
     virtual void setup() {
-        Task::taskSetup();
     }
 
     virtual void taskRun() override {

@@ -55,7 +55,6 @@ class Wifi : public Task,
         ESP_LOGI(taskName(), "Starting mDNS with hostname: %s", hostname.c_str());
         MDNS.begin(hostname.c_str());
         setupDone = true;
-        Task::taskSetup();
     }
 
     virtual void taskRun() override {

@@ -120,8 +120,6 @@ class OTA : public Task, public HasPreferences {
         });
         ArduinoOTA.begin();
 
-        Task::taskSetup();
-
         ESP_LOGI(taskName(), "Ready");
     }
 

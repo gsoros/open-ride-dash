@@ -29,8 +29,6 @@ class Keypad : public Task {
         keyUp.attachDuringLongPress([](void* s) { ((Keypad*)s)->keyUpLongPress(); }, this);
         keyDown.attachDuringLongPress([](void* s) { ((Keypad*)s)->keyDownLongPress(); }, this);
         keyPower.attachDuringLongPress([](void* s) { ((Keypad*)s)->keyPowerLongPress(); }, this);
-
-        Task::taskSetup();
     }
 
     virtual void taskRun() override {

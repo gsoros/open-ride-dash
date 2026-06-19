@@ -107,8 +107,6 @@ class Api : public Task {
                 return batteryCapacityCommand(args);
             },
             "Usage: battery [capacity]\nGets or sets the battery capacity in Wh.");
-
-        Task::taskSetup();
     }
 
     bool registerCommand(const char* command, std::function<Reply(const char* args)> handler,

@@ -12,7 +12,6 @@ class SystemMonitor : public Task {
     virtual void setup(Task* const* tasksToMonitor = nullptr, size_t tasksToMonitorCount = 0) {
         tasks = tasksToMonitor;
         taskCount = tasksToMonitorCount;
-        Task::taskSetup();
     }
 
     virtual void taskRun() override {
