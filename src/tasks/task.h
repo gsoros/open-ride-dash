@@ -6,10 +6,60 @@
 #include <freertos/task.h>
 #include <atomic>
 
+class TaskFrequency {
+   public:
+    /*
+     * frequencyHz: behavior selection:
+     *     - `> 0`: call `taskRun()` periodically at this frequency (Hz).
+     *     - `== 0`: never call `taskRun()` (task will suspend after `taskSetup()`).
+     *     - `< 0`: call `taskRun()` continuously with a minimal yield.
+     */
+    TaskFrequency(float frequencyHz = -1.0f) {
+        hz(frequencyHz);
+    }
+
+    float hz() const {
+        portENTER_CRITICAL(&_mux);
+        float f = _frequencyHz;
+        portEXIT_CRITICAL(&_mux);
+        return f;
+    }
+
+    void hz(float frequency) {
+        TickType_t ticks = portMAX_DELAY;  // frequency == 0: "never call taskRun()"
+        if (frequency > 0.0f) {            // call taskRun() periodically at this frequency
+            ticks = pdMS_TO_TICKS((uint32_t)(1000.0f / frequency));
+            if (ticks == 0) ticks = 1;
+        } else  // frequency < 0.0f: call taskRun() continuously with a minimal yield
+            ticks = 1;
+        portENTER_CRITICAL(&_mux);
+        _frequencyHz = frequency;
+        _ticksToWait = ticks;
+        portEXIT_CRITICAL(&_mux);
+    }
+
+    TickType_t ticks() const {
+        portENTER_CRITICAL(&_mux);
+        TickType_t t = _ticksToWait;
+        portEXIT_CRITICAL(&_mux);
+        return t;
+    }
+
+   private:
+    float _frequencyHz = 0.0f;
+    TickType_t _ticksToWait = 0;
+    mutable portMUX_TYPE _mux = portMUX_INITIALIZER_UNLOCKED;
+};
+
 class Task {
    public:
+    // If you override this method, you must call `taskSetup()` from your `setup()` method.
     virtual void taskSetup() {};
+
+    // The main loop of the task. This method will be called periodically at the given frequency.
     virtual void taskRun() {};
+
+    // Mandatory method to return the name of the task. Used for logging.
     virtual const char* taskName() = 0;
 
     /*
@@ -21,7 +71,9 @@ class Task {
      * - `stack`: requested stack size in bytes. If 0, uses `configMINIMAL_STACK_SIZE`.
      * - `priority`: FreeRTOS priority. If -1, defaults to 1.
      */
-    virtual bool taskStart(float frequency = -1, uint32_t stack = 0, int8_t priority = -1) {
+    virtual bool taskStart(float frequency = -1.0f, uint32_t stack = 0, int8_t priority = -1) {
+        _taskFrequency.hz(frequency);
+
         ESP_LOGD(taskName(), "Starting task with frequency %.2f Hz, stack %u bytes, priority %d",
                  frequency, stack, priority);
 
@@ -29,8 +81,6 @@ class Task {
             ESP_LOGE(taskName(), "Already running");
             return false;
         }
-
-        _taskWriteFrequency(frequency);
 
         // Convert stack bytes to words (FreeRTOS stack depth is in words)
         uint32_t stackWords = (stack == 0) ? configMINIMAL_STACK_SIZE : (stack / sizeof(StackType_t));
@@ -62,12 +112,12 @@ class Task {
     }
 
     virtual float taskGetFrequency() const {
-        return _taskReadFrequency();
+        return _taskFrequency.hz();
     }
 
     virtual void taskSetFrequency(float frequency) {
         ESP_LOGD(taskName(), "Setting frequency to %.2f Hz", frequency);
-        _taskWriteFrequency(frequency);
+        _taskFrequency.hz(frequency);
 
         TaskHandle_t h = _taskHandle.load(std::memory_order_acquire);
         if (h != nullptr) {
@@ -103,6 +153,7 @@ class Task {
 
     /*
      * Cooperative stopping: signals the task to stop, wakes it up, and waits for it to finish.
+     * Calling this method from the task itself is not recommended, as it will cause a deadlock.
      */
     virtual void taskStop() {
         TaskHandle_t h = _taskHandle.load(std::memory_order_acquire);
@@ -133,11 +184,7 @@ class Task {
         TaskHandle_t h = _taskHandle.load(std::memory_order_acquire);
         if (h == nullptr) return -1;
         UBaseType_t high = uxTaskGetStackHighWaterMark(h);
-#if defined(configUSE_TRACE_FACILITY) || defined(configUSE_STATS_FORMATTING_FUNCTIONS)
         return (int)(high * sizeof(StackType_t));
-#else
-        return (int)high;
-#endif
     }
 
    protected:
@@ -146,26 +193,7 @@ class Task {
     std::atomic<bool> _taskRunning{false};
     std::atomic<bool> _taskIsSuspended{false};
 
-    float _taskFrequencyHz = -1;
-    mutable portMUX_TYPE _taskFrequencyMux = portMUX_INITIALIZER_UNLOCKED;
-
-    float _taskReadFrequency() const {
-        portENTER_CRITICAL(&_taskFrequencyMux);
-        float frequency = _taskFrequencyHz;
-        portEXIT_CRITICAL(&_taskFrequencyMux);
-        return frequency;
-    }
-
-    void _taskWriteFrequency(float frequency) {
-        portENTER_CRITICAL(&_taskFrequencyMux);
-        _taskFrequencyHz = frequency;
-        portEXIT_CRITICAL(&_taskFrequencyMux);
-    }
-
-    static TickType_t _taskFrequencyToTicks(float frequency) {
-        TickType_t ticks = pdMS_TO_TICKS((uint32_t)(1000.0f / frequency));
-        return (ticks == 0) ? 1 : ticks;
-    }
+    TaskFrequency _taskFrequency = TaskFrequency(-1.0f);
 
     static void _taskTrampoline(void* pvParameters) {
         Task* self = static_cast<Task*>(pvParameters);
@@ -176,21 +204,14 @@ class Task {
 
         // We could call self->taskSetup() here, but sometimes it's necessary to have control
         // over whether and when setup() runs (tasks with shared resources, etc.), so we'll leave
-        // it to the user to call it.
+        // it to the subclass to call it.
 
-        // Main loop
+        TickType_t ticks = self->_taskFrequency.ticks();  // initial wait before first run
         while (self->_taskRunning.load(std::memory_order_acquire)) {
-            float frequency = self->_taskReadFrequency();
-
-            if (frequency == 0.0f) {
-                ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-            } else if (frequency > 0.0f) {
+            ulTaskNotifyTake(pdTRUE, ticks);       // wait
+            ticks = self->_taskFrequency.ticks();  // read fresh after wakeup
+            if (ticks != portMAX_DELAY)            // re-check after wakeup: frequency==0 guard
                 self->taskRun();
-                ulTaskNotifyTake(pdTRUE, _taskFrequencyToTicks(frequency));
-            } else {
-                self->taskRun();
-                ulTaskNotifyTake(pdTRUE, 1);
-            }
         }
 
         // Clean exit: the task destroys itself after finishing
