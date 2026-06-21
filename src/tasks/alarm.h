@@ -2,7 +2,7 @@
 #define ALARM_H
 
 /*
- * TODO: This is a WIP sketch for a standalone alarm system that uses the MPU6050 to detect motion.
+ * TODO: This is a WIP sketch for a standalone alarm system that uses the MPU6050 to detect motion. It will eventually be turned into a real task.
  */
 
 #include <Arduino.h>
