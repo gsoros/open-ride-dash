@@ -108,17 +108,19 @@ class Task {
         }
 
         _taskHandle.store(tmpHandle, std::memory_order_release);
-        _taskIsSuspended.store(false, std::memory_order_relaxed);
+        _taskSuspended.store(false, std::memory_order_relaxed);
         return true;
     }
 
+    // Returns the current frequency in Hz.
     virtual float taskGetFrequency() const {
         return _taskFrequency.hz();
     }
 
-    virtual void taskSetFrequency(float frequency) {
-        ESP_LOGD(taskName(), "Setting frequency to %.2f Hz", frequency);
-        _taskFrequency.hz(frequency);
+    // Sets the frequency in Hz. If the task is running, it will be woken up.
+    virtual void taskSetFrequency(float frequencyHz) {
+        ESP_LOGD(taskName(), "Setting frequency to %.2f Hz", frequencyHz);
+        _taskFrequency.hz(frequencyHz);
 
         TaskHandle_t h = _taskHandle.load(std::memory_order_acquire);
         if (h != nullptr) {
@@ -126,43 +128,59 @@ class Task {
         }
     }
 
+    // Suspends the task.
     virtual void taskSuspend() {
         TaskHandle_t h = _taskHandle.load(std::memory_order_acquire);
-        if (h == nullptr || _taskIsSuspended.load(std::memory_order_relaxed)) return;
+        if (h == nullptr || _taskSuspended.load(std::memory_order_relaxed)) return;
 
         ESP_LOGD(taskName(), "Suspending task");
-        _taskIsSuspended.store(true, std::memory_order_relaxed);
+        _taskSuspended.store(true, std::memory_order_relaxed);
         vTaskSuspend(h);
     }
 
+    // Resumes the task.
     virtual void taskResume() {
         TaskHandle_t h = _taskHandle.load(std::memory_order_acquire);
-        if (h == nullptr || !_taskIsSuspended.load(std::memory_order_relaxed)) return;
+        if (h == nullptr || !_taskSuspended.load(std::memory_order_relaxed)) return;
 
         ESP_LOGD(taskName(), "Resuming task");
-        _taskIsSuspended.store(false, std::memory_order_relaxed);
+        _taskSuspended.store(false, std::memory_order_relaxed);
         vTaskResume(h);
     }
 
+    // Returns true if the task is suspended.
     virtual bool taskIsSuspended() const {
-        return _taskIsSuspended.load(std::memory_order_relaxed);
+        return _taskSuspended.load(std::memory_order_relaxed);
     }
 
+    // Returns true if the task handle is not null.
     virtual bool taskIsRunning() const {
         return _taskHandle.load(std::memory_order_acquire) != nullptr;
     }
 
     /*
      * Cooperative stopping: signals the task to stop, wakes it up, and waits for it to finish.
-     * Calling this method from the task itself is not recommended, as it will cause a deadlock.
+     * Calling this method from the task itself is handled without blocking: it requests stop
+     * and returns immediately.
      */
     virtual void taskStop() {
         TaskHandle_t h = _taskHandle.load(std::memory_order_acquire);
         if (h == nullptr) return;
 
+        // If called from the task itself, avoid waiting (would deadlock).
+        if (xTaskGetCurrentTaskHandle() == h) {
+            ESP_LOGD(taskName(), "Stopping task from itself: requesting stop (no wait)");
+            _taskRunning.store(false, std::memory_order_release);
+            _taskSuspended.store(false, std::memory_order_relaxed);
+            // Wake up the task if it's sleeping so that the trampoline can progress to exit.
+            xTaskNotifyGive(h);
+            // Do not wait for the handle to be cleared here; the trampoline will clear it.
+            return;
+        }
+
         ESP_LOGD(taskName(), "Stopping task cleanly...");
         _taskRunning.store(false, std::memory_order_release);
-        _taskIsSuspended.store(false, std::memory_order_relaxed);
+        _taskSuspended.store(false, std::memory_order_relaxed);
 
         // If the task is suspended, it needs to be resumed to receive the stop signal
         vTaskResume(h);
@@ -192,7 +210,7 @@ class Task {
     // Atomics are used to ensure thread-safety
     std::atomic<TaskHandle_t> _taskHandle{nullptr};
     std::atomic<bool> _taskRunning{false};
-    std::atomic<bool> _taskIsSuspended{false};
+    std::atomic<bool> _taskSuspended{false};
 
     TaskFrequency _taskFrequency = TaskFrequency(-1.0f);
 
