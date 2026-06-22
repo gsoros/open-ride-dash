@@ -181,13 +181,13 @@ class ST7789_240x240 : public DisplayDriver {
     const uint8_t* labelFont = u8g2_font_RobotoMono_Bold_48px_caps_digits;
     const uint8_t* menuFont = u8g2_font_RobotoMono_Bold_24px_alpha_digits;
 
-    static constexpr uint32_t PAGE_UPDATE_MS = 100;                 // normal update rate
+    static constexpr uint32_t PAGE_UPDATE_MS = 100;             // normal update rate
     static constexpr uint32_t PAGE_TRANSITION_MS = 2000;        // total page transition time
     static constexpr uint32_t PAGE_TRANSITION_STATIC_MS = 500;  // static hold time before blend begins
     static constexpr uint32_t PAGE_TRANSITION_UPDATE_MS = 40;   // update rate during transition
     static constexpr uint32_t PAS_FEEDBACK_FADE_MS = PAGE_TRANSITION_MS - PAGE_TRANSITION_STATIC_MS;
-    static constexpr uint8_t SLOT_COUNT = 3;                    // number of canvases to draw on each page
-    static constexpr uint8_t PAGE_COUNT = 3;                    // number of pages
+    static constexpr uint8_t SLOT_COUNT = 3;  // number of canvases to draw on each page
+    static constexpr uint8_t PAGE_COUNT = 3;  // number of pages
 
     enum DisplayMode {
         MODE_SPLASH,
@@ -241,7 +241,7 @@ class ST7789_240x240 : public DisplayDriver {
     };
 
     DisplayMode _displayMode = MODE_SPLASH;
-    uint8_t _currentPage = 0;
+    uint8_t _currentPage = 1;  // default to page 1 (second page)
     uint32_t _transitionStart = 0;
     uint32_t _lastPageUpdate = 0;
     uint32_t _lastTransitionUpdate = 0;

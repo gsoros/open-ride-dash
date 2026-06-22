@@ -11,6 +11,7 @@
 #include "tasks/can_sim.h"
 #include "tasks/can.h"
 #include "tasks/keypad.h"
+#include "tasks/alarm.h"
 
 State state;
 Api api;
@@ -22,12 +23,10 @@ OTA ota;
 Telnet telnet(23);
 SystemMonitor systemMonitor;
 Keypad keypad;
+Alarm alarmTask;  // 'alarm' is a reserved word
 
 void setup() {
-    const char* tag = "setup";
-
     esp_log_level_set("*", ESP_LOG_DEBUG);
-
     ulong t = millis();
 
 #ifdef FEATURE_SERIAL
@@ -64,6 +63,9 @@ void setup() {
 
     keypad.setup();
     keypad.taskStart(100.0f, 2048);
+
+    alarmTask.setup();
+    alarmTask.taskStart(100.0f, 2048);
 
     static Task* tasksToMonitor[] = {&api, &wifi, &ota, &telnet, &display, &can};
     systemMonitor.setup(tasksToMonitor, sizeof(tasksToMonitor) / sizeof(tasksToMonitor[0]));
