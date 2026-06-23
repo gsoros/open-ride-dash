@@ -38,9 +38,13 @@ class Alarm : public Task {
     std::atomic<State> _state = ALARM_DISARMED;
     std::atomic<uint32_t> _stateChangeTimestamp{0};
 
-    static constexpr uint32_t WARNING_GRACE_PERIOD_MS = 2000;  // Motion within this timeframe doesn't yet trigger a latch
-    static constexpr uint32_t LATCH_DELAY_MS = 10000;          // Motion between WARNING_GRACE_PERIOD_MS and LATCH_DELAY_MS triggers a latch
+    // Motion within this timeframe triggers a warning
+    static constexpr uint32_t WARNING_GRACE_PERIOD_MS = 2000;
+    // Motion between WARNING_GRACE_PERIOD_MS and LATCH_DELAY_MS triggers the latch
+    static constexpr uint32_t LATCH_DELAY_MS = 10000;
+    // Motion threshold, *4mg (0.004g), 25 = 100mg
     static constexpr uint8_t MPU_THRESHOLD = 25;
+    // Motion sampling frequency: 0-11 (0.24-500Hz), 5 = 7.81Hz
     static constexpr uint8_t MPU_FREQUENCY = 5;
 
     Api::Reply _armCommand(const char* args);
