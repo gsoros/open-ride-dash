@@ -99,12 +99,12 @@ class Display : public Task, public ApiClient {
     static constexpr UBaseType_t UI_EVENT_QUEUE_LENGTH = 16;
 
     ST7789_240x240 output{
-        TFT_CS,
-        TFT_DC,
-        SPI_MOSI,
-        SPI_SCK,
-        TFT_RST,
-        TFT_BL,
+        PIN_TFT_CS,
+        PIN_TFT_DC,
+        PIN_SPI_MOSI,
+        PIN_SPI_SCK,
+        PIN_TFT_RST,
+        PIN_TFT_BL,
         SPI2_HOST,
         TFT_ROTATION};
     MenuController menu;

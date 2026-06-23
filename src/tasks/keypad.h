@@ -18,9 +18,9 @@ class Keypad : public Task {
     }
 
     virtual void setup() {
-        keyUp.setup(KEY_UP, INPUT_PULLUP, true);        // Active LOW
-        keyDown.setup(KEY_DOWN, INPUT_PULLUP, true);    // Active LOW
-        keyPower.setup(KEY_POWER, INPUT_PULLUP, true);  // Active LOW
+        keyUp.setup(PIN_KEY_UP, INPUT_PULLUP, true);        // Active LOW
+        keyDown.setup(PIN_KEY_DOWN, INPUT_PULLUP, true);    // Active LOW
+        keyPower.setup(PIN_KEY_POWER, INPUT_PULLUP, true);  // Active LOW
 
         keyUp.attachClick([](void* s) { ((Keypad*)s)->keyUpClick(); }, this);
         keyDown.attachClick([](void* s) { ((Keypad*)s)->keyDownClick(); }, this);

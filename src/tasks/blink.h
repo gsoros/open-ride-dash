@@ -9,12 +9,12 @@ class Blink : public Task {
     }
 
     virtual void setup() {
-        pinMode(ONBOARD_LED, OUTPUT);
+        pinMode(PIN_ONBOARD_LED, OUTPUT);
     }
 
     virtual void taskRun() override {
-        digitalWrite(ONBOARD_LED, LOW);
+        digitalWrite(PIN_ONBOARD_LED, LOW);
         delay(30);
-        digitalWrite(ONBOARD_LED, HIGH);
+        digitalWrite(PIN_ONBOARD_LED, HIGH);
     }
 };

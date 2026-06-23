@@ -15,28 +15,18 @@
 #include "task.h"
 #include "api.h"
 
-// Global handle to the MPU interrupt target task
-TaskHandle_t mpuInterruptTargetTaskHandle = NULL;
-
-// Lightweight, IRAM-safe ISR
-// Global as there is only one MPU interrupt handler
-void IRAM_ATTR mpuInterruptHandler() {
-    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-    if (mpuInterruptTargetTaskHandle != NULL) {
-        // Unblock the Alarm task immediately from the interrupt context
-        vTaskNotifyGiveFromISR(mpuInterruptTargetTaskHandle, &xHigherPriorityTaskWoken);
-        portYIELD_FROM_ISR();
-    }
-}
-
 class Alarm : public Task {
    public:
     virtual const char* taskName() override {
         return "Alarm";
     }
 
+    Alarm() {
+        _mpuInterruptTargetTaskHandle = NULL;
+    }
+
     virtual void setup() {
-        if (!Wire.begin(I2C_SDA, I2C_SCL)) {  // MPU is the only I2C device on the bus
+        if (!Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL)) {  // MPU is the only I2C device on the bus
             ESP_LOGE(taskName(), "Failed to initialize I2C");
         }
 
@@ -55,8 +45,8 @@ class Alarm : public Task {
 
         _clearMPUInterrupt();
 
-        pinMode(MPU_INT, INPUT);
-        attachInterrupt(digitalPinToInterrupt(MPU_INT), mpuInterruptHandler, RISING);
+        pinMode(PIN_MPU_INT, INPUT);
+        attachInterrupt(digitalPinToInterrupt(PIN_MPU_INT), _mpuInterruptHandler, RISING);
 
         api.registerCommand(
             "arm", [this](const char* args) { return _armCommand(args); },
@@ -73,8 +63,8 @@ class Alarm : public Task {
         }
 
         // Save this task's handle so the ISR knows who to notify
-        mpuInterruptTargetTaskHandle = _taskHandle.load(std::memory_order_acquire);
-        if (mpuInterruptTargetTaskHandle == NULL) {
+        _mpuInterruptTargetTaskHandle = _taskHandle.load(std::memory_order_acquire);
+        if (_mpuInterruptTargetTaskHandle == NULL) {
             ESP_LOGE(taskName(), "Failed to save MPU interrupt target task handle");
             return false;
         } else
@@ -208,6 +198,19 @@ class Alarm : public Task {
         Wire.endTransmission(false);        // End transmission, keep the connection open
         Wire.requestFrom(0x68, 1);          // Request 1 byte from MPU
         if (Wire.available()) Wire.read();  // Reading this byte clears the hardware latch
+    }
+
+    // Static handle to the MPU interrupt target task
+    static TaskHandle_t _mpuInterruptTargetTaskHandle;
+
+    // Lightweight, IRAM-safe ISR
+    static void IRAM_ATTR _mpuInterruptHandler() {
+        BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+        if (_mpuInterruptTargetTaskHandle != NULL) {
+            // Unblock the Alarm task immediately from the interrupt context
+            vTaskNotifyGiveFromISR(_mpuInterruptTargetTaskHandle, &xHigherPriorityTaskWoken);
+            if (xHigherPriorityTaskWoken) portYIELD_FROM_ISR();
+        }
     }
 };
 

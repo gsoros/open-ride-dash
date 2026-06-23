@@ -22,8 +22,8 @@ class CAN : public Task {
 
     virtual void setup() {
         ACANSettings settings(250000);  // 250 kb/s, Bafang M500/M600 default
-        settings.mTxPin = (gpio_num_t)CAN_TX;
-        settings.mRxPin = (gpio_num_t)CAN_RX;
+        settings.mTxPin = (gpio_num_t)PIN_CAN_TX;
+        settings.mRxPin = (gpio_num_t)PIN_CAN_RX;
         // settings.mRequestedCANMode = ACANSettings::LoopBackMode;  // Receive own messages
         // TODO: Setup HW filters when all frames are known
         const uint32_t errorCode = ACAN::can.begin(settings);
