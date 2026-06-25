@@ -2882,6 +2882,16 @@
 		)
 		(uuid "041bef96-85f8-402e-a6b8-518645eb68d6")
 	)
+	(text "white"
+		(exclude_from_sim no)
+		(at 33.528 58.42 90)
+		(effects
+			(font
+				(size 0.762 0.762)
+			)
+		)
+		(uuid "6767c0ea-5e35-4477-b5a5-db945534b709")
+	)
 	(text "Remote Keypad"
 		(exclude_from_sim no)
 		(at 31.496 119.126 0)
@@ -2951,6 +2961,16 @@
 			)
 		)
 		(uuid "e9ab89d8-4deb-41b3-9678-ed7e639a5686")
+	)
+	(text "orange"
+		(exclude_from_sim no)
+		(at 23.114 57.912 90)
+		(effects
+			(font
+				(size 0.762 0.762)
+			)
+		)
+		(uuid "ed77ce17-10b4-4647-909a-b2cc357fccac")
 	)
 	(text "brown"
 		(exclude_from_sim no)
@@ -3057,6 +3077,14 @@
 		(uuid "1811f8c1-6108-4940-bd14-460d673aac04")
 	)
 	(no_connect
+		(at 25.4 54.61)
+		(uuid "647e685a-b88d-47cc-8b78-0cf5c38dc273")
+	)
+	(no_connect
+		(at 25.4 63.5)
+		(uuid "6df93fc7-f8ee-431c-ae66-714af3eed071")
+	)
+	(no_connect
 		(at 171.45 113.03)
 		(uuid "8f40dfd4-aaa1-4d52-91e9-002583a6b049")
 	)
@@ -3067,6 +3095,14 @@
 	(no_connect
 		(at 171.45 118.11)
 		(uuid "a8c7bcc2-3dc0-46a7-8693-67dec0f9e1e6")
+	)
+	(no_connect
+		(at 35.56 63.5)
+		(uuid "b557e950-303b-4d55-899d-ae7600c0caef")
+	)
+	(no_connect
+		(at 35.56 54.61)
+		(uuid "e3c35329-91b3-44b0-b376-e71937ed446a")
 	)
 	(wire
 		(pts
@@ -3237,6 +3273,16 @@
 			(type default)
 		)
 		(uuid "2a4fb4a7-6230-4b4f-9a1a-5035fd1a93a8")
+	)
+	(wire
+		(pts
+			(xy 35.56 54.61) (xy 35.56 63.5)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "2c3c5702-9265-4981-bd73-df8eaef93483")
 	)
 	(wire
 		(pts
@@ -3587,6 +3633,16 @@
 			(type default)
 		)
 		(uuid "8d4746f9-9935-496f-b7df-e22417fe4094")
+	)
+	(wire
+		(pts
+			(xy 25.4 54.61) (xy 25.4 63.5)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "91f24ddb-10d1-4582-9498-299ae638d9c3")
 	)
 	(wire
 		(pts
