@@ -236,15 +236,15 @@ class CAN : public Task {
                             break;
                     }
                     if (newPas == INT8_MIN) break;
-                    static int8_t lastPas = INT8_MIN;
-                    if (newPas != lastPas) {
+                    static int8_t lastPas = INT8_MIN;  // CAN is the only source of PAS level changes
+                    if (newPas != lastPas) {           // so we can safely ignore the repeated identical values
                         ESP_LOGD(taskName(), "Parsed: PAS level: %d%s", newPas,
                                  newPas == 0    ? " (off)"          //
                                  : newPas == -1 ? " (walk assist)"  //
                                                 : "");
                         lastPas = newPas;
+                        state.pasLevel(newPas);
                     }
-                    state.pasLevel(newPas);
                     break;
                 }
 

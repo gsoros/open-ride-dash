@@ -56,6 +56,15 @@ void ST7789_240x240::splash() {
 
 void ST7789_240x240::update() {
     ulong t = millis();
+
+    /*
+    static uint32_t lastLog = 0;
+    if (lastLog + 1000 < t) {
+        lastLog = t;
+        ESP_LOGD(tag, "Display mode: %s", displayModeToStr(_displayMode).c_str());
+    }
+    */
+
     if (t < 3000) return;  // show splash for at least 3 seconds
 
     if (_displayMode == MODE_SPLASH) {
@@ -77,14 +86,20 @@ void ST7789_240x240::update() {
     State::Snapshot s = state.getSnapshot();
 
     if (_displayMode == MODE_PAS_FEEDBACK) {
-        if (startPasFeedbackIfNeeded(t, s)) return;
+        if (startPasFeedbackIfNeeded(t, s)) {
+            ESP_LOGW(tag, "Starting PAS feedback in MODE_PAS_FEEDBACK");
+            return;
+        }
         if (t - _lastPasFeedbackUpdate < PAGE_TRANSITION_UPDATE_MS) return;
         _lastPasFeedbackUpdate = t;
         drawPasFeedbackFrame(t, s);
         return;
     }
 
-    if (startPasFeedbackIfNeeded(t, s)) return;
+    if (startPasFeedbackIfNeeded(t, s)) {
+        ESP_LOGD(tag, "Starting PAS feedback");
+        return;
+    }
 
     if (t - _lastPageUpdate < PAGE_UPDATE_MS) return;
     _lastPageUpdate = t;
@@ -578,32 +593,35 @@ bool ST7789_240x240::formatMetricValue(MetricID id, State::Snapshot& s, char* bu
     }
 }
 
+// writes WLK, OFF, or P1-P99 to the buffer
 bool ST7789_240x240::formatPasValue(int8_t pas, char* buffer, size_t bufferSize, bool* isNumeric) {
-    *isNumeric = true;
+    *isNumeric = false;
     if (pas < 0) {
-        *isNumeric = false;
         snprintf(buffer, bufferSize, "WLK");
         return true;
     }
     if (pas == 0) {
-        *isNumeric = false;
         snprintf(buffer, bufferSize, "OFF");
         return true;
     }
-    formatUInt(buffer, bufferSize, cappedMetricValue((uint32_t)pas));
+    // TODO: Include "P" in the large and medium fonts and mark the buffer as numeric
+    snprintf(buffer, bufferSize, "P%u", cappedMetricValue((uint32_t)pas, 99));
     return true;
 }
 
-uint16_t ST7789_240x240::roundedMetricValue(float value) const {
+// returns value between 0 and cap
+uint16_t ST7789_240x240::roundedMetricValue(float value, uint16_t cap) const {
     if (value <= 0.0f) return 0;
     if (value >= 999.0f) return 999;
     return (uint16_t)(value + 0.5f);
 }
 
-uint16_t ST7789_240x240::cappedMetricValue(uint32_t value) const {
-    return value > 999 ? 999 : (uint16_t)value;
+// returns value between 0 and cap
+uint16_t ST7789_240x240::cappedMetricValue(uint32_t value, uint16_t cap) const {
+    return value > cap ? cap : (uint16_t)value;
 }
 
+// writes the given value to the buffer, capped to 0-999
 void ST7789_240x240::formatUInt(char* buffer, size_t bufferSize, uint16_t value) {
     snprintf(buffer, bufferSize, "%u", cappedMetricValue(value));
 }

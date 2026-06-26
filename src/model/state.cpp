@@ -70,12 +70,14 @@ uint32_t State::trip_mx10() {
     return getUInt32(&_latest.trip_mx10);
 }
 void State::pasLevelRequested(int8_t l) {
+    ESP_LOGD(tag, "pasLevelRequested(%d)", l);
     setInt8(&_latest.pasLevelRequested, l);
 }
 int8_t State::pasLevelRequested() {
     return getInt8(&_latest.pasLevelRequested);
 }
 void State::pasLevel(int8_t l) {
+    ESP_LOGD(tag, "pasLevel(%d)", l);
     setInt8(&_latest.pasLevel, l);
 }
 int8_t State::pasLevel() {

@@ -197,6 +197,23 @@ class ST7789_240x240 : public DisplayDriver {
         MODE_MENU,
     };
 
+    inline String displayModeToStr(DisplayMode m) {
+        switch (m) {
+            case MODE_SPLASH:
+                return "splash";
+            case MODE_PAGE:
+                return "page";
+            case MODE_PAGE_TRANSITION:
+                return "page_transition";
+            case MODE_PAS_FEEDBACK:
+                return "pas_feedback";
+            case MODE_MENU:
+                return "menu";
+            default:
+                return "unknown";
+        }
+    }
+
     enum SlotIndex {
         SLOT_MAJOR = 0,
         SLOT_MINOR1 = 1,
@@ -278,8 +295,8 @@ class ST7789_240x240 : public DisplayDriver {
     uint8_t bayerThreshold(uint16_t x, uint16_t y) const;
     bool formatMetricValue(MetricID id, State::Snapshot& s, char* buffer, size_t bufferSize, bool* isNumeric);
     bool formatPasValue(int8_t pas, char* buffer, size_t bufferSize, bool* isNumeric);
-    uint16_t roundedMetricValue(float value) const;
-    uint16_t cappedMetricValue(uint32_t value) const;
+    uint16_t roundedMetricValue(float value, uint16_t cap = 999) const;
+    uint16_t cappedMetricValue(uint32_t value, uint16_t cap = 999) const;
     void formatUInt(char* buffer, size_t bufferSize, uint16_t value);
     void drawMenu(const MenuSnapshot& menu);
     void drawMenuLine(const char* text, int16_t baseline, bool selected);
