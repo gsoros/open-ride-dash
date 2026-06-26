@@ -36,22 +36,22 @@ class MenuController {
     static constexpr uint8_t EXIT_MENU_ITEM = MENU_ITEM_COUNT - 1;  // Last item is "Exit"
 
     inline static constexpr const char* MENU_ITEMS[MENU_ITEM_COUNT] = {
-        "Dummy 1",
-        "Dummy 2",
-        "Another menu item",
-        "Item with a long name",
-        "Short",
-        "Dummy 6",
-        "Dummy 7",
-        "Dummy 8",
-        "Dummy 9",
-        "Dummy 10",
-        "Dummy 11",
-        "Dummy 12",
-        "Dummy 13",
-        "Dummy 14",
-        "Dummy 15",
-        "Exit",
+        "Dummy 0",                  // 0
+        "Dummy 1",                  // 1
+        "Dummy 2",                  // 2
+        "Another menu item 3",      // 3
+        "Item with a long name 4",  // 4
+        "Short",                    // 5
+        "Dummy 6",                  // 6
+        "Dummy 7",                  // 7
+        "Item with a long name 8",  // 8
+        "Dummy 9",                  // 9
+        "Dummy 10",                 // 10
+        "Dummy 11",                 // 11
+        "Dummy 12",                 // 12
+        "Dummy 13",                 // 13
+        "Restart",                  // 14
+        "Exit"                      // 15
     };
 
     bool _active = false;

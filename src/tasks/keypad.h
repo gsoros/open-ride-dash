@@ -69,7 +69,10 @@ class Keypad : public Task {
     }
 
     void keyPowerLongPress() {
-        ESP_LOGD(taskName(), "Key power long press");
+        if (lastLongpressLog + longpressLogInterval < millis()) {
+            ESP_LOGD(taskName(), "Key power long press");
+            lastLongpressLog = millis();
+        }
         display.queueUiEvent(UiEvent::PowerLongPress);
     }
 
@@ -78,6 +81,8 @@ class Keypad : public Task {
     OneButton keyDown;
     OneButton keyPower;
     bool pageMenuChordHandled = false;
+    uint32_t lastLongpressLog = 0;
+    static constexpr uint16_t longpressLogInterval = 500;
 
     bool pageMenuChordPressed() {
         return keyUp.isLongPressed() && keyDown.isLongPressed();

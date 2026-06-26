@@ -174,11 +174,33 @@ class CAN : public Task {
                 }
 
                 case 0x02F83204: {  // [8] Unknown, every ~50 ms, data: 0x10000000
+                    bool handled = false;
+                    if (frame.len == 1) {
+                        static bool lastAlive = state.controllerAlive();
+                        if (frame.data[0] == 0x00) {
+                            if (lastAlive) {
+                                ESP_LOGD(taskName(), "Received: Goodbye");
+                                state.controllerAlive(false);
+                                lastAlive = false;
+                            }
+                            handled = true;
+                        }
+                        if (frame.data[0] == 0x01) {
+                            if (!lastAlive) {
+                                ESP_LOGD(taskName(), "Received: Hello");
+                                state.controllerAlive(true);
+                                lastAlive = true;
+                            }
+                            handled = true;
+                        }
+                    }
+                    if (handled) break;
                     static char last02F83204Hexbuf[32] = {};
                     char hexbuf[32] = {};
                     hexToStr(hexbuf, sizeof(hexbuf), frame.data, frame.len);
                     if (strcmp(hexbuf, last02F83204Hexbuf) == 0) break;
-                    ESP_LOGD(taskName(), "Unparsed: ID 0x02F83204 (prob. every ~50 ms), len: %d, data: [%s]", frame.len, hexbuf);
+                    ESP_LOGD(taskName(), "Unparsed: ID 0x02F83204, len: %d, data: [%s]",
+                             frame.len, hexbuf);
                     strncpy(last02F83204Hexbuf, hexbuf, sizeof(last02F83204Hexbuf));
                     break;
                 }

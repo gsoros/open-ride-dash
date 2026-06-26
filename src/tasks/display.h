@@ -111,7 +111,7 @@ class Display : public Task, public ApiClient {
     QueueHandle_t uiEventQueue = nullptr;
     uint8_t brightnessPercent = 0;
     uint32_t lastBrightnessChange = 0;
-    uint32_t lastLongPressLog = 0;
+    static constexpr uint8_t brightnessChangeDelay = 50;
     bool menuShown = false;
 
     void processUiEvents() {
@@ -147,10 +147,13 @@ class Display : public Task, public ApiClient {
                 handleDownLongPress();
                 return;
             case UiEvent::PowerLongPress:
-                ESP_LOGD(taskName(), "Key power long press");
+                // ESP_LOGD(taskName(), "Key power long press");
                 return;
             case UiEvent::MenuChord:
-                menu.enterMenu();
+                if (menu.active())
+                    menu.exitMenu();
+                else
+                    menu.enterMenu();
                 return;
             default:
                 ESP_LOGW(taskName(), "Unhandled UI event: %u", (uint8_t)event);
@@ -183,7 +186,7 @@ class Display : public Task, public ApiClient {
 
     void handleUpLongPress() {
         if (menu.active()) return;
-        if (lastBrightnessChange + 50 > millis()) return;
+        if (lastBrightnessChange + brightnessChangeDelay > millis()) return;
         if (shouldLogLongPress()) {
             ESP_LOGD(taskName(), "Key up long press (increase brightness)");
         }
@@ -193,7 +196,7 @@ class Display : public Task, public ApiClient {
 
     void handleDownLongPress() {
         if (menu.active()) return;
-        if (lastBrightnessChange + 50 > millis()) return;
+        if (lastBrightnessChange + brightnessChangeDelay > millis()) return;
         bool isWalkAssist = state.pasLevel() == -1;
         if (shouldLogLongPress()) {
             ESP_LOGW(taskName(), "Key down long press (%s)",
@@ -205,6 +208,7 @@ class Display : public Task, public ApiClient {
     }
 
     bool shouldLogLongPress() {
+        static uint32_t lastLongPressLog = 0;
         uint32_t now = millis();
         if (now - lastLongPressLog <= 500) return false;
         lastLongPressLog = now;

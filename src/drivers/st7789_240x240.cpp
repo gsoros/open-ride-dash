@@ -531,7 +531,7 @@ bool ST7789_240x240::formatMetricValue(MetricID id, State::Snapshot& s, char* bu
             formatUInt(buffer, bufferSize, s.cadence);
             return true;
         case METRIC_PAS:
-            return formatPasValue(s.pasLevelRequested, buffer, bufferSize, isNumeric);
+            return formatPasValue(s.pasLevel, buffer, bufferSize, isNumeric);
         case METRIC_MOTOR_PWR:
             formatUInt(buffer, bufferSize, roundedMetricValue(s.motorPower()));
             return true;

@@ -158,6 +158,13 @@ uint16_t State::wheelCircumference() {
     return getUInt16(&_latest.wheelCircumference);
 }
 
+void State::controllerAlive(bool v) {
+    setBool(&_latest.controllerAlive, v);
+}
+bool State::controllerAlive() {
+    return getBool(&_latest.controllerAlive);
+}
+
 bool State::aquireMutex() {
     return xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE;
 }

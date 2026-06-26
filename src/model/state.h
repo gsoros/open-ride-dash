@@ -23,6 +23,7 @@ class State : public HasPreferences {
         uint8_t motorTemp = 0;             // °C
         uint8_t controllerTemp = 0;        // °C
         uint8_t wheelSize = 0;             // inches
+        bool controllerAlive = false;      // true if motor controller is reachable
 
         // Calculates speed in km/h
         float speed() {
@@ -35,11 +36,13 @@ class State : public HasPreferences {
             float voltage = (float)batteryVoltage_x100 / 100.0f;
             float power = current * voltage;
 
+            /*
             static uint32_t lastLog = 0;
             if (millis() - lastLog > 1000) {
                 ESP_LOGD(tag, "motorPower() Current: %.1f, Voltage: %.1f, Power: %.1f", current, voltage, power);
                 lastLog = millis();
             }
+            */
             return power;
         }
 
@@ -60,20 +63,23 @@ class State : public HasPreferences {
                 filtered = alpha * p + (1.0f - alpha) * filtered;
             }
 
+            /*
             static uint32_t lastLog = 0;
             if (millis() - lastLog > 1000) {
                 ESP_LOGD(tag, "humanPower() Cadence: %u, Torque: %u, Power: %.1f", cadence, torque, filtered);
                 lastLog = millis();
             }
+            */
             return filtered;
         }
 
-        // Estimates live battery state of charge in %
-        // assumes minVoltage = 3.3V, maxVoltage = 4.2V, 13s pack
-        // assumes a constant sag factor (10A pack discharge results in 0.03V drop per cell)
-        // uses a typical INR21700-50E discharge curve
-        // does not consider pack temperature
-        // uses a simple exponential moving average filter
+        /* Estimates live battery state of charge in %
+         * assumes minVoltage = 3.3V, maxVoltage = 4.2V, 13s pack
+         * assumes a constant sag factor (10A pack discharge results in 0.03V drop per cell)
+         * uses a typical INR21700-50E discharge curve
+         * does not consider pack temperature
+         * uses a simple exponential moving average filter
+         */
         float soc() {
             constexpr float minCellVoltage = 3.3f;
             constexpr float maxCellVoltage = 4.2f;
@@ -137,19 +143,22 @@ class State : public HasPreferences {
                 filtered = alpha * soc + (1.0f - alpha) * filtered;
             }
 
+            /*
             static uint32_t lastLog = 0;
             if (millis() - lastLog > 1000) {
                 ESP_LOGD(tag, "soc() Cell voltage: %.3f, SOC: %.1f%%", cellVoltage, filtered);
                 lastLog = millis();
             }
+            */
 
             return filtered < 0.0f ? 0.0f :  // clamp to 0-100%
                        filtered > 100.0f ? 100.0f
                                          : filtered;
         }
 
-        // Calculates live range estimation in km
-        // Uses a simple exponential moving average filter
+        /* Calculates live range estimation in km
+         * uses a simple exponential moving average filter
+         */
         float range() {
             float speed_kmph = speed();
             float soc_pct = soc();
@@ -179,7 +188,7 @@ class State : public HasPreferences {
                 filteredRange = alpha * rawRange + (1.0f - alpha) * filteredRange;
             }
 
-            // Logging (shows both raw and filtered for tuning)
+            /*
             static uint32_t lastLog = 0;
             if (millis() - lastLog > 1000) {
                 ESP_LOGD(tag,
@@ -189,6 +198,7 @@ class State : public HasPreferences {
                          rawRange, filteredRange);
                 lastLog = millis();
             }
+            */
 
             return filteredRange;
         }
@@ -234,6 +244,9 @@ class State : public HasPreferences {
     uint8_t wheelSize();
     void wheelCircumference(uint16_t v);
     uint16_t wheelCircumference();
+
+    void controllerAlive(bool v);
+    bool controllerAlive();
 
     bool aquireMutex();
     void releaseMutex();

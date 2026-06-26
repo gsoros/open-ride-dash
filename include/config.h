@@ -29,6 +29,6 @@ constexpr const char* default_hostname = ORD_SHORT_NAME "-" STR(BUILDTAG);
 constexpr const char* default_hostname = ORD_SHORT_NAME;
 #endif
 
-#define TFT_ROTATION 0
+#define TFT_ROTATION 1
 
 #endif  // CONFIG_H
