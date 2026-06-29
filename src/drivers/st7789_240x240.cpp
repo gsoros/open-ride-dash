@@ -6,6 +6,40 @@
 
 extern State state;
 
+ST7789_240x240::ST7789_240x240(
+    int8_t cs,
+    int8_t dc,
+    int8_t mosi,
+    int8_t sck,
+    int8_t rst,
+    int8_t bl,
+    uint8_t spi,
+    uint8_t rot,
+    uint16_t w,
+    uint16_t h)
+    : bl_pin(bl), width(w), height(h) {
+    //
+    // Initialize the data bus
+    bus = new Arduino_ESP32SPIDMA(dc, cs, sck, mosi, GFX_NOT_DEFINED, spi);
+
+    // Initialize the display
+    tft = new Arduino_ST7789(bus, rst, rot, true, w, h);
+
+    // Main canvases
+    canvasMajor = new Arduino_Canvas_Mono(w - 8, 140, tft, 4, 0);
+    canvasMinor1 = new Arduino_Canvas_Mono((w - 16) / 2, h - 144, tft, 4, 144);
+    canvasMinor2 = new Arduino_Canvas_Mono((w - 16) / 2, h - 144, tft, (w - 16) / 2 + 12, 144);
+    canvasMenu = new Arduino_Canvas_Mono(w, h, tft, 0, 0);
+
+    // Transition canvases without output pointers
+    transitionLabelMajor = new Arduino_Canvas_Mono(canvasMajor->width(), canvasMajor->height(), nullptr);
+    transitionValueMajor = new Arduino_Canvas_Mono(canvasMajor->width(), canvasMajor->height(), nullptr);
+    transitionLabelMinor1 = new Arduino_Canvas_Mono(canvasMinor1->width(), canvasMinor1->height(), nullptr);
+    transitionValueMinor1 = new Arduino_Canvas_Mono(canvasMinor1->width(), canvasMinor1->height(), nullptr);
+    transitionLabelMinor2 = new Arduino_Canvas_Mono(canvasMinor2->width(), canvasMinor2->height(), nullptr);
+    transitionValueMinor2 = new Arduino_Canvas_Mono(canvasMinor2->width(), canvasMinor2->height(), nullptr);
+}
+
 void ST7789_240x240::setup() {
     if (bl_pin >= 0) {
         pinMode(bl_pin, OUTPUT);
@@ -57,17 +91,14 @@ void ST7789_240x240::splash() {
 void ST7789_240x240::update() {
     ulong t = millis();
 
-    /*
-    static uint32_t lastLog = 0;
-    if (lastLog + 1000 < t) {
-        lastLog = t;
+    static DisplayMode lastDisplayMode = _displayMode;
+    if (lastDisplayMode != _displayMode) {
+        lastDisplayMode = _displayMode;
         ESP_LOGD(tag, "Display mode: %s", displayModeToStr(_displayMode).c_str());
     }
-    */
-
-    if (t < 3000) return;  // show splash for at least 3 seconds
 
     if (_displayMode == MODE_SPLASH) {
+        if (t < 3000) return;  // show splash for at least 3 seconds
         startPageTransition(_currentPage);
         return;
     }
@@ -76,8 +107,8 @@ void ST7789_240x240::update() {
         return;
     }
 
-    if (_displayMode == MODE_PAGE_TRANSITION) {
-        if (t - _lastTransitionUpdate < PAGE_TRANSITION_UPDATE_MS) return;
+    if (_displayMode == MODE_LABEL_TRANSITION) {
+        if (t - _lastTransitionUpdate < TRANSITION_UPDATE_MS) return;
         _lastTransitionUpdate = t;
         drawTransitionFrame(t);
         return;
@@ -85,15 +116,19 @@ void ST7789_240x240::update() {
 
     State::Snapshot s = state.getSnapshot();
 
-    if (_displayMode == MODE_PAS_FEEDBACK) {
+    if (_displayMode == MODE_FEEDBACK) {
         if (startPasFeedbackIfNeeded(t, s)) {
-            ESP_LOGW(tag, "Starting PAS feedback in MODE_PAS_FEEDBACK");
+            ESP_LOGW(tag, "Starting feedback in MODE_FEEDBACK");
             return;
         }
-        if (t - _lastPasFeedbackUpdate < PAGE_TRANSITION_UPDATE_MS) return;
+        if (t - _lastPasFeedbackUpdate < TRANSITION_UPDATE_MS) return;
         _lastPasFeedbackUpdate = t;
-        drawPasFeedbackFrame(t, s);
+        drawFeedbackFrame(t, s);
         return;
+    }
+
+    if (_displayMode != MODE_PAGE) {
+        ESP_LOGW(tag, "Expected _displayMode == %u (MODE_PAGE), got %u", MODE_PAGE, _displayMode);
     }
 
     if (startPasFeedbackIfNeeded(t, s)) {
@@ -175,14 +210,14 @@ void ST7789_240x240::startPageTransition(uint8_t page) {
     }
 
     _currentPage = page;
-    _displayMode = MODE_PAGE_TRANSITION;
+    _displayMode = MODE_LABEL_TRANSITION;
     _transitionStart = millis();
     _lastTransitionUpdate = 0;
     _lastPasFeedbackUpdate = 0;
     invalidateRenderedMetrics();
     clearMetricSlots();
     drawPageLabels();
-    ESP_LOGD(tag, "Switched to page %u", _currentPage);
+    ESP_LOGD(tag, "Transitioning to page %u", _currentPage);
 }
 
 void ST7789_240x240::finishPageTransition() {
@@ -191,21 +226,22 @@ void ST7789_240x240::finishPageTransition() {
     State::Snapshot s = state.getSnapshot();
     drawPageValues(s, true);
     _lastPageUpdate = millis();
+    ESP_LOGD(tag, "Finished transitioning to page %u", _currentPage);
 }
 
 void ST7789_240x240::drawTransitionFrame(uint32_t now) {
     uint32_t elapsed = now - _transitionStart;
-    if (elapsed >= PAGE_TRANSITION_MS) {
+    if (elapsed >= TRANSITION_MS) {
         finishPageTransition();
         return;
     }
 
-    // Show only labels for the first PAGE_TRANSITION_STATIC_MS (labels
+    // Show only labels for the first TRANSITION_STATIC_MS (labels
     // were already drawn by startPageTransition), then begin the crossfade.
-    if (elapsed < PAGE_TRANSITION_STATIC_MS) return;
+    if (elapsed < TRANSITION_STATIC_MS) return;
 
-    uint32_t crossfadeElapsed = elapsed - PAGE_TRANSITION_STATIC_MS;
-    uint32_t crossfadeDuration = PAGE_TRANSITION_MS - PAGE_TRANSITION_STATIC_MS;
+    uint32_t crossfadeElapsed = elapsed - TRANSITION_STATIC_MS;
+    uint32_t crossfadeDuration = TRANSITION_MS - TRANSITION_STATIC_MS;
     State::Snapshot s = state.getSnapshot();
     uint8_t blendStep = (uint8_t)((crossfadeElapsed * 17U) / crossfadeDuration);
     if (blendStep > 16) blendStep = 16;
@@ -236,44 +272,46 @@ void ST7789_240x240::drawTransitionSlot(uint8_t slotIndex, MetricID id, State::S
 
 bool ST7789_240x240::startPasFeedbackIfNeeded(uint32_t now, State::Snapshot& s) {
     if (!_pasFeedbackInitialized) {
-        _lastCanPasLevel = s.pasLevel;
+        _lastPasLevel = s.pasLevel;
         _pasFeedbackInitialized = true;
         return false;
     }
 
-    if (s.pasLevel == _lastCanPasLevel) return false;
-    _lastCanPasLevel = s.pasLevel;
+    if (s.pasLevel == _lastPasLevel) return false;
+    _lastPasLevel = s.pasLevel;
 
     if (pageIncludesMetric(METRIC_PAS)) return false;
 
-    startPasFeedback(s, now);
+    startFeedback(s, now);
     return true;
 }
 
-void ST7789_240x240::startPasFeedback(State::Snapshot& s, uint32_t now) {
-    _displayMode = MODE_PAS_FEEDBACK;
-    _pasFeedbackStart = now;
+void ST7789_240x240::startFeedback(State::Snapshot& s, uint32_t now) {
+    ESP_LOGD(tag, "Starting PAS feedback");
+    _displayMode = MODE_FEEDBACK;
+    _feedbackStart = now;
     _lastPasFeedbackUpdate = now;
     drawPasFeedbackValue(s);
 }
 
-void ST7789_240x240::finishPasFeedback(State::Snapshot& s) {
+void ST7789_240x240::finishFeedback(State::Snapshot& s) {
+    ESP_LOGD(tag, "Finishing PAS feedback");
     _displayMode = MODE_PAGE;
     drawMetricValue(SLOT_MAJOR, pageMetric(SLOT_MAJOR), s, true, true);
     _lastPageUpdate = millis();
 }
 
-void ST7789_240x240::drawPasFeedbackFrame(uint32_t now, State::Snapshot& s) {
-    uint32_t elapsed = now - _pasFeedbackStart;
-    if (elapsed >= PAGE_TRANSITION_STATIC_MS + PAS_FEEDBACK_FADE_MS) {
-        finishPasFeedback(s);
+void ST7789_240x240::drawFeedbackFrame(uint32_t now, State::Snapshot& s) {
+    uint32_t elapsed = now - _feedbackStart;
+    if (elapsed >= TRANSITION_STATIC_MS + FEEDBACK_FADE_MS) {
+        finishFeedback(s);
         return;
     }
 
-    if (elapsed < PAGE_TRANSITION_STATIC_MS) return;
+    if (elapsed < TRANSITION_STATIC_MS) return;
 
-    uint32_t fadeElapsed = elapsed - PAGE_TRANSITION_STATIC_MS;
-    uint8_t blendStep = (uint8_t)((fadeElapsed * 17U) / PAS_FEEDBACK_FADE_MS);
+    uint32_t fadeElapsed = elapsed - TRANSITION_STATIC_MS;
+    uint8_t blendStep = (uint8_t)((fadeElapsed * 17U) / FEEDBACK_FADE_MS);
     if (blendStep > 16) blendStep = 16;
     drawPasFeedbackBlend(s, blendStep);
 }
@@ -405,16 +443,26 @@ void ST7789_240x240::drawPageValues(State::Snapshot& s, bool force, bool remembe
     s: snapshot of the current state
     force: if true, always draw the value, even if it hasn't changed
     remember: if true, remember the value and don't redraw it if it hasn't changed
+    If the controller is not alive, "ZZZ" is shown in the major slot.
 */
 void ST7789_240x240::drawMetricValue(uint8_t slotIndex, MetricID id, State::Snapshot& s, bool force, bool remember) {
     MetricSlot slot = metricSlot(slotIndex);
     if (slot.canvas == nullptr) return;
 
-    char value[sizeof(_renderedMetrics[slotIndex].value)] = {};
-    bool isNumeric = true;
-    if (!formatMetricValue(id, s, value, sizeof(value), &isNumeric)) return;
-
     RenderedMetric& rendered = _renderedMetrics[slotIndex];
+    char value[sizeof(rendered.value)] = {};
+    bool isNumeric = true;
+
+    // If the controller is not alive, indicate it in the major
+    // slot by showing "ZZZ" instead of the metric value.
+    // Otherwise, format the metric value.
+    if (!s.controllerAlive && slotIndex == SLOT_MAJOR) {
+        strlcpy(value, "ZZZ", sizeof(value));
+        isNumeric = false;
+    } else {
+        if (!formatMetricValue(id, s, value, sizeof(value), &isNumeric)) return;
+    }
+
     if (remember && !force && rendered.valid && strcmp(rendered.value, value) == 0) return;
 
     const uint8_t* font = selectValueFont(value, isNumeric);
@@ -621,9 +669,42 @@ uint16_t ST7789_240x240::cappedMetricValue(uint32_t value, uint16_t cap) const {
     return value > cap ? cap : (uint16_t)value;
 }
 
-// writes the given value to the buffer, capped to 0-999
+/*
+// writes the given value to the buffer, capped
 void ST7789_240x240::formatUInt(char* buffer, size_t bufferSize, uint16_t value) {
     snprintf(buffer, bufferSize, "%u", cappedMetricValue(value));
+}
+*/
+
+/* Writes the given value to the buffer, capped
+ * - doesn't use snprintf
+ * - if the buffer is too small, it will be empty
+ */
+void ST7789_240x240::formatUInt(char* buffer, size_t bufferSize, uint16_t value) {
+    uint16_t capped = cappedMetricValue(value);
+
+    // Temporary buffer for the reversed number string
+    char temp[MAX_METRIC_VALUE_LEN + 1];
+    int i = 0;
+
+    // Extract the digits from the number
+    do {
+        temp[i++] = (capped % 10) + '0';
+        capped /= 10;
+    } while (capped > 0 && i < MAX_METRIC_VALUE_LEN);
+
+    // If the buffer is too small, terminate it and return
+    if ((size_t)i >= bufferSize) {
+        if (bufferSize > 0) buffer[0] = '\0';
+        return;
+    }
+
+    // Reverse the string and copy it to the target buffer
+    int j = 0;
+    while (i > 0) {
+        buffer[j++] = temp[--i];
+    }
+    buffer[j] = '\0';  // Guarantee null termination
 }
 
 void ST7789_240x240::drawMenu(const MenuSnapshot& menu) {

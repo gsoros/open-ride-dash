@@ -49,6 +49,19 @@ class Display : public Task, public ApiClient {
         output.update();
     }
 
+    bool queueUiEvent(UiEvent event) {
+        if (uiEventQueue == nullptr) {
+            ESP_LOGE(taskName(), "UI event queue is null");
+            return false;
+        }
+        BaseType_t res = xQueueSend(uiEventQueue, &event, 0);
+        if (res != pdTRUE) {
+            ESP_LOGW(taskName(), "UI event queue full, dropping event %u", (uint8_t)event);
+            return false;
+        }
+        return true;
+    }
+
     void increaseBrightness() {
         brightnessPercent++;
         if (brightnessPercent > 100) {
@@ -65,19 +78,6 @@ class Display : public Task, public ApiClient {
             return;
         }
         output.setBrightnessPercent(brightnessPercent);
-    }
-
-    bool queueUiEvent(UiEvent event) {
-        if (uiEventQueue == nullptr) {
-            ESP_LOGE(taskName(), "UI event queue is null");
-            return false;
-        }
-        BaseType_t res = xQueueSend(uiEventQueue, &event, 0);
-        if (res != pdTRUE) {
-            ESP_LOGW(taskName(), "UI event queue full, dropping event %u", (uint8_t)event);
-            return false;
-        }
-        return true;
     }
 
     Api::Reply nextPageCommand(const char* args) {
@@ -178,9 +178,17 @@ class Display : public Task, public ApiClient {
     }
 
     void adjustPasLevel(int8_t delta) {
-        int8_t pasLevelRequested = state.pasLevelRequested();
-        int8_t next = pasLevelRequested + delta;
+        if (delta != -1 && delta != 1) {
+            ESP_LOGW(taskName(), "Invalid delta: %d", delta);
+            return;
+        }
+        State::Snapshot s = state.getSnapshot();
+        int8_t next = s.pasLevelRequested + delta;
         if (next < -1 || next > 5) return;
+        if (!s.controllerAlive) {
+            ESP_LOGW(taskName(), "Controller not alive, ignoring PAS level adjustment");
+            return;
+        }
         state.pasLevelRequested(next);
     }
 

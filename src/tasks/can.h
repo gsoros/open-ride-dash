@@ -25,7 +25,7 @@ class CAN : public Task {
         settings.mTxPin = (gpio_num_t)PIN_CAN_TX;
         settings.mRxPin = (gpio_num_t)PIN_CAN_RX;
         // settings.mRequestedCANMode = ACANSettings::LoopBackMode;  // Receive own messages
-        // TODO: Setup HW filters when all frames are known
+        // TODO: Setup HW filters when all frames are identified
         const uint32_t errorCode = ACAN::can.begin(settings);
         if (errorCode != 0) {
             while (true) {
@@ -50,6 +50,7 @@ class CAN : public Task {
             if (t - lastOverflowLog > overflowLogInterval) {
                 ESP_LOGW(taskName(), "RX Buffer overflows: %u", rxBufferOverflows);
                 lastOverflowLog = t;
+                rxBufferOverflows = 0;
             }
         }
         if (ACAN::can.driverTransmitBufferPeakCount() >= ACAN::can.driverTransmitBufferSize()) {
@@ -58,6 +59,7 @@ class CAN : public Task {
             if (t - lastOverflowLog > overflowLogInterval) {
                 ESP_LOGW(taskName(), "TX Buffer overflows: %u", txBufferOverflows);
                 lastOverflowLog = t;
+                txBufferOverflows = 0;
             }
         }
 
@@ -85,13 +87,27 @@ class CAN : public Task {
             memcpy(lastFrameData, frame.data, frame.len);
             */
             switch (frame.id) {
+                case 0x02F022F8: {  // [4] Unknown
+                    // Unknown, try parsing as uint32
+                    static uint32_t last = 0;
+                    uint32_t u = ((uint32_t)frame.data[3] << 24) | ((uint32_t)frame.data[2] << 16) | ((uint32_t)frame.data[1] << 8) | (uint32_t)frame.data[0];
+                    if (u == last) break;
+                    last = u;
+                    ESP_LOGD(taskName(), "Unknown frame 0x02F022F8 parsed as uint32: %u", u);
+                    break;
+                }
+
                 case 0x02F83000: {  // [4] Uptime heartbeat
                     // fires every 10 seconds, B[0:3] LE uint32 is a tick counter where 1 tick = 10 seconds.
                     static uint32_t lastUptime = 0;
                     uint32_t uptime_sx10 = ((uint32_t)frame.data[3] << 24) | ((uint32_t)frame.data[2] << 16) | ((uint32_t)frame.data[1] << 8) | (uint32_t)frame.data[0];
                     if (uptime_sx10 == lastUptime) break;
                     lastUptime = uptime_sx10;
-                    ESP_LOGD(taskName(), "Parsed: uptime: %.2f minutes", uptime_sx10 / 6.0f);
+                    static uint32_t lastLog = 0;
+                    if (lastLog + 60000 < t) {
+                        lastLog = t;
+                        ESP_LOGD(taskName(), "Parsed: uptime: %.2f minutes", uptime_sx10 / 6.0f);
+                    }
                     break;
                 }
 
@@ -173,7 +189,7 @@ class CAN : public Task {
                     break;
                 }
 
-                case 0x02F83204: {  // [8] Unknown, every ~50 ms, data: 0x10000000
+                case 0x02F83204: {  // [1 or 8] Unknown, every ~50 ms, data: 0x10000000
                     bool handled = false;
                     if (frame.len == 1) {
                         static bool lastAlive = state.controllerAlive();
@@ -195,13 +211,13 @@ class CAN : public Task {
                         }
                     }
                     if (handled) break;
-                    static char last02F83204Hexbuf[32] = {};
+                    static char lastHexbuf[32] = {};
                     char hexbuf[32] = {};
                     hexToStr(hexbuf, sizeof(hexbuf), frame.data, frame.len);
-                    if (strcmp(hexbuf, last02F83204Hexbuf) == 0) break;
+                    if (strcmp(hexbuf, lastHexbuf) == 0) break;
                     ESP_LOGD(taskName(), "Unparsed: ID 0x02F83204, len: %d, data: [%s]",
                              frame.len, hexbuf);
-                    strncpy(last02F83204Hexbuf, hexbuf, sizeof(last02F83204Hexbuf));
+                    strncpy(lastHexbuf, hexbuf, sizeof(lastHexbuf));
                     break;
                 }
 
@@ -248,7 +264,7 @@ class CAN : public Task {
                     break;
                 }
 
-                case 0x02F83208: {  // [2] ???
+                case 0x02F83208: {  // [2] Unknown
                     // High-frequency bursts: raw torque sensor tick stream?
                     // 5-8 frames at ~200ms intervals with values like
                     // 0x2E, 0x30, 0x46, 0x9C that look like inter-pulse timing
@@ -260,7 +276,7 @@ class CAN : public Task {
                         static uint32_t lastLog = 0;
                         static uint16_t numDuplicates = 0;
                         numDuplicates++;
-                        if (t - lastLog > 15000) {
+                        if (t - lastLog > 60000) {
                             ESP_LOGD(taskName(), "Received %d duplicate 0x02F83208 frames, tick: %d, data: [%s]", numDuplicates, tick, hexbuf);
                             lastLog = t;
                             numDuplicates = 0;

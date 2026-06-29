@@ -161,6 +161,7 @@ uint16_t State::wheelCircumference() {
 }
 
 void State::controllerAlive(bool v) {
+    ESP_LOGD(tag, "Controller alive: %s", v ? "true" : "false");
     setBool(&_latest.controllerAlive, v);
 }
 bool State::controllerAlive() {
