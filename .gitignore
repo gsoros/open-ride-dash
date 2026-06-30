@@ -7,8 +7,6 @@
 *backups/
 *.log
 *.lck
-.vscode/settings.json
-.vscode/settings.json
 fp-lib-table
 *.kicad_prl
 *.kicad_pro
