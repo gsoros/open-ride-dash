@@ -113,8 +113,6 @@ class CAN : public Task {
 
                 case 0x02F83200: {  // [8] Cadence and torque
                     /*
-                    Working theory:
-
                     Byte   Field              Detail
                     [0]    motor status       0x5B = active, 0x5A = shutting down
                     [1]    sequence counter   +1 every 2 seconds while motor is active, stops when idle
@@ -124,7 +122,7 @@ class CAN : public Task {
                     [6:7]  unknown
                     */
                     uint8_t cadence = frame.data[3];
-                    uint16_t torque = (((uint16_t)frame.data[5] << 8) | (uint16_t)frame.data[4]) - 750;
+                    uint16_t torque = (((uint16_t)frame.data[5] << 8) | (uint16_t)frame.data[4]);
                     uint16_t unknown = (((uint16_t)frame.data[7] << 8) | (uint16_t)frame.data[6]);
                     static uint8_t lastCadence = 0;
                     static uint16_t lastTorque = 0;
@@ -190,6 +188,13 @@ class CAN : public Task {
                 }
 
                 case 0x02F83204: {  // [1 or 8] Unknown, every ~50 ms, data: 0x10000000
+                    /*
+                     * TODO: We are relying on these "Hello" and "Goodbye" messages
+                     * to detect when the controller is alive. For redundancy, we
+                     * should also track 0x02F83000 frames, and consider marking
+                     * the controller as "dead" if we haven't received those in a
+                     * while.
+                     */
                     bool handled = false;
                     if (frame.len == 1) {
                         static bool lastAlive = state.controllerAlive();

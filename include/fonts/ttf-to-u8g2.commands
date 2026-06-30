@@ -1,5 +1,5 @@
 otf2bdf -r 72 -p 90 ttf/Roboto_Mono/static/RobotoMono-Bold.ttf -o bdf/RobotoMono_Bold_90px.bdf
-bdfconv -f 1 -b 0 -m '48-57' -n u8g2_font_RobotoMono_Bold_90px_digits bdf/RobotoMono_Bold_90px.bdf -o u8g2/RobotoMono_Bold_90px_digits.h
+bdfconv -f 1 -b 0 -m '48-57,80' -n u8g2_font_RobotoMono_Bold_90px_digits bdf/RobotoMono_Bold_90px.bdf -o u8g2/RobotoMono_Bold_90px_digits.h
 
 otf2bdf -r 72 -p 48 ttf/Roboto_Mono/static/RobotoMono-Bold.ttf -o bdf/RobotoMono_Bold_48px.bdf
 bdfconv -f 1 -b 0 -m '48-57,65-90' -n u8g2_font_RobotoMono_Bold_48px_caps_digits bdf/RobotoMono_Bold_48px.bdf -o u8g2/RobotoMono_Bold_48px_caps_digits.h

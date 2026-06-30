@@ -652,8 +652,9 @@ bool ST7789_240x240::formatPasValue(int8_t pas, char* buffer, size_t bufferSize,
         snprintf(buffer, bufferSize, "OFF");
         return true;
     }
-    // TODO: Include "P" in the large and medium fonts and mark the buffer as numeric
+    // Capital P glyph is included in the large font
     snprintf(buffer, bufferSize, "P%u", cappedMetricValue((uint32_t)pas, 99));
+    *isNumeric = true;
     return true;
 }
 

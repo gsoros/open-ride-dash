@@ -16,7 +16,7 @@ class State : public HasPreferences {
         uint16_t batteryCurrent_x20 = 0;   // A * 20
         uint16_t wheelCircumference = 0;   // mm
         uint16_t batteryCapacity =         // Wh
-            DEFAULT_BATTERY_CAPACITY;      //
+            DEFAULT_BATTERY_CAPACITY;      // 720 Wh
         int8_t pasLevelRequested = 0;      // Pedal Assist Level (-1 walk assist, 0 off, 1-5 PAS) requested by UI
         int8_t pasLevel = 0;               // Actual PAS level updated by CAN
         uint8_t cadence = 0;               // RPM
@@ -48,19 +48,23 @@ class State : public HasPreferences {
 
         // Calculates human mechanical power in Watts
         float humanPower() {
-            // TODO: Replace with a real raw-to-Nm calibration factor
-            constexpr float torqueNmFactor = 33.0f;
+            // Raw sensor value at rest: 750 counts.
+            // Value with an 18.46 kg mass hanging from a horizontal 170 mm crank: 1875 counts.
+            // Raw delta = 1875 - 750 = 1125 counts
+            // Torque = 18.46 * 9.80665 * 0.170 = 30.78 Nm
+            // torqueNmFactor = 1125 / 30.78 = 36.55 counts/Nm
+            constexpr float torqueNmFactor = 36.55f;
+            constexpr int16_t torqueOffset = -750;
             // power (W) = cadence (RPM) * torque (Nm) * 2 * pi / 60
-            float p = (float)cadence * (float)torque / torqueNmFactor * 0.104719755f;
+            float power = (float)cadence * (float)(torque + torqueOffset) / torqueNmFactor * 0.104719755f;
 
             // Simple exponential moving average
             static float filtered = -1.0f;  // uninitialised sentinel
-            constexpr float alpha = 0.1f;   // smoohing fatctor (0 < alpha ≤ 1)
+            constexpr float alpha = 0.1f;   // smoothing factor (0 < alpha ≤ 1)
             if (filtered < 0.0f) {
-                // First call – seed the filter
-                filtered = p;
+                filtered = power;  // first call: seed the filter
             } else {
-                filtered = alpha * p + (1.0f - alpha) * filtered;
+                filtered = alpha * power + (1.0f - alpha) * filtered;
             }
 
             /*
@@ -135,10 +139,9 @@ class State : public HasPreferences {
 
             // Simple exponential moving average
             static float filtered = -1.0f;  // uninitialised sentinel
-            constexpr float alpha = 0.1f;   // smoohing fatctor (0 < alpha ≤ 1)
+            constexpr float alpha = 0.1f;   // smoothing factor (0 < alpha ≤ 1)
             if (filtered < 0.0f) {
-                // First call – seed the filter
-                filtered = soc;
+                filtered = soc;  // first call: seed the filter
             } else {
                 filtered = alpha * soc + (1.0f - alpha) * filtered;
             }
@@ -180,10 +183,9 @@ class State : public HasPreferences {
 
             // Simple exponential moving average
             static float filteredRange = -1.0f;  // uninitialised sentinel
-            constexpr float alpha = 0.1f;        // smoohing fatctor (0 < alpha ≤ 1)
+            constexpr float alpha = 0.1f;        // smoothing factor (0 < alpha ≤ 1)
             if (filteredRange < 0.0f) {
-                // First call – seed the filter
-                filteredRange = rawRange;
+                filteredRange = rawRange;  // first call: seed the filter
             } else {
                 filteredRange = alpha * rawRange + (1.0f - alpha) * filteredRange;
             }
