@@ -28,12 +28,10 @@ class Wifi : public Task,
         password = default_wifi_password;
         hostname = default_hostname;
 
-        if (!preferencesSetup(taskName())) {
+        if (!preferencesSetup(taskName()))
             ESP_LOGE(taskName(), "Failed to open preferences, using defaults");
-        } else {
-            preferencesReady = true;
-            if (!loadPreferences()) ESP_LOGE(taskName(), "Failed to load preferences");
-        }
+        else if (!loadPreferences())
+            ESP_LOGE(taskName(), "Failed to load preferences");
 
         registerApiCommands();
 
@@ -122,7 +120,6 @@ class Wifi : public Task,
     String ssid;
     String password;
     String hostname;
-    bool preferencesReady = false;
     bool setupDone = false;
     bool staEnabled = true;
     bool mdnsStarted = false;
