@@ -1,6 +1,10 @@
 #ifndef WIFI_H
 #define WIFI_H
 
+/*
+ * TODO: AP support and full API interface for configuring WiFi AP/STA
+ */
+
 #include <WiFi.h>
 #include <ESPmDNS.h>
 #include <Preferences.h>
@@ -8,6 +12,9 @@
 #include "has_preferences.h"
 #include "config.h"
 #include "api.h"
+#include "tasks/telnet.h"
+
+extern Telnet telnet;
 
 class Wifi : public Task,
              public HasPreferences {
@@ -21,50 +28,53 @@ class Wifi : public Task,
         password = default_wifi_password;
         hostname = default_hostname;
 
-        if (preferencesSetup(taskName())) {
-            if (preferences.isKey(ssidKey) && preferences.isKey(passwordKey)) {
-                ssid = preferences.getString(ssidKey, default_wifi_ssid);
-                password = preferences.getString(passwordKey, default_wifi_password);
-            } else {
-                ESP_LOGI(taskName(), "WiFi credentials not found in preferences, using defaults");
-            }
-            if (preferences.isKey(hostnameKey))
-                hostname = preferences.getString(hostnameKey, default_hostname);
-            else
-                ESP_LOGI(taskName(), "Hostname not found in preferences, using defaults");
-        } else
+        if (!preferencesSetup(taskName())) {
             ESP_LOGE(taskName(), "Failed to open preferences, using defaults");
+        } else {
+            preferencesReady = true;
+            if (!loadPreferences()) ESP_LOGE(taskName(), "Failed to load preferences");
+        }
 
         registerApiCommands();
 
-        WiFi.mode(WIFI_MODE_STA);
-        WiFi.setHostname(hostname.c_str());
-        WiFi.begin(ssid.c_str(), password.c_str());
-        ESP_LOGI(taskName(), "Connecting to WiFi SSID: %s", ssid.c_str());
-        /*
-        unsigned long start = millis();
-        while (isConnected() && millis() - start < 10000) {
-            delay(250);
-        }
-        if (!isConnected()) {
-            ESP_LOGW(taskName(), "WiFi connect failed");
+        if (staEnabled) {
+            startSTA();
         } else {
-            ESP_LOGI(taskName(), "WiFi connected, IP: %s", WiFi.localIP().toString().c_str());
+            ESP_LOGI(taskName(), "STA is disabled");
+            WiFi.mode(WIFI_MODE_NULL);
         }
-        */
-        ESP_LOGI(taskName(), "Starting mDNS with hostname: %s", hostname.c_str());
-        MDNS.begin(hostname.c_str());
+
         setupDone = true;
     }
 
     virtual void taskRun() override {
+        if (!isEnabled()) return;
         static ulong last = 0;
         if (millis() - last > 10000) {
             last = millis();
             if (!isConnected()) {
-                ESP_LOGW(taskName(), "WiFi not connected to '%s', password: '%s'", ssid.c_str(), password.c_str());
+                ESP_LOGW(taskName(), "Not connected to '%s', password: '%s'", ssid.c_str(), password.c_str());
             }
         }
+    }
+
+    bool loadPreferences() {
+        if (!preferencesReady) {
+            ESP_LOGE(taskName(), "Prefs not ready");
+            return false;
+        }
+        staEnabled = preferences.getBool(staEnabledKey, true);
+        if (preferences.isKey(ssidKey) && preferences.isKey(passwordKey)) {
+            ssid = preferences.getString(ssidKey, default_wifi_ssid);
+            password = preferences.getString(passwordKey, default_wifi_password);
+        } else {
+            ESP_LOGI(taskName(), "Credentials not found in preferences, using defaults");
+        }
+        if (preferences.isKey(hostnameKey))
+            hostname = preferences.getString(hostnameKey, default_hostname);
+        else
+            ESP_LOGI(taskName(), "Hostname not found in preferences, using defaults");
+        return true;
     }
 
     bool isReady() const {
@@ -94,16 +104,36 @@ class Wifi : public Task,
         return hostname.c_str();
     }
 
+    bool isEnabled() const {
+        return staEnabled;
+    }
+
+    const char* getStatusLabel() const {
+        if (!staEnabled) return "WiFi (disabled)";
+        if (!setupDone) return "WiFi (starting)";
+        return isConnected() ? "WiFi (connected)" : "WiFi (searching)";
+    }
+
    protected:
     static constexpr const char* ssidKey = "ssid";
     static constexpr const char* passwordKey = "password";
     static constexpr const char* hostnameKey = "hostname";
+    static constexpr const char* staEnabledKey = "staEnabled";
     String ssid;
     String password;
     String hostname;
+    bool preferencesReady = false;
     bool setupDone = false;
+    bool staEnabled = true;
+    bool mdnsStarted = false;
 
     void registerApiCommands() {
+        api.registerCommand(
+            "wifi",
+            [this](const char* args) {
+                return wifiCommand(args);
+            },
+            "Usage: wifi [on|off]\nToggles or sets WiFi enabled state.");
         api.registerCommand(
             "wifi_ssid",
             [this](const char* args) {
@@ -154,10 +184,86 @@ class Wifi : public Task,
                 return reply;
             }
             hostname = newValue;
+            if (staEnabled) restartSTA();
         }
 
         snprintf((char*)reply.data, sizeof(reply.data), "%s", hostname.c_str());
         return reply;
+    }
+
+    Api::Reply wifiCommand(const char* args) {
+        Api::Reply reply = {};
+        String command(args);
+        command.trim();
+
+        if (command.length() == 0) {
+            if (staEnabled)
+                disableSTA();
+            else
+                enableSTA();
+        } else if (command.equalsIgnoreCase("on") || command.equalsIgnoreCase("enable")) {
+            enableSTA();
+        } else if (command.equalsIgnoreCase("off") || command.equalsIgnoreCase("disable")) {
+            disableSTA();
+        } else {
+            reply.code = Api::ReplyCode::INVALID_ARGS;
+            snprintf((char*)reply.data, sizeof(reply.data), "Usage: wifi [on|off]");
+            return reply;
+        }
+
+        if (preferencesReady && preferences.putBool(staEnabledKey, staEnabled) == 0) {
+            ESP_LOGE(taskName(), "Failed to save WiFi enabled state");
+        }
+
+        snprintf((char*)reply.data, sizeof(reply.data), "%s", staEnabled ? "enabled" : "disabled");
+        return reply;
+    }
+
+    void startSTA() {
+        WiFi.mode(WIFI_MODE_STA);
+        WiFi.setHostname(hostname.c_str());
+        WiFi.begin(ssid.c_str(), password.c_str());
+        ESP_LOGI(taskName(), "Connecting to WiFi SSID: %s", ssid.c_str());
+        ESP_LOGI(taskName(), "Starting mDNS with hostname: %s", hostname.c_str());
+        if (!mdnsStarted) {
+            if (!MDNS.begin(hostname.c_str())) {
+                ESP_LOGE(taskName(), "Failed to start mDNS");
+            } else {
+                mdnsStarted = true;
+            }
+        }
+    }
+
+    void stopSTA() {
+        if (mdnsStarted) {
+            MDNS.end();
+            mdnsStarted = false;
+        }
+        WiFi.disconnect(true);
+        WiFi.mode(WIFI_MODE_NULL);
+    }
+
+    void enableSTA() {
+        staEnabled = true;
+        if (!preferencesReady || preferences.putBool(staEnabledKey, staEnabled) == 0)
+            ESP_LOGE(taskName(), "Failed to save STA enabled state");
+        startSTA();
+    }
+
+    void disableSTA() {
+        ESP_LOGI(taskName(), "Disabling STA");
+        telnet.disconnectWithNotice("WiFi STA disabled: disconnecting telnet session.");
+        staEnabled = false;
+        if (!preferencesReady || preferences.putBool(staEnabledKey, staEnabled) == 0)
+            ESP_LOGE(taskName(), "Failed to save STA disabled state");
+        stopSTA();
+    }
+
+    void restartSTA() {
+        if (!staEnabled) return;
+        stopSTA();
+        startSTA();
+        ESP_LOGI(taskName(), "Restarting STA connection to %s", ssid.c_str());
     }
 };
 

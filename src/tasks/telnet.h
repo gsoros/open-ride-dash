@@ -57,7 +57,6 @@ class Telnet : public Task, public ApiClient {
 #endif
 
         if (!wifiClient.connected()) {
-            static bool logClientActive = false;
             if (!logClientActive) {
                 WiFiClient newClient = wifiServer.accept();
                 if (newClient) {
@@ -159,6 +158,18 @@ class Telnet : public Task, public ApiClient {
         if (client) instance->wifiClient.flush();
     }
 
+    void disconnectWithNotice(const char* message) {
+        if (wifiClient && wifiClient.connected()) {
+            wifiClient.println(message);
+            wifiClient.flush();
+            delay(100);
+            wifiClient.stop();
+            logClientActive = false;
+            esp_log_set_vprintf(&serial_vprintf);
+            ESP_LOGI(taskName(), "Client disconnected after notice.");
+        }
+    }
+
    protected:
     static bool parseEchoValue(const char* args, bool* value) {
         while (*args == ' ' || *args == '\t') ++args;
@@ -208,6 +219,9 @@ class Telnet : public Task, public ApiClient {
     WiFiServer wifiServer{port};
     WiFiClient wifiClient;
     bool echo = false;
+    bool logClientActive = false;
 };
+
+extern Telnet telnet;
 
 #endif  // TELNET_H

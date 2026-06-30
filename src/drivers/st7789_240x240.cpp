@@ -730,11 +730,24 @@ void ST7789_240x240::drawMenu(const MenuSnapshot& menu) {
         end = menu.itemCount;
     }
     for (uint8_t i = scrollOffset; i < end; i++) {
+        // TODO: replace menu.items[i] with dynamicMenuItem(i)
         drawMenuLine(menu.items[i], 34 + (i - scrollOffset) * 36, i == menu.selectedItem);
     }
 
     canvasMenu->flush();
 }
+
+/*
+const char *ST7789_240x240::dynamicMenuItem(uint8_t index) {
+    switch (index) {
+        case 0: {
+            // return WiFi status string
+        }
+        default:
+            return menu.items[index];
+    }
+}
+*/
 
 void ST7789_240x240::drawMenuLine(const char* text, int16_t baseline, bool selected) {
     if (text == nullptr) return;

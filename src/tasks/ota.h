@@ -105,6 +105,9 @@ class OTA : public Task, public HasPreferences {
                 if (!preferences.putInt(crashCountKey, 0))
                     ESP_LOGE(taskName(), "Failed to reset crash count");
             }
+            ESP_LOGI(taskName(), "Enabling WiFi");
+            api.queueCommand("wifi on");  // make sure WiFi is enabled
+            telnet.disconnectWithNotice("OTA update: disconnecting telnet session.");
             taskSetFrequency(idleFrequencyHz);
         });
         ArduinoOTA.onProgress([this](unsigned int progress, unsigned int total) {

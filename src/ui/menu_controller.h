@@ -31,12 +31,13 @@ class MenuController {
     void markRendered();
 
    protected:
+    void refreshItems() const;
     static constexpr const char* tag = "MenuController";
     static constexpr uint8_t MENU_ITEM_COUNT = 16;
     static constexpr uint8_t EXIT_MENU_ITEM = MENU_ITEM_COUNT - 1;  // Last item is "Exit"
 
-    inline static constexpr const char* MENU_ITEMS[MENU_ITEM_COUNT] = {
-        "Dummy 0",                  // 0
+    inline static constexpr const char* STATIC_MENU_ITEMS[MENU_ITEM_COUNT] = {
+        "WiFi",                     // 0 dynamic label provided at runtime
         "Dummy 1",                  // 1
         "Dummy 2",                  // 2
         "Another menu item 3",      // 3
@@ -54,8 +55,10 @@ class MenuController {
         "Exit"                      // 15
     };
 
+    mutable const char* _items[MENU_ITEM_COUNT] = {};
+    mutable char _item0Label[32] = {};
+    mutable bool _dirty = false;
     bool _active = false;
-    bool _dirty = false;
     uint8_t _selectedItem = 0;
 };
 
