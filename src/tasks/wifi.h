@@ -2,7 +2,7 @@
 #define WIFI_H
 
 /*
- * TODO: AP support and full API interface for configuring WiFi AP/STA
+ * TODO: Fallback AP support and full API interface for configuring WiFi AP/STA
  */
 
 #include <WiFi.h>
@@ -156,13 +156,15 @@ class Wifi : public Task,
         String newValue(args);
         newValue.trim();
 
-        if (newValue.length() > 0) {
+        if (newValue.length() > 0 && value != newValue) {
             if (!preferencesReady || preferences.putString(key, newValue) == 0) {
+                ESP_LOGE(taskName(), "Failed to save %s", key);
                 reply.code = Api::ReplyCode::EXECUTION_ERROR;
                 snprintf((char*)reply.data, sizeof(reply.data), "%s", value.c_str());
                 return reply;
             }
             value = newValue;
+            if (staEnabled) restartSTA();
         }
 
         snprintf((char*)reply.data, sizeof(reply.data), "%s", value.c_str());
@@ -174,8 +176,9 @@ class Wifi : public Task,
         String newValue(args);
         newValue.trim();
 
-        if (newValue.length() > 0) {
+        if (newValue.length() > 0 && hostname != newValue) {
             if (!preferencesReady || preferences.putString(hostnameKey, newValue) == 0) {
+                ESP_LOGE(taskName(), "Failed to save hostname");
                 reply.code = Api::ReplyCode::EXECUTION_ERROR;
                 snprintf((char*)reply.data, sizeof(reply.data), "%s", hostname.c_str());
                 return reply;
@@ -210,6 +213,7 @@ class Wifi : public Task,
 
         if (preferencesReady && preferences.putBool(staEnabledKey, staEnabled) == 0) {
             ESP_LOGE(taskName(), "Failed to save WiFi enabled state");
+            reply.code = Api::ReplyCode::EXECUTION_ERROR;
         }
 
         snprintf((char*)reply.data, sizeof(reply.data), "%s", staEnabled ? "enabled" : "disabled");
@@ -221,13 +225,12 @@ class Wifi : public Task,
         WiFi.setHostname(hostname.c_str());
         WiFi.begin(ssid.c_str(), password.c_str());
         ESP_LOGI(taskName(), "Connecting to WiFi SSID: %s", ssid.c_str());
-        ESP_LOGI(taskName(), "Starting mDNS with hostname: %s", hostname.c_str());
         if (!mdnsStarted) {
-            if (!MDNS.begin(hostname.c_str())) {
-                ESP_LOGE(taskName(), "Failed to start mDNS");
-            } else {
+            ESP_LOGI(taskName(), "Starting mDNS with hostname: %s", hostname.c_str());
+            if (MDNS.begin(hostname.c_str()))
                 mdnsStarted = true;
-            }
+            else
+                ESP_LOGE(taskName(), "Failed to start mDNS");
         }
     }
 
