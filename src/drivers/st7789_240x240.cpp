@@ -4,6 +4,8 @@
 
 #include <Arduino.h>
 
+#include "config.h"
+
 extern State state;
 
 ST7789_240x240::ST7789_240x240(
@@ -22,8 +24,10 @@ ST7789_240x240::ST7789_240x240(
     // Initialize the data bus
     bus = new Arduino_ESP32SPIDMA(dc, cs, sck, mosi, GFX_NOT_DEFINED, spi);
 
-    // Initialize the display
-    tft = new Arduino_ST7789(bus, rst, rot, true, w, h);
+    // Initialize the display (use module-specific offsets from config.h)
+    tft = new Arduino_ST7789(bus, rst, rot, true, w, h,
+                             ST7789_COL_OFFSET1, ST7789_ROW_OFFSET1,
+                             ST7789_COL_OFFSET2, ST7789_ROW_OFFSET2);
 
     // Main canvases
     canvasMajor = new Arduino_Canvas_Mono(w - 8, 140, tft, 4, 0);

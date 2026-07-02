@@ -29,6 +29,26 @@ constexpr const char* default_hostname = ORD_SHORT_NAME "-" STR(BUILDTAG);
 constexpr const char* default_hostname = ORD_SHORT_NAME;
 #endif
 
-#define TFT_ROTATION 1
+#define TFT_ROTATION 3
+
+// ST7789 column/row offsets used by Arduino_GFX/Arduino_TFT.
+// These are panel/module specific and can be adjusted per module.
+// Format: COL_OFFSET1, ROW_OFFSET1, COL_OFFSET2, ROW_OFFSET2
+// Defaults are set to values known to work with the user's module.
+#ifndef ST7789_COL_OFFSET1
+#define ST7789_COL_OFFSET1 0
+#endif
+
+#ifndef ST7789_ROW_OFFSET1
+#define ST7789_ROW_OFFSET1 0
+#endif
+
+#ifndef ST7789_COL_OFFSET2
+#define ST7789_COL_OFFSET2 0
+#endif
+
+#ifndef ST7789_ROW_OFFSET2
+#define ST7789_ROW_OFFSET2 80
+#endif
 
 #endif  // CONFIG_H
