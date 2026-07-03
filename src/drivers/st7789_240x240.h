@@ -170,7 +170,7 @@ class ST7789_240x240 : public DisplayDriver {
     inline static constexpr MetricDefinition metricDefinitions[METRIC_COUNT] = {
         {METRIC_SPEED, "Speed", "SPD", "km/h"},
         {METRIC_CADENCE, "Cadence", "CAD", "RPM"},
-        {METRIC_PAS, "Assist", "PAS", ""},
+        {METRIC_PAS, "Assist Level", "PAS", ""},
         {METRIC_MOTOR_PWR, "Motor Power", "MOW", "W"},
         {METRIC_HUMAN_PWR, "Human Power", "HUW", "W"},
         {METRIC_VOLTAGE, "Voltage", "VOL", "V"},
@@ -184,9 +184,9 @@ class ST7789_240x240 : public DisplayDriver {
     };
 
     inline static constexpr PageLayout defaultPages[PAGE_COUNT] = {
-        {METRIC_PAS, METRIC_MOTOR_TEMP, METRIC_CADENCE},
-        {METRIC_SPEED, METRIC_MOTOR_PWR, METRIC_HUMAN_PWR},
-        {METRIC_HEART_RATE, METRIC_SOC, METRIC_RANGE},
+        {METRIC_SPEED, METRIC_SOC, METRIC_RANGE},
+        {METRIC_HUMAN_PWR, METRIC_CADENCE, METRIC_MOTOR_PWR},
+        {METRIC_PAS, METRIC_VOLTAGE, METRIC_MOTOR_TEMP},
     };
 
     DisplayMode _displayMode = MODE_SPLASH;
@@ -227,8 +227,9 @@ class ST7789_240x240 : public DisplayDriver {
     uint8_t bayerThreshold(uint16_t x, uint16_t y) const;
     bool formatMetricValue(MetricID id, State::Snapshot& s, char* buffer, size_t bufferSize, bool* isNumeric);
     bool formatPasValue(int8_t pas, char* buffer, size_t bufferSize, bool* isNumeric);
-    uint16_t roundedMetricValue(float value, uint16_t cap = 999) const;
+    uint16_t roundedMetricValue(float value) const;
     uint16_t cappedMetricValue(uint32_t value, uint16_t cap = 999) const;
+    void abbreviatedMetricValue(char* buffer, size_t bufferSize, uint32_t value, bool* isNumeric);
     void formatUInt(char* buffer, size_t bufferSize, uint16_t value);
     void drawMenu(const MenuSnapshot& menu);
     void drawMenuLine(const char* text, int16_t baseline, bool selected);

@@ -442,11 +442,11 @@ void ST7789_240x240::drawPageValues(State::Snapshot& s, bool force, bool remembe
 
 /*
     Draws a single metric value to a slot.
-    slotIndex: index of the slot to draw to
-    id: metric to draw
-    s: snapshot of the current state
-    force: if true, always draw the value, even if it hasn't changed
-    remember: if true, remember the value and don't redraw it if it hasn't changed
+    - slotIndex: index of the slot to draw to
+    - id: metric to draw
+    - s: snapshot of the current state
+    - force: if true, always draw the value, even if it hasn't changed
+    - remember: if true, remember the value and don't redraw it if it hasn't changed
     If the controller is not alive, "ZZZ" is shown in the major slot.
 */
 void ST7789_240x240::drawMetricValue(uint8_t slotIndex, MetricID id, State::Snapshot& s, bool force, bool remember) {
@@ -584,7 +584,7 @@ uint8_t ST7789_240x240::bayerThreshold(uint16_t x, uint16_t y) const {
 }
 
 bool ST7789_240x240::formatMetricValue(MetricID id, State::Snapshot& s, char* buffer, size_t bufferSize, bool* isNumeric) {
-    if (buffer == nullptr || bufferSize == 0 || isNumeric == nullptr) {
+    if (buffer == nullptr || isNumeric == nullptr || bufferSize < 4) {
         ESP_LOGE(tag, "Invalid metric format buffer");
         return false;
     }
@@ -600,13 +600,13 @@ bool ST7789_240x240::formatMetricValue(MetricID id, State::Snapshot& s, char* bu
         case METRIC_PAS:
             return formatPasValue(s.pasLevel, buffer, bufferSize, isNumeric);
         case METRIC_MOTOR_PWR:
-            formatUInt(buffer, bufferSize, roundedMetricValue(s.motorPower()));
+            abbreviatedMetricValue(buffer, bufferSize, (uint32_t)s.motorPower(), isNumeric);
             return true;
         case METRIC_HUMAN_PWR:
-            formatUInt(buffer, bufferSize, roundedMetricValue(s.humanPower()));
+            abbreviatedMetricValue(buffer, bufferSize, (uint32_t)s.humanPower(), isNumeric);
             return true;
-        case METRIC_VOLTAGE:
-            formatUInt(buffer, bufferSize, roundedMetricValue((float)s.batteryVoltage_x100 / 100.0f));
+        case METRIC_VOLTAGE:  // 49.2 → "492"
+            formatUInt(buffer, bufferSize, roundedMetricValue((float)s.batteryVoltage_x100 / 10.0f));
             return true;
         case METRIC_SOC:
             formatUInt(buffer, bufferSize, s.soc());
@@ -614,20 +614,14 @@ bool ST7789_240x240::formatMetricValue(MetricID id, State::Snapshot& s, char* bu
         case METRIC_MOTOR_TEMP:
             formatUInt(buffer, bufferSize, s.motorTemp);
             return true;
-        case METRIC_TRIP:
-            formatUInt(buffer, bufferSize, cappedMetricValue(s.trip_mx10 / 10000));
+        case METRIC_TRIP: {
+            uint32_t km = s.trip_mx10 / 100;
+            abbreviatedMetricValue(buffer, bufferSize, km, isNumeric);
             return true;
+        }
         case METRIC_ODO: {
-            uint32_t km = cappedMetricValue(s.odo_mx10 / 10000);
-            if (km < 1000) {  // <= 999
-                formatUInt(buffer, bufferSize, km);
-            } else if (km < 10000) {  // 1234 → "1k2"
-                snprintf(buffer, bufferSize, "%uk%u", km / 1000, (km % 1000) / 100);
-                *isNumeric = false;
-            } else {  // 12345 → "12k"  (drop sub-k precision, it's an odo not a surgery)
-                snprintf(buffer, bufferSize, "%uk", km / 1000);
-                *isNumeric = false;
-            }
+            uint32_t km = s.odo_mx10 / 100;
+            abbreviatedMetricValue(buffer, bufferSize, km, isNumeric);
             return true;
         }
         case METRIC_RANGE:
@@ -662,8 +656,8 @@ bool ST7789_240x240::formatPasValue(int8_t pas, char* buffer, size_t bufferSize,
     return true;
 }
 
-// returns value between 0 and cap
-uint16_t ST7789_240x240::roundedMetricValue(float value, uint16_t cap) const {
+// returns the rounded integer value between 0 and 999
+uint16_t ST7789_240x240::roundedMetricValue(float value) const {
     if (value <= 0.0f) return 0;
     if (value >= 999.0f) return 999;
     return (uint16_t)(value + 0.5f);
@@ -675,16 +669,72 @@ uint16_t ST7789_240x240::cappedMetricValue(uint32_t value, uint16_t cap) const {
 }
 
 /*
-// writes the given value to the buffer, capped
-void ST7789_240x240::formatUInt(char* buffer, size_t bufferSize, uint16_t value) {
-    snprintf(buffer, bufferSize, "%u", cappedMetricValue(value));
-}
+    Writes the given value to the buffer, abbreviated.
+    - buffer: buffer to write to
+    - bufferSize: size of the buffer, minimum 4
+    - value: value to write
+    - isNumeric: will be set to true if the buffer contains digits only
+    Three-character abbreviations are used:
+        123 → "123"
+        1,234 → "1K2"
+        12,345 → "12K"
+        123,456 → "123"
+        1,234,567 → "1M2"
+        12,345,678 → "12M"
+        123,456,789 → "123"
+        1,234,567,890 → "1B2"
+    Non-numeric values use snprintf, numeric values are written directly.
+    Abbreviated values are truncated, not rounded.
 */
+void ST7789_240x240::abbreviatedMetricValue(char* buffer, size_t bufferSize, uint32_t value, bool* isNumeric) {
+    constexpr uint32_t K = 1000;
+    constexpr uint32_t M = 1000 * K;
+    constexpr uint32_t B = 1000 * M;
+    if (buffer == nullptr || isNumeric == nullptr || bufferSize < 4) {
+        ESP_LOGE(tag, "Invalid metric format buffer");
+        return;
+    }
+    *isNumeric = true;
+    if (value < K) {  // 0-999
+        formatUInt(buffer, bufferSize, value);
+        return;
+    }
+    *isNumeric = false;
+    if (value < 10 * K) {  // 1,234 → "1K2"
+        snprintf(buffer, bufferSize, "%uK%u", value / K, (value % K) / 100);
+        return;
+    }
+    if (value < 100 * K) {  // 12,345 → "12K"  (drop sub-k precision, it's an odometer, not a surgery)
+        snprintf(buffer, bufferSize, "%uK", value / K);
+        return;
+    }
+    if (value < M) {  // 123,456 → "123"
+        snprintf(buffer, bufferSize, "%u", value / K);
+        *isNumeric = true;
+        return;
+    }
+    if (value < 10 * M) {  // 1,234,567 → "1M2"
+        snprintf(buffer, bufferSize, "%uM%u", value / M, (value % M) / 100 * K);
+        return;
+    }
+    if (value < 100 * M) {  // 12,345,678 → "12M"
+        snprintf(buffer, bufferSize, "%uM", value / M);
+        return;
+    }
+    if (value < B) {  // 123,456,789 → "123"
+        formatUInt(buffer, bufferSize, value / M);
+        *isNumeric = true;
+        return;
+    }
+    // 1,234,567,890 → "1B2", UINT32_MAX is 4B2
+    snprintf(buffer, bufferSize, "%uB%u", value / B, (value % B) / 100 * M);
+}
 
-/* Writes the given value to the buffer, capped
- * - doesn't use snprintf
- * - if the buffer is too small, it will be empty
- */
+/*
+   Writes the given value to the buffer, capped to 999.
+   - doesn't use snprintf, for speed
+   - if the buffer is too small, it will be empty
+*/
 void ST7789_240x240::formatUInt(char* buffer, size_t bufferSize, uint16_t value) {
     uint16_t capped = cappedMetricValue(value);
 
