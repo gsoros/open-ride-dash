@@ -63,7 +63,8 @@ class Display : public Task, public ApiClient {
     }
 
     void increaseBrightness() {
-        brightnessPercent++;
+        static constexpr uint8_t step = 2;
+        brightnessPercent += brightnessPercent <= 100 - step ? step : 1;
         if (brightnessPercent > 100) {
             brightnessPercent = 100;
             return;
@@ -72,7 +73,8 @@ class Display : public Task, public ApiClient {
     }
 
     void decreaseBrightness() {
-        brightnessPercent--;
+        static constexpr uint8_t step = 2;
+        brightnessPercent -= brightnessPercent >= step ? step : 1;
         if (brightnessPercent < 2) {
             brightnessPercent = 1;
             return;
