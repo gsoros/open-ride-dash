@@ -4,6 +4,7 @@
 /*
  * When armed and motion is detected, a warning is issued.
  * If more motion is detected within LATCH_DELAY_MS, the alarm is latched.
+ * If not armed, and no motion is detected for SLEEP_DELAY, the system enters deep sleep.
  */
 
 #include <Arduino.h>
@@ -48,6 +49,10 @@ class Alarm : public Task {
 
     // Motion sampling frequency: 0-11 (0.24-500Hz), 5 = 7.81Hz
     static constexpr uint8_t MPU_FREQUENCY = 5;
+
+    // Delay after the last motion for the system to enter deep sleep
+    // static constexpr uint32_t SLEEP_DELAY = 1000 * 60 * 10;  // 10 minutes
+    static constexpr uint32_t SLEEP_DELAY = 1000 * 30;  // 30 seconds for testing
 
     Api::Reply _armCommand(const char* args);
     Api::Reply _disarmCommand(const char* args);

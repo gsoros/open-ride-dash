@@ -73,6 +73,8 @@ class ST7789_240x240 : public DisplayDriver {
     void setRotation(uint8_t rotation) override;
     void setBrightnessPercent(uint8_t p) override;
     bool hasBacklight() override { return bl_pin >= 0; }
+    bool setBacklight(uint8_t level) override;
+    void onSleep() override;
 
     void nextPage() override;
     uint8_t currentPage() override;

@@ -157,6 +157,10 @@ class Display : public Task, public ApiClient {
                 else
                     menu.enterMenu();
                 return;
+            case UiEvent::Sleep:
+                ESP_LOGD(taskName(), "Sleep event received");
+                output.onSleep();
+                return;
             default:
                 ESP_LOGW(taskName(), "Unhandled UI event: %u", (uint8_t)event);
                 return;

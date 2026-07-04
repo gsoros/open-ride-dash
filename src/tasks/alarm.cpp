@@ -1,5 +1,11 @@
 #include "tasks/alarm.h"
 
+#include "model/state.h"
+extern State state;
+
+#include "tasks/display.h"
+extern Display display;
+
 std::atomic<uint32_t> Alarm::_mpuInterruptTimestamp{0};
 std::atomic<TaskHandle_t> Alarm::_mpuInterruptTargetTaskHandle{NULL};
 
@@ -8,7 +14,8 @@ const char* Alarm::taskName() {
 }
 
 void Alarm::setup() {
-    if (!Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL)) {  // MPU is the only I2C device on the bus
+    // The MPU is the only I2C device on the bus
+    if (!Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL)) {
         ESP_LOGE(taskName(), "Failed to initialize I2C");
     }
 
@@ -36,6 +43,11 @@ void Alarm::setup() {
     api.registerCommand(
         "disarm", [this](const char* args) { return _disarmCommand(args); },
         "Usage: disarm\nDisarms the alarm.");
+
+    esp_deep_sleep_enable_gpio_wakeup(BIT(PIN_MPU_INT), ESP_GPIO_WAKEUP_GPIO_HIGH);
+    if (esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_GPIO) {
+        ESP_LOGI(taskName(), "Woke up from deep sleep due to MPU interrupt");
+    }
 }
 
 bool Alarm::taskStart(float frequency, uint32_t stack, int8_t priority) {
@@ -53,18 +65,35 @@ bool Alarm::taskStart(float frequency, uint32_t stack, int8_t priority) {
     } else
         ESP_LOGD(taskName(), "Saved MPU interrupt target task handle");
 
+    _mpuInterruptTimestamp.store(millis(), std::memory_order_release);
     _mpu.enableWomSleep(MPU_THRESHOLD, MPU_FREQUENCY);
 
     return true;
 }
 
 void Alarm::taskRun() {
+    uint32_t t = millis();
     _mpu.update();
-
     State s = _state.load(std::memory_order_relaxed);
 
-    // If we are disarmed, do nothing and decrease task frequency
+    // If we are disarmed, check whether we need to go to sleep,
+    // if not, decrease task frequency and do nothing
     if (s == ALARM_DISARMED) {
+        if (!state.controllerAlive()) {
+            uint32_t lastMotion = _mpuInterruptTimestamp.load(std::memory_order_acquire);
+            if (t - lastMotion > SLEEP_DELAY) {
+                ESP_LOGD(taskName(), "Last motion %ds ago, going to deep sleep", (t - lastMotion) / 1000);
+                display.queueUiEvent(UiEvent::Sleep);
+                vTaskDelay(pdMS_TO_TICKS(1000));
+                _clearMPUInterrupt();
+                esp_deep_sleep_start();
+            }
+            static uint lastLog = 0;
+            if (lastLog == 0 || t - lastLog > 5000) {
+                ESP_LOGD(taskName(), "Sleep in %ds", (SLEEP_DELAY - (t - lastMotion)) / 1000);
+                lastLog = t;
+            }
+        }
         vTaskDelay(pdMS_TO_TICKS(500));
         return;
     }
@@ -74,7 +103,7 @@ void Alarm::taskRun() {
         ESP_LOGD(taskName(), "Armed, blocking indefinitely");
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
-        // Motion detected! Clear the interrupt register immediately over I2C
+        // Motion detected! Clear the interrupt register immediately
         _clearMPUInterrupt();
         s = ALARM_WARNING;
         _state.store(s, std::memory_order_relaxed);
@@ -86,7 +115,6 @@ void Alarm::taskRun() {
     _clearMPUInterrupt();
 
     if (s == ALARM_WARNING) {
-        uint32_t t = millis();
         uint32_t lastInterrupt = _mpuInterruptTimestamp.load(std::memory_order_acquire);
         uint32_t timeSinceLastInterrupt = t - lastInterrupt;
         uint32_t timeSinceWarningStart = t - _stateChangeTimestamp.load(std::memory_order_acquire);

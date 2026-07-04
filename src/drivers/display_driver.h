@@ -15,7 +15,9 @@ class DisplayDriver {
     virtual void setRotation(uint8_t rotation) = 0;
     virtual void setBrightnessPercent(uint8_t percent) {};
     virtual bool hasBacklight() { return false; };
-    virtual bool hasBrightnessControl() { return hasBacklight(); };
+    virtual bool setBacklight(uint8_t level) { return false; };
+    virtual bool hasBrightnessControl() { return false; };
+    virtual void onSleep() {};
 
     virtual void nextPage() {};
     virtual uint8_t currentPage() { return 0; };

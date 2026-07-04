@@ -173,7 +173,22 @@ void ST7789_240x240::setBrightnessPercent(uint8_t p) {
     uint8_t val = (uint8_t)(254.0f * powf(p / 100.0f, GAMMA)) + 1;
 
     ESP_LOGD(tag, "setBrightnessPercent(%d) -> %d", p, val);
-    analogWrite((uint8_t)bl_pin, val);
+    setBacklight(val);
+}
+
+bool ST7789_240x240::setBacklight(uint8_t level) {
+    if (!hasBacklight()) return false;
+    analogWrite((uint8_t)bl_pin, level);
+    return true;
+}
+
+void ST7789_240x240::onSleep() {
+    ESP_LOGD(tag, "onSleep()");
+    canvasMenu->fillScreen(BLACK);
+    renderTextToCanvas(canvasMenu, "SLEEPING", labelFont, 1, 0);
+    canvasMenu->flush();
+    setBrightnessPercent(0);
+    setBacklight(0);
 }
 
 bool ST7789_240x240::showMenu(const MenuSnapshot& menu) {
@@ -668,66 +683,148 @@ uint16_t ST7789_240x240::cappedMetricValue(uint32_t value, uint16_t cap) const {
     return value > cap ? cap : (uint16_t)value;
 }
 
-/*
-    Writes the given value to the buffer, abbreviated.
-    - buffer: buffer to write to
-    - bufferSize: size of the buffer, minimum 4
-    - value: value to write
-    - isNumeric: will be set to true if the buffer contains digits only
-    Three-character abbreviations are used:
-        123 → "123"
-        1,234 → "1K2"
-        12,345 → "12K"
-        123,456 → "123"
-        1,234,567 → "1M2"
-        12,345,678 → "12M"
-        123,456,789 → "123"
-        1,234,567,890 → "1B2"
-    Non-numeric values use snprintf, numeric values are written directly.
-    Abbreviated values are truncated, not rounded.
-*/
+/**
+ * Write the given value into the buffer, abbreviated so that the result fits.
+ *
+ * @param buffer      Destination buffer (must be at least 2 bytes for minimal output).
+ * @param bufferSize  Size of the buffer (including the null terminator).
+ * @param value       Unsigned integer to display.
+ * @param isNumeric   Will be set to true if the buffer contains only digits (no suffix).
+ *
+ * The function tries to show as many significant digits as possible:
+ *   - If the plain number fits, it is written directly.
+ *   - Otherwise, an abbreviated form with a suffix (k, M, G) is used.
+ *   - When the suffix alone doesn't fit, the scaled integer may be shown without
+ *     any suffix (isNumeric is set to true).
+ */
 void ST7789_240x240::abbreviatedMetricValue(char* buffer, size_t bufferSize, uint32_t value, bool* isNumeric) {
-    constexpr uint32_t K = 1000;
-    constexpr uint32_t M = 1000 * K;
-    constexpr uint32_t B = 1000 * M;
-    if (buffer == nullptr || isNumeric == nullptr || bufferSize < 4) {
-        ESP_LOGE(tag, "Invalid metric format buffer");
+    if (buffer == nullptr || isNumeric == nullptr || bufferSize < 2) {
+        // Need at least 1 character + null terminator
+        if (buffer && bufferSize > 0) buffer[0] = '\0';
         return;
     }
-    *isNumeric = true;
-    if (value < K) {  // 0-999
-        formatUInt(buffer, bufferSize, value);
-        return;
-    }
-    *isNumeric = false;
-    if (value < 10 * K) {  // 1,234 → "1K2"
-        snprintf(buffer, bufferSize, "%uK%u", value / K, (value % K) / 100);
-        return;
-    }
-    if (value < 100 * K) {  // 12,345 → "12K"  (drop sub-k precision, it's an odometer, not a surgery)
-        snprintf(buffer, bufferSize, "%uK", value / K);
-        return;
-    }
-    if (value < M) {  // 123,456 → "123"
-        snprintf(buffer, bufferSize, "%u", value / K);
+
+    const size_t maxChars = bufferSize - 1;  // usable width
+
+    // Helper: count decimal digits
+    auto numDigits = [](uint32_t v) {
+        if (v == 0) return (uint32_t)1;
+        uint32_t count = 0;
+        while (v) {
+            v /= 10;
+            ++count;
+        }
+        return count;
+    };
+
+    // 1. Plain number fits?
+    uint32_t d = numDigits(value);
+    if (d <= maxChars) {
+        if (d <= 3)
+            formatUInt(buffer, bufferSize, value);
+        else
+            snprintf(buffer, bufferSize, "%u", value);
         *isNumeric = true;
         return;
     }
-    if (value < 10 * M) {  // 1,234,567 → "1M2"
-        snprintf(buffer, bufferSize, "%uM%u", value / M, (value % M) / 100 * K);
-        return;
+
+    // Available suffixes – largest first (order doesn’t matter for final selection)
+    static constexpr struct {
+        uint32_t divisor;
+        char suffix;
+    } suffixes[] = {
+        {1000000000, 'G'},  // billion
+        {1000000, 'M'},     // million
+        {1000, 'k'}         // thousand
+    };
+
+    struct Candidate {
+        uint32_t int_part;
+        uint32_t extra_digit;
+        char suffix;
+        bool use_suffix;
+        bool use_extra;
+        int digits_shown;  // how many original significant digits are visible
+        size_t length;     // total characters (excluding null)
+        bool is_numeric;
+    };
+
+    Candidate best = {0, 0, 0, false, false, -1, 0, false};
+
+    auto consider = [&](const Candidate& c) {
+        if (c.length <= maxChars && c.digits_shown > best.digits_shown) {
+            best = c;
+        }
+    };
+
+    // 2. Try all suffix levels
+    for (const auto& s : suffixes) {
+        uint32_t int_part = value / s.divisor;
+        if (int_part == 0) continue;  // suffix too large, skip
+
+        int len_int = numDigits(int_part);
+
+        // a) Scaled integer without suffix (fallback when suffix doesn't fit)
+        if (len_int <= (int)maxChars) {
+            Candidate c{};
+            c.int_part = int_part;
+            c.suffix = s.suffix;
+            c.use_suffix = false;
+            c.use_extra = false;
+            c.digits_shown = len_int;
+            c.length = len_int;
+            c.is_numeric = true;
+            consider(c);
+        }
+
+        // b) With suffix, no extra digit:  "<int_part><suffix>"   (e.g. "12k")
+        if (len_int + 1 <= maxChars) {
+            Candidate c{};
+            c.int_part = int_part;
+            c.suffix = s.suffix;
+            c.use_suffix = true;
+            c.use_extra = false;
+            c.digits_shown = len_int;
+            c.length = len_int + 1;
+            c.is_numeric = false;
+            consider(c);
+        }
+
+        // c) With suffix and one extra digit:  "<int_part><suffix><digit>" (e.g. "1k2")
+        if (len_int + 2 <= maxChars) {
+            uint32_t extra = (value / (s.divisor / 10)) % 10;
+            Candidate c{};
+            c.int_part = int_part;
+            c.extra_digit = extra;
+            c.suffix = s.suffix;
+            c.use_suffix = true;
+            c.use_extra = true;
+            c.digits_shown = len_int + 1;
+            c.length = len_int + 2;
+            c.is_numeric = false;
+            consider(c);
+        }
     }
-    if (value < 100 * M) {  // 12,345,678 → "12M"
-        snprintf(buffer, bufferSize, "%uM", value / M);
-        return;
+
+    // 3. Write the best representation found
+    if (best.digits_shown >= 0) {
+        if (best.use_suffix) {
+            if (best.use_extra)
+                snprintf(buffer, bufferSize, "%u%c%u", best.int_part, best.suffix, best.extra_digit);
+            else
+                snprintf(buffer, bufferSize, "%u%c", best.int_part, best.suffix);
+            *isNumeric = false;
+        } else {
+            // Pure digits (scaled, no suffix)
+            snprintf(buffer, bufferSize, "%u", best.int_part);
+            *isNumeric = true;
+        }
+    } else {
+        // Extremely narrow buffer – show a placeholder
+        buffer[0] = '?';
+        buffer[1] = '\0';
+        *isNumeric = false;
     }
-    if (value < B) {  // 123,456,789 → "123"
-        formatUInt(buffer, bufferSize, value / M);
-        *isNumeric = true;
-        return;
-    }
-    // 1,234,567,890 → "1B2", UINT32_MAX is 4B2
-    snprintf(buffer, bufferSize, "%uB%u", value / B, (value % B) / 100 * M);
 }
 
 /*

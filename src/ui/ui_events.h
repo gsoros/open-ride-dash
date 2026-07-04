@@ -11,6 +11,7 @@ enum class UiEvent : uint8_t {
     DownLongPress,
     PowerLongPress,
     MenuChord,
+    Sleep,
 };
 
 #endif  // UI_EVENTS_H
