@@ -1,6 +1,10 @@
 #ifndef TELNET_H
 #define TELNET_H
 
+/*
+   TODO: Move Serial IO handling to the API task.
+*/
+
 #include <WiFi.h>
 #include "task.h"
 #include "api.h"

@@ -145,8 +145,8 @@ class CAN : public Task {
                 case 0x02F83201: {  // [8] Wheel speed, current, voltage, motor temp, controller temp
                     uint16_t wheelSpeed_x10 = ((uint16_t)frame.data[1] << 8) | (uint16_t)frame.data[0];
                     state.wheelSpeed_x10(wheelSpeed_x10);
-                    uint16_t batteryCurrent_x20 = ((uint16_t)frame.data[3] << 8) | (uint16_t)frame.data[2];
-                    state.batteryCurrent_x20(batteryCurrent_x20);
+                    uint16_t batteryCurrent_x100 = ((uint16_t)frame.data[3] << 8) | (uint16_t)frame.data[2];
+                    state.batteryCurrent_x100(batteryCurrent_x100);
                     uint16_t batteryVoltage_x100 = ((uint16_t)frame.data[5] << 8) | (uint16_t)frame.data[4];
                     state.batteryVoltage_x100(batteryVoltage_x100);
                     state.motorTemp((int8_t)frame.data[6] - 40);
@@ -155,7 +155,7 @@ class CAN : public Task {
                     snprintf(speedBuf, sizeof(speedBuf),
                              "%.1f, current: %.1f, voltage: %.1f",
                              wheelSpeed_x10 / 10.0f,
-                             batteryCurrent_x20 / 20.0f,
+                             batteryCurrent_x100 / 100.0f,
                              batteryVoltage_x100 / 100.0f);
                     static char lastSpeedBuf[64] = {};
                     if (strcmp(speedBuf, lastSpeedBuf) != 0) {

@@ -45,7 +45,7 @@ void State::registerApiCommands() {
                      s.torque,
                      s.cadence,
                      s.wheelSpeed_x10 / 10.0f,
-                     s.batteryCurrent_x20 / 20.0f,
+                     s.batteryCurrent_x100 / 100.0f,
                      s.batteryVoltage_x100 / 100.0f,
                      s.motorTemp,
                      s.controllerTemp,
@@ -116,11 +116,11 @@ void State::wheelSpeed_x10(uint16_t v) {
 uint16_t State::wheelSpeed_x10() {
     return getUInt16(&_latest.wheelSpeed_x10);
 }
-void State::batteryCurrent_x20(uint16_t v) {
-    setUInt16(&_latest.batteryCurrent_x20, v);
+void State::batteryCurrent_x100(uint16_t v) {
+    setUInt16(&_latest.batteryCurrent_x100, v);
 }
-uint16_t State::batteryCurrent_x20() {
-    return getUInt16(&_latest.batteryCurrent_x20);
+uint16_t State::batteryCurrent_x100() {
+    return getUInt16(&_latest.batteryCurrent_x100);
 }
 void State::batteryVoltage_x100(uint16_t v) {
     setUInt16(&_latest.batteryVoltage_x100, v);

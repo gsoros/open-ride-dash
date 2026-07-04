@@ -13,7 +13,7 @@ class State : public HasPreferences {
         uint16_t wheelSpeed_x10 = 0;       // RPM * 10
         uint16_t wheelMaxSpeed_x100 = 0;   // RPM * 100
         uint16_t batteryVoltage_x100 = 0;  // V * 100
-        uint16_t batteryCurrent_x20 = 0;   // A * 20
+        uint16_t batteryCurrent_x100 = 0;  // A * 100
         uint16_t wheelCircumference = 0;   // mm
         uint16_t batteryCapacity =         // Wh
             DEFAULT_BATTERY_CAPACITY;      // 720 Wh
@@ -32,7 +32,7 @@ class State : public HasPreferences {
 
         // Calculates motor power in Watts
         float motorPower() {
-            float current = (float)batteryCurrent_x20 / 20.0f;
+            float current = (float)batteryCurrent_x100 / 100.0f;
             float voltage = (float)batteryVoltage_x100 / 100.0f;
             float power = current * voltage;
 
@@ -116,7 +116,7 @@ class State : public HasPreferences {
             constexpr size_t curveLen = sizeof(curve) / sizeof(curve[0]);
 
             float packVoltage = (float)batteryVoltage_x100 / 100.0f;
-            float current = (float)batteryCurrent_x20 / 20.0f;
+            float current = (float)batteryCurrent_x100 / 100.0f;
 
             // Compensate for voltage sag: estimate open-circuit voltage
             float cellVoltage = (packVoltage / numCellsSeries) + (current * sagFactor);
@@ -231,8 +231,8 @@ class State : public HasPreferences {
 
     void wheelSpeed_x10(uint16_t v);
     uint16_t wheelSpeed_x10();
-    void batteryCurrent_x20(uint16_t v);
-    uint16_t batteryCurrent_x20();
+    void batteryCurrent_x100(uint16_t v);
+    uint16_t batteryCurrent_x100();
     void batteryVoltage_x100(uint16_t v);
     uint16_t batteryVoltage_x100();
     void motorTemp(uint8_t v);
