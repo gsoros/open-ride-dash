@@ -18,6 +18,13 @@ copies of the partition state and the crash counter and comparing them. Also, if
 space for a third partition, we could use it to store a factory partition that can only be
 updated over USB and used to recover from a failed OTA rollback. Another improvement could be
 to use RTC memory to track crash count.
+
+TODO: We had a bricking event where the system was stuck in a boot loop and the OTA rollback
+didn't work. We introduced a bug that caused the system to crash only if WiFi was disabled at
+boot, uploaded the firmware, and then disabled WiFi after the 60s stability period. Maybe we
+should start counting crashes even when WiFi is disabled, and rollback if the system crashes
+3 times in a row, regardless of WiFi state? Boot, increment crash count, reset crash count
+after 60s of uptime, rollback if crash count exceeds limit.
 */
 
 extern Wifi wifi;

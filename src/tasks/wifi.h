@@ -2,7 +2,8 @@
 #define WIFI_H
 
 /*
- * TODO: Fallback AP support and full API interface for configuring WiFi AP/STA
+ * TODO: Fallback AP support and full API interface for configuring WiFi AP/STA.
+ * TODO: Manage dependent tasks (OTA, Telnet) based on WiFi mode, instead of rebooting on mode change.
  */
 
 #include <WiFi.h>
