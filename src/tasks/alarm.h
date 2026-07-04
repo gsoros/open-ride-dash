@@ -18,7 +18,7 @@
 
 class Alarm : public Task {
    public:
-    virtual const char* taskName() override;
+    virtual const char* taskName() const override;
     virtual void setup();
     virtual bool taskStart(float frequency = -1.0f, uint32_t stack = 0, int8_t priority = -1) override;
     virtual void taskRun() override;
@@ -44,20 +44,22 @@ class Alarm : public Task {
     // Motion between WARNING_GRACE_PERIOD_MS and LATCH_DELAY_MS triggers the latch
     static constexpr uint32_t LATCH_DELAY_MS = 10000;
 
-    // Motion threshold, *4mg, 25 = 100mg
-    static constexpr uint8_t MPU_THRESHOLD = 25;
+    // Motion threshold, *4mg, 15 = 60mg
+    static constexpr uint8_t MPU_THRESHOLD = 15;
 
     // Motion sampling frequency: 0-11 (0.24-500Hz), 5 = 7.81Hz
     static constexpr uint8_t MPU_FREQUENCY = 5;
 
-    // Delay after the last motion for the system to enter deep sleep
-    // static constexpr uint32_t SLEEP_DELAY = 1000 * 60 * 10;  // 10 minutes
-    static constexpr uint32_t SLEEP_DELAY = 1000 * 30;  // 30 seconds for testing
+    // When disarmed and controller off, the system enters deep sleep after
+    // this period of inactivity (no motion detected)
+    static constexpr uint32_t SLEEP_DELAY = 1000 * 60 * 10;  // 10 minutes
 
     Api::Reply _armCommand(const char* args);
     Api::Reply _disarmCommand(const char* args);
 
-    void _clearMPUInterrupt();
+    void _clearMPUInterrupt() const;
+
+    void _sleepIfNeeded() const;
 
     static std::atomic<uint32_t> _mpuInterruptTimestamp;
     static std::atomic<TaskHandle_t> _mpuInterruptTargetTaskHandle;

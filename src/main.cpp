@@ -44,12 +44,15 @@ void setup() {
 
     wifi.setup();
     wifi.taskStart(1.0f, 4096);
+    wifi.waitForReady();
 
-    ota.setHostname(wifi.getHostname());
-    ota.setup();
-    ota.taskStart(2.0f, 100.0f, 4096);
+    if (wifi.isEnabled()) {
+        ota.setHostname(wifi.getHostname());
+        ota.setup();
+        ota.taskStart(2.0f, 100.0f, 4096);
+    }
 
-    telnet.setup();
+    telnet.setup(wifi.isEnabled());
     telnet.taskStart(10.0f, 4096);
 
     display.setup();
@@ -67,9 +70,9 @@ void setup() {
     alarmTask.setup();
     alarmTask.taskStart(100.0f, 2048);
 
-    static Task* tasksToMonitor[] = {&api, &wifi, &ota, &telnet, &display, &can};
-    systemMonitor.setup(tasksToMonitor, sizeof(tasksToMonitor) / sizeof(tasksToMonitor[0]));
-    systemMonitor.taskStart(10.0f, 4096);
+    // static Task* tasksToMonitor[] = {&api, &wifi, &ota, &telnet, &display, &can};
+    // systemMonitor.setup(tasksToMonitor, sizeof(tasksToMonitor) / sizeof(tasksToMonitor[0]));
+    // systemMonitor.taskStart(10.0f, 4096);
 }
 
 void loop() {

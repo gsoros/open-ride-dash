@@ -13,14 +13,16 @@ class Telnet : public Task, public ApiClient {
         instance = this;
     }
 
-    virtual const char* taskName() override {
+    virtual const char* taskName() const override {
         return "Telnet";
     }
 
-    virtual void setup() {
+    virtual void setup(bool withWifi = true) {
         instance = this;
-        wifiServer.begin();
-        ESP_LOGI(taskName(), "Ready on port %d", port);
+        if (withWifi) {
+            wifiServer.begin();
+            ESP_LOGI(taskName(), "Ready on port %d", port);
+        }
         apiClientSetup(taskName());
         api.registerCommand(
             "echo",

@@ -19,7 +19,7 @@ extern Telnet telnet;
 class Wifi : public Task,
              public HasPreferences {
    public:
-    virtual const char* taskName() override {
+    virtual const char* taskName() const override {
         return "WiFi";
     }
 
@@ -62,6 +62,7 @@ class Wifi : public Task,
             return false;
         }
         staEnabled = preferences.getBool(staEnabledKey, true);
+        // staEnabled = true;
         if (preferences.isKey(ssidKey) && preferences.isKey(passwordKey)) {
             ssid = preferences.getString(ssidKey, default_wifi_ssid);
             password = preferences.getString(passwordKey, default_wifi_password);
@@ -244,26 +245,32 @@ class Wifi : public Task,
     }
 
     void enableSTA() {
-        staEnabled = true;
-        if (!preferencesReady || preferences.putBool(staEnabledKey, staEnabled) == 0)
+        if (staEnabled) return;
+        if (!preferencesReady || preferences.putBool(staEnabledKey, true) == 0) {
             ESP_LOGE(taskName(), "Failed to save STA enabled state");
-        startSTA();
+            return;
+        }
+        ESP_LOGI(taskName(), "STA enabled, rebooting...");
+        delay(500);
+        esp_restart();
     }
 
     void disableSTA() {
-        ESP_LOGI(taskName(), "Disabling STA");
+        if (!staEnabled) return;
         telnet.disconnectWithNotice("WiFi STA disabled: disconnecting telnet session.");
-        staEnabled = false;
-        if (!preferencesReady || preferences.putBool(staEnabledKey, staEnabled) == 0)
+        if (!preferencesReady || preferences.putBool(staEnabledKey, false) == 0)
             ESP_LOGE(taskName(), "Failed to save STA disabled state");
+        ESP_LOGI(taskName(), "STA disabled, rebooting...");
+        delay(500);
         stopSTA();
+        esp_restart();
     }
 
     void restartSTA() {
         if (!staEnabled) return;
+        ESP_LOGI(taskName(), "Restarting STA connection to %s", ssid.c_str());
         stopSTA();
         startSTA();
-        ESP_LOGI(taskName(), "Restarting STA connection to %s", ssid.c_str());
     }
 };
 

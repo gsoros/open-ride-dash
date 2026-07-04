@@ -9,7 +9,7 @@ extern Display display;
 std::atomic<uint32_t> Alarm::_mpuInterruptTimestamp{0};
 std::atomic<TaskHandle_t> Alarm::_mpuInterruptTargetTaskHandle{NULL};
 
-const char* Alarm::taskName() {
+const char* Alarm::taskName() const {
     return "Alarm";
 }
 
@@ -79,21 +79,7 @@ void Alarm::taskRun() {
     // If we are disarmed, check whether we need to go to sleep,
     // if not, decrease task frequency and do nothing
     if (s == ALARM_DISARMED) {
-        if (!state.controllerAlive()) {
-            uint32_t lastMotion = _mpuInterruptTimestamp.load(std::memory_order_acquire);
-            if (t - lastMotion > SLEEP_DELAY) {
-                ESP_LOGD(taskName(), "Last motion %ds ago, going to deep sleep", (t - lastMotion) / 1000);
-                display.queueUiEvent(UiEvent::Sleep);
-                vTaskDelay(pdMS_TO_TICKS(1000));
-                _clearMPUInterrupt();
-                esp_deep_sleep_start();
-            }
-            static uint lastLog = 0;
-            if (lastLog == 0 || t - lastLog > 5000) {
-                ESP_LOGD(taskName(), "Sleep in %ds", (SLEEP_DELAY - (t - lastMotion)) / 1000);
-                lastLog = t;
-            }
-        }
+        _sleepIfNeeded();
         vTaskDelay(pdMS_TO_TICKS(500));
         return;
     }
@@ -183,12 +169,36 @@ Api::Reply Alarm::_disarmCommand(const char* args) {
     return reply;
 }
 
-void Alarm::_clearMPUInterrupt() {
+void Alarm::_clearMPUInterrupt() const {
     Wire.beginTransmission(0x68);       // Start transmission at MPU address
     Wire.write(0x3A);                   // INT_STATUS register
     Wire.endTransmission(false);        // End transmission, keep the connection open
     Wire.requestFrom(0x68, 1);          // Request 1 byte from MPU
     if (Wire.available()) Wire.read();  // Reading this byte clears the hardware latch
+}
+
+void Alarm::_sleepIfNeeded() const {
+    if (isArmed() || state.controllerAlive()) return;
+
+    uint32_t t = millis();
+    uint32_t lastInterrupt = _mpuInterruptTimestamp.load(std::memory_order_acquire);
+    uint32_t timeSinceLastInterrupt = t - lastInterrupt;
+    if (timeSinceLastInterrupt >= SLEEP_DELAY) {
+        ESP_LOGD(taskName(), "Last motion %ds ago, going to deep sleep",
+                 timeSinceLastInterrupt / 1000);
+        display.queueUiEvent(UiEvent::Sleep);
+        vTaskDelay(pdMS_TO_TICKS(1000));
+        _clearMPUInterrupt();
+        esp_deep_sleep_start();
+        return;  // Should never reach here
+    }
+    static uint lastLog = 0;
+    uint32_t sleepInS = (lastInterrupt + SLEEP_DELAY - t) / 1000;
+    uint32_t logFreqMs = sleepInS > 60 ? 60000 : 10000;
+    if (lastLog == 0 || t - lastLog > logFreqMs) {
+        ESP_LOGD(taskName(), "Sleep in %dm %ds", sleepInS / 60, sleepInS % 60);
+        lastLog = t;
+    }
 }
 
 void IRAM_ATTR Alarm::_mpuInterruptHandler() {

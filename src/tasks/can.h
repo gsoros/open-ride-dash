@@ -16,7 +16,7 @@ typedef ACAN_ESP32_Settings ACANSettings;
 
 class CAN : public Task {
    public:
-    virtual const char* taskName() override {
+    virtual const char* taskName() const override {
         return "CAN";
     }
 

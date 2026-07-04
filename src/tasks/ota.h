@@ -109,6 +109,7 @@ class OTA : public Task, public HasPreferences {
             api.queueCommand("wifi on");  // make sure WiFi is enabled
             telnet.disconnectWithNotice("OTA update: disconnecting telnet session.");
             taskSetFrequency(idleFrequencyHz);
+            delay(1000);
         });
         ArduinoOTA.onProgress([this](unsigned int progress, unsigned int total) {
             static uint32_t lastProgressLog = 0;
@@ -121,6 +122,8 @@ class OTA : public Task, public HasPreferences {
             taskSetFrequency(idleFrequencyHz);
             ESP_LOGE(taskName(), "Error: %s", otaErrorToString(err));
         });
+
+        wifi.waitForReady();  // make sure WiFi is ready before starting OTA
         ArduinoOTA.begin();
 
         ESP_LOGI(taskName(), "Ready");
@@ -166,7 +169,7 @@ class OTA : public Task, public HasPreferences {
         }
     }
 
-    virtual const char* taskName() override {
+    virtual const char* taskName() const override {
         return "OTA";
     }
 

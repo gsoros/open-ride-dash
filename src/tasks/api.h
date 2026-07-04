@@ -67,7 +67,7 @@ class Api : public Task {
         size_t length = 0;
     };
 
-    virtual const char* taskName() override {
+    virtual const char* taskName() const override {
         return "API";
     }
 

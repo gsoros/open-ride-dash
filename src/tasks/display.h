@@ -21,7 +21,7 @@ extern State state;
 
 class Display : public Task, public ApiClient {
    public:
-    virtual const char* taskName() override {
+    virtual const char* taskName() const override {
         return "Display";
     }
 

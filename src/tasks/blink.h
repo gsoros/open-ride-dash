@@ -4,7 +4,7 @@
 // Blink the onboard LED for testing
 class Blink : public Task {
    public:
-    virtual const char* taskName() override {
+    virtual const char* taskName() const override {
         return "Blink";
     }
 

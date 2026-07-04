@@ -5,7 +5,7 @@ extern State state;
 
 class SystemMonitor : public Task {
    public:
-    virtual const char* taskName() override {
+    virtual const char* taskName() const override {
         return "SysMon";
     }
 

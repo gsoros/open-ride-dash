@@ -61,7 +61,7 @@ class Task {
     virtual void taskRun() {};
 
     // Mandatory method to return the name of the task. Used for logging.
-    virtual const char* taskName() = 0;
+    virtual const char* taskName() const = 0;
 
     /*
      * Start the task with the given frequency (Hz), stack size (bytes), and priority.

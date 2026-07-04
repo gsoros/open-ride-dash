@@ -46,6 +46,8 @@ ST7789_240x240::ST7789_240x240(
 
 void ST7789_240x240::setup() {
     if (bl_pin >= 0) {
+        // gpio_deep_sleep_hold_dis();
+        gpio_hold_dis((gpio_num_t)bl_pin);
         pinMode(bl_pin, OUTPUT);
         digitalWrite(bl_pin, LOW);
     }
@@ -188,7 +190,16 @@ void ST7789_240x240::onSleep() {
     renderTextToCanvas(canvasMenu, "SLEEPING", labelFont, 1, 0);
     canvasMenu->flush();
     setBrightnessPercent(0);
-    setBacklight(0);
+
+    // Switch pin from PWM mode to GPIO mode and hold it LOW during deep sleep.
+    // Although setBrightnessPercent(0) sets PWM to 0%, the PWM peripheral remains active.
+    // We must explicitly disable PWM by setting GPIO_MODE_OUTPUT, then drive the pin LOW,
+    // and enable hold. This ensures the pin stays LOW (backlight off) throughout sleep,
+    // even if there's an external pull-up resistor on the pin.
+    gpio_set_direction((gpio_num_t)bl_pin, GPIO_MODE_OUTPUT);
+    gpio_set_level((gpio_num_t)bl_pin, 0);
+    gpio_hold_en((gpio_num_t)bl_pin);
+    gpio_deep_sleep_hold_en();
 }
 
 bool ST7789_240x240::showMenu(const MenuSnapshot& menu) {
@@ -684,7 +695,7 @@ uint16_t ST7789_240x240::cappedMetricValue(uint32_t value, uint16_t cap) const {
 }
 
 /**
- * Write the given value into the buffer, abbreviated so that the result fits.
+ * Writes the given value into the buffer, abbreviated so that the result fits.
  *
  * @param buffer      Destination buffer (must be at least 2 bytes for minimal output).
  * @param bufferSize  Size of the buffer (including the null terminator).
@@ -764,7 +775,7 @@ void ST7789_240x240::abbreviatedMetricValue(char* buffer, size_t bufferSize, uin
 
         int len_int = numDigits(int_part);
 
-        // a) Scaled integer without suffix (fallback when suffix doesn't fit)
+        // Scaled integer without suffix (fallback when suffix doesn't fit)
         if (len_int <= (int)maxChars) {
             Candidate c{};
             c.int_part = int_part;
@@ -777,7 +788,7 @@ void ST7789_240x240::abbreviatedMetricValue(char* buffer, size_t bufferSize, uin
             consider(c);
         }
 
-        // b) With suffix, no extra digit:  "<int_part><suffix>"   (e.g. "12k")
+        // With suffix, no extra digit: "<int_part><suffix>" (e.g. "12k")
         if (len_int + 1 <= maxChars) {
             Candidate c{};
             c.int_part = int_part;
@@ -790,7 +801,7 @@ void ST7789_240x240::abbreviatedMetricValue(char* buffer, size_t bufferSize, uin
             consider(c);
         }
 
-        // c) With suffix and one extra digit:  "<int_part><suffix><digit>" (e.g. "1k2")
+        // With suffix and one extra digit: "<int_part><suffix><digit>" (e.g. "1k2")
         if (len_int + 2 <= maxChars) {
             uint32_t extra = (value / (s.divisor / 10)) % 10;
             Candidate c{};
@@ -827,11 +838,11 @@ void ST7789_240x240::abbreviatedMetricValue(char* buffer, size_t bufferSize, uin
     }
 }
 
-/*
-   Writes the given value to the buffer, capped to 999.
-   - doesn't use snprintf, for speed
-   - if the buffer is too small, it will be empty
-*/
+/**
+ * Writes the given value into the buffer, capped to 999.
+ * - doesn't use snprintf, for speed
+ * - if the buffer is too small, it will be empty
+ */
 void ST7789_240x240::formatUInt(char* buffer, size_t bufferSize, uint16_t value) {
     uint16_t capped = cappedMetricValue(value);
 
