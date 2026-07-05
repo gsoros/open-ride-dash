@@ -250,7 +250,7 @@ class State : public HasPreferences {
     void controllerAlive(bool v);
     bool controllerAlive();
 
-    bool aquireMutex();
+    bool acquireMutex();
     void releaseMutex();
     Snapshot getSnapshot(bool withMutex = true);
     void setSnapshot(Snapshot s, bool withMutex = true);

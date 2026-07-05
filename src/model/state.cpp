@@ -168,7 +168,7 @@ bool State::controllerAlive() {
     return getBool(&_latest.controllerAlive);
 }
 
-bool State::aquireMutex() {
+bool State::acquireMutex() {
     return xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE;
 }
 
@@ -178,7 +178,7 @@ void State::releaseMutex() {
 
 State::Snapshot State::getSnapshot(bool withMutex) {
     Snapshot s = {};
-    if (!withMutex || (withMutex && aquireMutex())) {
+    if (!withMutex || (withMutex && acquireMutex())) {
         s = _latest;
         if (withMutex) releaseMutex();
     }
@@ -186,63 +186,63 @@ State::Snapshot State::getSnapshot(bool withMutex) {
 }
 
 void State::setSnapshot(Snapshot s, bool withMutex) {
-    if (!withMutex || (withMutex && aquireMutex())) {
+    if (!withMutex || (withMutex && acquireMutex())) {
         _latest = s;
         if (withMutex) releaseMutex();
     }
 }
 
 void State::setInt8(int8_t* i, int8_t v) {
-    if (aquireMutex()) {
+    if (acquireMutex()) {
         *i = v;
         releaseMutex();
     }
 }
 
 void State::setUInt8(uint8_t* i, uint8_t v) {
-    if (aquireMutex()) {
+    if (acquireMutex()) {
         *i = v;
         releaseMutex();
     }
 }
 
 void State::setInt16(int16_t* i, int16_t v) {
-    if (aquireMutex()) {
+    if (acquireMutex()) {
         *i = v;
         releaseMutex();
     }
 }
 
 void State::setUInt16(uint16_t* i, uint16_t v) {
-    if (aquireMutex()) {
+    if (acquireMutex()) {
         *i = v;
         releaseMutex();
     }
 }
 
 void State::setInt32(int32_t* i, int32_t v) {
-    if (aquireMutex()) {
+    if (acquireMutex()) {
         *i = v;
         releaseMutex();
     }
 }
 
 void State::setUInt32(uint32_t* i, uint32_t v) {
-    if (aquireMutex()) {
+    if (acquireMutex()) {
         *i = v;
         releaseMutex();
     }
 }
 
 void State::setFloat(float* f, float v) {
-    if (aquireMutex()) {
+    if (acquireMutex()) {
         *f = v;
         releaseMutex();
     }
 }
 
 void State::setBool(bool* b, bool v) {
-    if (aquireMutex()) {
+    if (acquireMutex()) {
         *b = v;
         releaseMutex();
     }
@@ -250,7 +250,7 @@ void State::setBool(bool* b, bool v) {
 
 int8_t State::getInt8(int8_t* i) {
     int8_t v = 0;
-    if (aquireMutex()) {
+    if (acquireMutex()) {
         v = *i;
         releaseMutex();
     }
@@ -259,7 +259,7 @@ int8_t State::getInt8(int8_t* i) {
 
 uint8_t State::getUInt8(uint8_t* i) {
     uint8_t v = 0;
-    if (aquireMutex()) {
+    if (acquireMutex()) {
         v = *i;
         releaseMutex();
     }
@@ -268,7 +268,7 @@ uint8_t State::getUInt8(uint8_t* i) {
 
 int16_t State::getInt16(int16_t* i) {
     int16_t v = 0;
-    if (aquireMutex()) {
+    if (acquireMutex()) {
         v = *i;
         releaseMutex();
     }
@@ -277,7 +277,7 @@ int16_t State::getInt16(int16_t* i) {
 
 uint16_t State::getUInt16(uint16_t* i) {
     uint16_t v = 0;
-    if (aquireMutex()) {
+    if (acquireMutex()) {
         v = *i;
         releaseMutex();
     }
@@ -286,7 +286,7 @@ uint16_t State::getUInt16(uint16_t* i) {
 
 int32_t State::getInt32(int32_t* i) {
     int32_t v = 0;
-    if (aquireMutex()) {
+    if (acquireMutex()) {
         v = *i;
         releaseMutex();
     }
@@ -295,7 +295,7 @@ int32_t State::getInt32(int32_t* i) {
 
 uint32_t State::getUInt32(uint32_t* i) {
     uint32_t v = 0;
-    if (aquireMutex()) {
+    if (acquireMutex()) {
         v = *i;
         releaseMutex();
     }
@@ -304,7 +304,7 @@ uint32_t State::getUInt32(uint32_t* i) {
 
 float State::getFloat(float* f) {
     float v = 0.0f;
-    if (aquireMutex()) {
+    if (acquireMutex()) {
         v = *f;
         releaseMutex();
     }
@@ -313,7 +313,7 @@ float State::getFloat(float* f) {
 
 bool State::getBool(bool* b) {
     bool v = false;
-    if (aquireMutex()) {
+    if (acquireMutex()) {
         v = *b;
         releaseMutex();
     }

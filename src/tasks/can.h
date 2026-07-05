@@ -106,7 +106,7 @@ class CAN : public Task {
                     static uint32_t lastLog = 0;
                     if (lastLog + 60000 < t) {
                         lastLog = t;
-                        ESP_LOGD(taskName(), "Parsed: uptime: %.2f minutes", uptime_sx10 / 6.0f);
+                        ESP_LOGD(taskName(), "Parsed uptime: %.2f minutes", uptime_sx10 / 6.0f);
                     }
                     break;
                 }
@@ -130,7 +130,7 @@ class CAN : public Task {
                     lastCadence = cadence;
                     lastTorque = torque;
                     float humanPower = 0.0f;
-                    if (state.aquireMutex()) {
+                    if (state.acquireMutex()) {
                         State::Snapshot s = state.getSnapshot(false);
                         s.cadence = cadence;
                         s.torque = torque;
@@ -138,19 +138,24 @@ class CAN : public Task {
                         state.releaseMutex();
                         humanPower = s.humanPower();
                     }
-                    ESP_LOGD(taskName(), "Parsed: cadence: %u, raw torque: %u, human power: %.1f, unknown: %u", cadence, torque, humanPower, unknown);
+                    ESP_LOGD(taskName(), "Parsed cadence: %u, raw torque: %u, human power: %.1f, unknown: %u", cadence, torque, humanPower, unknown);
                     break;
                 }
 
                 case 0x02F83201: {  // [8] Wheel speed, current, voltage, motor temp, controller temp
                     uint16_t wheelSpeed_x10 = ((uint16_t)frame.data[1] << 8) | (uint16_t)frame.data[0];
-                    state.wheelSpeed_x10(wheelSpeed_x10);
                     uint16_t batteryCurrent_x100 = ((uint16_t)frame.data[3] << 8) | (uint16_t)frame.data[2];
-                    state.batteryCurrent_x100(batteryCurrent_x100);
                     uint16_t batteryVoltage_x100 = ((uint16_t)frame.data[5] << 8) | (uint16_t)frame.data[4];
-                    state.batteryVoltage_x100(batteryVoltage_x100);
-                    state.motorTemp((int8_t)frame.data[6] - 40);
-                    state.controllerTemp((int8_t)frame.data[7] - 40);
+                    if (state.acquireMutex()) {
+                        State::Snapshot s = state.getSnapshot(false);
+                        s.wheelSpeed_x10 = wheelSpeed_x10;
+                        s.batteryCurrent_x100 = batteryCurrent_x100;
+                        s.batteryVoltage_x100 = batteryVoltage_x100;
+                        s.motorTemp = (int8_t)frame.data[6] - 40;
+                        s.controllerTemp = (int8_t)frame.data[7] - 40;
+                        state.setSnapshot(s, false);
+                        state.releaseMutex();
+                    }
                     char speedBuf[64] = {};
                     snprintf(speedBuf, sizeof(speedBuf),
                              "%.1f, current: %.1f, voltage: %.1f",
@@ -159,7 +164,7 @@ class CAN : public Task {
                              batteryVoltage_x100 / 100.0f);
                     static char lastSpeedBuf[64] = {};
                     if (strcmp(speedBuf, lastSpeedBuf) != 0) {
-                        ESP_LOGD(taskName(), "Parsed: wheel speed: %s", speedBuf);
+                        ESP_LOGD(taskName(), "Parsed wheel speed: %s", speedBuf);
                         strncpy(lastSpeedBuf, speedBuf, sizeof(lastSpeedBuf));
                     }
                     break;
@@ -182,7 +187,7 @@ class CAN : public Task {
                     state.wheelSize(wheelSize);
                     state.wheelCircumference(wheelCircumference);
                     ESP_LOGD(taskName(),
-                             "Parsed: wheel max speed: %.1f km/h, wheel size: %d mm, wheel circumference: %d mm",
+                             "Parsed wheel max speed: %.1f km/h, wheel size: %d mm, wheel circumference: %d mm",
                              wheelMaxSpeed_x100 / 100.0f, wheelSize, wheelCircumference);
                     break;
                 }
@@ -220,7 +225,7 @@ class CAN : public Task {
                     char hexbuf[32] = {};
                     hexToStr(hexbuf, sizeof(hexbuf), frame.data, frame.len);
                     if (strcmp(hexbuf, lastHexbuf) == 0) break;
-                    ESP_LOGD(taskName(), "Unparsed: ID 0x02F83204, len: %d, data: [%s]",
+                    ESP_LOGD(taskName(), "UnParsed ID 0x02F83204, len: %d, data: [%s]",
                              frame.len, hexbuf);
                     strncpy(lastHexbuf, hexbuf, sizeof(lastHexbuf));
                     break;
@@ -259,7 +264,7 @@ class CAN : public Task {
                     if (newPas == INT8_MIN) break;
                     static int8_t lastPas = INT8_MIN;  // CAN is the only source of PAS level changes
                     if (newPas != lastPas) {           // so we can safely ignore the repeated identical values
-                        ESP_LOGD(taskName(), "Parsed: PAS level: %d%s", newPas,
+                        ESP_LOGD(taskName(), "Parsed PAS level: %d%s", newPas,
                                  newPas == 0    ? " (off)"          //
                                  : newPas == -1 ? " (walk assist)"  //
                                                 : "");
@@ -289,7 +294,7 @@ class CAN : public Task {
                         break;
                     }
                     strncpy(lastHexbuf, hexbuf, sizeof(lastHexbuf));
-                    ESP_LOGD(taskName(), "Unparsed: ID 0x02F83208 (%d: torque tick? ), len: %d, data: [%s]",
+                    ESP_LOGD(taskName(), "UnParsed ID 0x02F83208 (%d: torque tick? ), len: %d, data: [%s]",
                              tick, frame.len, hexbuf);
                     break;
                 }
@@ -315,12 +320,17 @@ class CAN : public Task {
                     }
                     uint32_t odo_mx10 = ((uint32_t)frame.data[3] << 24) | ((uint32_t)frame.data[2] << 16) | ((uint32_t)frame.data[1] << 8) | (uint32_t)frame.data[0];
                     uint32_t trip_mx10 = ((uint32_t)frame.data[7] << 24) | ((uint32_t)frame.data[6] << 16) | ((uint32_t)frame.data[5] << 8) | (uint32_t)frame.data[4];
-                    state.odo_mx10(odo_mx10);
-                    state.trip_mx10(trip_mx10);
+                    if (state.acquireMutex()) {
+                        State::Snapshot s = state.getSnapshot(false);
+                        s.odo_mx10 = odo_mx10;
+                        s.trip_mx10 = trip_mx10;
+                        state.setSnapshot(s, false);
+                        state.releaseMutex();
+                    }
                     static uint32_t lastOdo = 0;
                     static uint32_t lastTrip = 0;
                     if (odo_mx10 != lastOdo || trip_mx10 != lastTrip) {
-                        ESP_LOGD(taskName(), "Parsed: Odometer: %.0f km, trip: %.1f km",
+                        ESP_LOGD(taskName(), "Parsed Odometer: %.0f km, trip: %.1f km",
                                  odo_mx10 / 100.0f, trip_mx10 / 100.0f);
                         lastOdo = odo_mx10;
                         lastTrip = trip_mx10;
