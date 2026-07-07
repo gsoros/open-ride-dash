@@ -3,6 +3,7 @@
 
 /*
    TODO: Move Serial IO handling to the API task.
+   TODO: Rename task to WifiSerial or WifiConsole or WifiShell or WifiCLI
 */
 
 #include <WiFi.h>

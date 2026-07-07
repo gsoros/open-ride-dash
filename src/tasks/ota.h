@@ -21,10 +21,13 @@ to use RTC memory to track crash count.
 
 TODO: We had a bricking event where the system was stuck in a boot loop and the OTA rollback
 didn't work. We introduced a bug that caused the system to crash only if WiFi was disabled at
-boot, uploaded the firmware, and then disabled WiFi after the 60s stability period. Maybe we
+boot. We uploaded the firmware, and then disabled WiFi after the 60s stability period. Maybe we
 should start counting crashes even when WiFi is disabled, and rollback if the system crashes
 3 times in a row, regardless of WiFi state? Boot, increment crash count, reset crash count
-after 60s of uptime, rollback if crash count exceeds limit.
+after 60s of uptime, rollback if crash count exceeds limit. If we do this, we should also
+reset the crash count on a clean shutdown or reboot, so that we don't rollback if the system
+is powered off cleanly before the 60s limit is reached 3 times in a row. The user would still
+need to be aware that power cycling the system can potentially trigger a rollback.
 */
 
 extern Wifi wifi;

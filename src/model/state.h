@@ -27,7 +27,9 @@ class State : public HasPreferences {
 
         // Calculates speed in km/h
         float speed() {
-            return (float)wheelSpeed_x10 * (float)wheelCircumference * 0.000006f;
+            // TEST: maybe wheelSpeed_x10 is actually bikeSpeed_x10?
+            return (float)wheelSpeed_x10 / 10.0f;
+            // return (float)wheelSpeed_x10 * (float)wheelCircumference * 0.000006f;
         }
 
         // Calculates motor power in Watts
