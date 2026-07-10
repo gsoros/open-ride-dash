@@ -39,17 +39,16 @@ void State::registerApiCommands() {
         [this](const char* args) {
             Api::Reply reply = {};
             State::Snapshot s = getSnapshot();
-            snprintf((char*)reply.data, sizeof(reply.data), "{\"speed\":%.2f,\"pas\":%d,\"torque\":%u,\"cadence\":%u,\"wheelSp\":%.1f,\"current\":%.1f,\"voltage\":%.1f,\"motor\":%uC,\"contr\":%uC,\"wheelM\":%.1f,\"wheelSi\":%u,\"wheelC\":%u}",
+            snprintf((char*)reply.data, sizeof(reply.data), "{\"speed\":%.2f,\"pas\":%d,\"torque\":%u,\"cadence\":%u,\"current\":%.1f,\"voltage\":%.1f,\"motor\":%uC,\"contr\":%uC,\"wheelM\":%.1f,\"wheelSi\":%u,\"wheelC\":%u}",
                      s.speed(),
                      s.pasLevelRequested,
                      s.torque,
                      s.cadence,
-                     s.wheelSpeed_x10 / 10.0f,
                      s.batteryCurrent_x100 / 100.0f,
                      s.batteryVoltage_x100 / 100.0f,
                      s.motorTemp,
                      s.controllerTemp,
-                     s.wheelMaxSpeed_x100 / 100.0f,
+                     s.maxAssistSpeed_x100 / 100.0f,
                      s.wheelSize,
                      s.wheelCircumference);
             return reply;
@@ -110,11 +109,11 @@ uint16_t State::batteryCapacity() {
     return getUInt16(&_latest.batteryCapacity);
 }
 
-void State::wheelSpeed_x10(uint16_t v) {
-    setUInt16(&_latest.wheelSpeed_x10, v);
+void State::speed_x100(uint16_t v) {
+    setUInt16(&_latest.speed_x100, v);
 }
-uint16_t State::wheelSpeed_x10() {
-    return getUInt16(&_latest.wheelSpeed_x10);
+uint16_t State::speed_x100() {
+    return getUInt16(&_latest.speed_x100);
 }
 void State::batteryCurrent_x100(uint16_t v) {
     setUInt16(&_latest.batteryCurrent_x100, v);
@@ -141,11 +140,11 @@ uint8_t State::controllerTemp() {
     return getUInt8(&_latest.controllerTemp);
 }
 
-void State::wheelMaxSpeed_x100(uint16_t v) {
-    setUInt16(&_latest.wheelMaxSpeed_x100, v);
+void State::maxAssistSpeed_x100(uint16_t v) {
+    setUInt16(&_latest.maxAssistSpeed_x100, v);
 }
-uint16_t State::wheelMaxSpeed_x100() {
-    return getUInt16(&_latest.wheelMaxSpeed_x100);
+uint16_t State::maxAssistSpeed_x100() {
+    return getUInt16(&_latest.maxAssistSpeed_x100);
 }
 void State::wheelSize(uint8_t v) {
     setUInt8(&_latest.wheelSize, v);

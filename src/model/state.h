@@ -10,8 +10,8 @@ class State : public HasPreferences {
         uint32_t odo_mx10 = 0;             // m * 10
         uint32_t trip_mx10 = 0;            // m * 10
         uint16_t torque = 0;               // Raw sensor reading (needs calibration factor to become Nm)
-        uint16_t wheelSpeed_x10 = 0;       // RPM * 10
-        uint16_t wheelMaxSpeed_x100 = 0;   // RPM * 100
+        uint16_t speed_x100 = 0;           // km/h * 100
+        uint16_t maxAssistSpeed_x100 = 0;  // RPM * 100
         uint16_t batteryVoltage_x100 = 0;  // V * 100
         uint16_t batteryCurrent_x100 = 0;  // A * 100
         uint16_t wheelCircumference = 0;   // mm
@@ -27,9 +27,7 @@ class State : public HasPreferences {
 
         // Calculates speed in km/h
         float speed() {
-            // TEST: maybe wheelSpeed_x10 is actually bikeSpeed_x10?
-            return (float)wheelSpeed_x10 / 10.0f;
-            // return (float)wheelSpeed_x10 * (float)wheelCircumference * 0.000006f;
+            return (float)speed_x100 / 100.0f;
         }
 
         // Calculates motor power in Watts
@@ -50,32 +48,30 @@ class State : public HasPreferences {
 
         // Calculates human mechanical power in Watts
         float humanPower() {
-            // Raw sensor value at rest: 750 counts.
-            // Value with an 18.46 kg mass hanging from a horizontal 170 mm crank: 1875 counts.
-            // Raw delta = 1875 - 750 = 1125 counts
-            // Torque = 18.46 * 9.80665 * 0.170 = 30.78 Nm
-            // torqueNmFactor = 1125 / 30.78 = 36.55 counts/Nm
-            constexpr float torqueNmFactor = 36.55f;
-            constexpr int16_t torqueOffset = -750;
             // power (W) = cadence (RPM) * torque (Nm) * 2 * pi / 60
             float power = (float)cadence * (float)(torque + torqueOffset) / torqueNmFactor * 0.104719755f;
 
+            static uint32_t lastLog = 0;
+            static float lastPower = 0.0f;
+            // if (lastPower != power && millis() - lastLog > 500) {
+            if (lastPower != power) {
+                ESP_LOGD(tag, "humanPower() Cadence: %u, Torque: %u, Power: %.1f",
+                         cadence, torque, power);
+                lastPower = power;
+                lastLog = millis();
+            }
+
+            // return power;
+
             // Simple exponential moving average
             static float filtered = -1.0f;  // uninitialised sentinel
-            constexpr float alpha = 0.1f;   // smoothing factor (0 < alpha ≤ 1)
+            constexpr float alpha = 0.2f;   // smoothing factor (0 < alpha ≤ 1)
             if (filtered < 0.0f) {
                 filtered = power;  // first call: seed the filter
             } else {
                 filtered = alpha * power + (1.0f - alpha) * filtered;
             }
 
-            /*
-            static uint32_t lastLog = 0;
-            if (millis() - lastLog > 1000) {
-                ESP_LOGD(tag, "humanPower() Cadence: %u, Torque: %u, Power: %.1f", cadence, torque, filtered);
-                lastLog = millis();
-            }
-            */
             return filtered;
         }
 
@@ -231,8 +227,8 @@ class State : public HasPreferences {
     void batteryCapacity(uint16_t v, bool persist = true);
     uint16_t batteryCapacity();
 
-    void wheelSpeed_x10(uint16_t v);
-    uint16_t wheelSpeed_x10();
+    void speed_x100(uint16_t v);
+    uint16_t speed_x100();
     void batteryCurrent_x100(uint16_t v);
     uint16_t batteryCurrent_x100();
     void batteryVoltage_x100(uint16_t v);
@@ -242,8 +238,8 @@ class State : public HasPreferences {
     void controllerTemp(uint8_t v);
     uint8_t controllerTemp();
 
-    void wheelMaxSpeed_x100(uint16_t v);
-    uint16_t wheelMaxSpeed_x100();
+    void maxAssistSpeed_x100(uint16_t v);
+    uint16_t maxAssistSpeed_x100();
     void wheelSize(uint8_t v);
     uint8_t wheelSize();
     void wheelCircumference(uint16_t v);
@@ -256,6 +252,15 @@ class State : public HasPreferences {
     void releaseMutex();
     Snapshot getSnapshot(bool withMutex = true);
     void setSnapshot(Snapshot s, bool withMutex = true);
+
+    // Raw sensor value at rest: 750 counts
+    static constexpr int16_t torqueOffset = -750;
+
+    // Value with an 18.46 kg mass hanging from a horizontal 170 mm crank: 1875 counts.
+    // Raw delta = 1875 - 750 = 1125 counts
+    // Torque = 18.46 * 9.80665 * 0.170 = 30.78 Nm
+    // torqueNmFactor = 1125 / 30.78 = 36.55 counts/Nm
+    static constexpr float torqueNmFactor = 36.55f;
 
    protected:
     SemaphoreHandle_t mutex = nullptr;

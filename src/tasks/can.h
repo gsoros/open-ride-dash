@@ -70,6 +70,7 @@ class CAN : public Task {
 
         while (ACAN::can.receive(frame)) {
             received++;
+            t = millis();
             /*
             static uint16_t duplicateCount = 0;
             static uint32_t lastFrameId = 0;
@@ -112,43 +113,70 @@ class CAN : public Task {
                 }
 
                 case 0x02F83200: {  // [8] Cadence and torque
-                    /*
-                    Byte   Field              Detail
-                    [0]    motor status       0x5B = active, 0x5A = shutting down
-                    [1]    sequence counter   +1 every 2 seconds while motor is active, stops when idle
-                    [2]    unknown            always 0x00
-                    [3]    cadence            RPM
-                    [4:5]  torque             750: idle
-                    [6:7]  unknown
-                    */
+                                    /*
+                                    Byte   Field              Detail
+                                    [0]    status             0x5B = active, 0x5A = shutting down
+                                    [1]    sequence           +1 every 2 seconds, stops when idle
+                                    [2]    unknown 1          always 0x00
+                                    [3]    cadence            RPM
+                                    [4:5]  torque             750: idle
+                                    [6:7]  unknown 2
+                                    */
+                    uint8_t status = frame.data[0];
+                    uint8_t sequence = frame.data[1];
+                    uint8_t unknown1 = frame.data[2];
                     uint8_t cadence = frame.data[3];
-                    uint16_t torque = (((uint16_t)frame.data[5] << 8) | (uint16_t)frame.data[4]);
-                    uint16_t unknown = (((uint16_t)frame.data[7] << 8) | (uint16_t)frame.data[6]);
+                    uint16_t rawTorque = (((uint16_t)frame.data[5] << 8) | (uint16_t)frame.data[4]);
+                    uint16_t unknown2 = (((uint16_t)frame.data[7] << 8) | (uint16_t)frame.data[6]);
                     static uint8_t lastCadence = 0;
                     static uint16_t lastTorque = 0;
+                    if ((int)rawTorque + State::torqueOffset < 0) {
+                        ESP_LOGW(taskName(), "Parsed raw torque %u is below expected offset %d, ignoring", rawTorque, State::torqueOffset);
+                        break;
+                    }
+                    uint16_t torque = rawTorque + State::torqueOffset;
+                    // Ignore unchanged values
                     if (cadence == lastCadence && torque == lastTorque) break;
+                    // Workaround for periodic drops in torque readings despite steady input,
+                    // which causes humanPower() to report 0W. If cadence is above 80% of last
+                    // cadence and torque is below 20% of last torque, ignore the reading for
+                    // 3 seconds. The origins of this issue are unknown, it may be a bug in
+                    // the Bafang firmware or a misinterpretation of frame payloads.
+                    static uint32_t lastValidTorqueTime = 0;
+                    if (cadence > 0 &&
+                        cadence > (uint8_t)(lastCadence * .8f) &&
+                        torque < (uint16_t)(lastTorque * .2f) &&
+                        t - lastValidTorqueTime < 3000) {
+                        ESP_LOGW(taskName(), "Parsed torque %u is below 20%% of last torque %u while cadence delta is %d, ignoring", torque, lastTorque, cadence - lastCadence);
+                        break;
+                    }
+                    lastValidTorqueTime = t;
                     lastCadence = cadence;
                     lastTorque = torque;
                     float humanPower = 0.0f;
                     if (state.acquireMutex()) {
                         State::Snapshot s = state.getSnapshot(false);
                         s.cadence = cadence;
-                        s.torque = torque;
+                        s.torque = rawTorque;
                         state.setSnapshot(s, false);
                         state.releaseMutex();
                         humanPower = s.humanPower();
                     }
-                    ESP_LOGD(taskName(), "Parsed cadence: %u, raw torque: %u, human power: %.1f, unknown: %u", cadence, torque, humanPower, unknown);
+                    ESP_LOGD(taskName(),
+                             "Parsed cadence: %u, torque: %u, human power: %.1f, "
+                             "status: %u, seq: %u, unknown1: %u, unknown2: %u",
+                             cadence, torque, humanPower,
+                             status, sequence, unknown1, unknown2);
                     break;
                 }
 
-                case 0x02F83201: {  // [8] Wheel speed, current, voltage, motor temp, controller temp
-                    uint16_t wheelSpeed_x10 = ((uint16_t)frame.data[1] << 8) | (uint16_t)frame.data[0];
+                case 0x02F83201: {  // [8] Speed, current, voltage, motor temp, controller temp
+                    uint16_t speed_x100 = ((uint16_t)frame.data[1] << 8) | (uint16_t)frame.data[0];
                     uint16_t batteryCurrent_x100 = ((uint16_t)frame.data[3] << 8) | (uint16_t)frame.data[2];
                     uint16_t batteryVoltage_x100 = ((uint16_t)frame.data[5] << 8) | (uint16_t)frame.data[4];
                     if (state.acquireMutex()) {
                         State::Snapshot s = state.getSnapshot(false);
-                        s.wheelSpeed_x10 = wheelSpeed_x10;
+                        s.speed_x100 = speed_x100;
                         s.batteryCurrent_x100 = batteryCurrent_x100;
                         s.batteryVoltage_x100 = batteryVoltage_x100;
                         s.motorTemp = (int8_t)frame.data[6] - 40;
@@ -159,36 +187,36 @@ class CAN : public Task {
                     char speedBuf[64] = {};
                     snprintf(speedBuf, sizeof(speedBuf),
                              "%.1f, current: %.1f, voltage: %.1f",
-                             wheelSpeed_x10 / 10.0f,
+                             speed_x100 / 100.0f,
                              batteryCurrent_x100 / 100.0f,
                              batteryVoltage_x100 / 100.0f);
                     static char lastSpeedBuf[64] = {};
                     if (strcmp(speedBuf, lastSpeedBuf) != 0) {
-                        ESP_LOGD(taskName(), "Parsed wheel speed: %s", speedBuf);
+                        ESP_LOGD(taskName(), "Parsed speed: %s", speedBuf);
                         strncpy(lastSpeedBuf, speedBuf, sizeof(lastSpeedBuf));
                     }
                     break;
                 }
 
-                case 0x02F83203: {  // [8] Wheel max speed, wheel size, wheel circumference
-                    uint16_t wheelMaxSpeed_x100 = ((uint16_t)frame.data[1] << 8) | (uint16_t)frame.data[0];
+                case 0x02F83203: {  // [8] Max assist speed, wheel size, wheel circumference
+                    uint16_t maxAssistSpeed_x100 = ((uint16_t)frame.data[1] << 8) | (uint16_t)frame.data[0];
                     uint8_t highNibble = frame.data[3] >> 4;
                     uint8_t lowNibble = frame.data[2] & 0x0F;
                     uint8_t wheelSize = (highNibble * 10) + lowNibble;
                     uint16_t wheelCircumference = ((uint16_t)frame.data[5] << 8) | (uint16_t)frame.data[4];
-                    static uint16_t lastWheelMaxSpeed = 0;
+                    static uint16_t lastMaxAssistSpeed = 0;
                     static uint8_t lastWheelSize = 0;
                     static uint16_t lastWheelCircumference = 0;
-                    if (wheelMaxSpeed_x100 == lastWheelMaxSpeed && wheelSize == lastWheelSize && wheelCircumference == lastWheelCircumference) break;
-                    lastWheelMaxSpeed = wheelMaxSpeed_x100;
+                    if (maxAssistSpeed_x100 == lastMaxAssistSpeed && wheelSize == lastWheelSize && wheelCircumference == lastWheelCircumference) break;
+                    lastMaxAssistSpeed = maxAssistSpeed_x100;
                     lastWheelSize = wheelSize;
                     lastWheelCircumference = wheelCircumference;
-                    state.wheelMaxSpeed_x100(((uint16_t)frame.data[1] << 8) | (uint32_t)frame.data[0]);
+                    state.maxAssistSpeed_x100(((uint16_t)frame.data[1] << 8) | (uint32_t)frame.data[0]);
                     state.wheelSize(wheelSize);
                     state.wheelCircumference(wheelCircumference);
                     ESP_LOGD(taskName(),
                              "Parsed wheel max speed: %.1f km/h, wheel size: %d mm, wheel circumference: %d mm",
-                             wheelMaxSpeed_x100 / 100.0f, wheelSize, wheelCircumference);
+                             maxAssistSpeed_x100 / 100.0f, wheelSize, wheelCircumference);
                     break;
                 }
 
