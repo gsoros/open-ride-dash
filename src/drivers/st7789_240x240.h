@@ -27,15 +27,15 @@ class ST7789_240x240 : public DisplayDriver {
         METRIC_SPEED,       // km/h
         METRIC_CADENCE,     // RPM
         METRIC_PAS,         // Pedal Assist Level, -1 = Walk assist, 0 = Off, 1-5 = PAS levels
-        METRIC_MOTOR_PWR,   // Watts
-        METRIC_HUMAN_PWR,   // Watts
+        METRIC_MOTOR_PWR,   // W
+        METRIC_HUMAN_PWR,   // W
         METRIC_VOLTAGE,     // V, battery voltage
         METRIC_SOC,         // %, battery State Of Charge
         METRIC_MOTOR_TEMP,  // °C
         METRIC_TRIP,        // km, unused, TODO: Parse CAN trip data, add resettable trip functionality
         METRIC_ODO,         // km, unused, TODO: Parse CAN odometer data
-        METRIC_RANGE,       // km, unused, TODO: Implement live range estimation based on current battery level, user-configurable battery capacity, and power consumption
-        METRIC_HEART_RATE,  // bpm, unused, TODO: Add BLE heart rate support
+        METRIC_RANGE,       // km
+        METRIC_HEART_RATE,  // BPM, unused, TODO: Add BLE heart rate support
         METRIC_BODY_TEMP,   // °C, unused, TODO: Add BLE body temperature support
         METRIC_COUNT        // total number of metrics
     };
@@ -181,7 +181,7 @@ class ST7789_240x240 : public DisplayDriver {
         {METRIC_TRIP, "Trip", "TRP", "km"},
         {METRIC_ODO, "Odometer", "ODO", "km"},
         {METRIC_RANGE, "Range", "RNG", "km"},
-        {METRIC_HEART_RATE, "Heart Rate", "HRT", "bpm"},
+        {METRIC_HEART_RATE, "Heart Rate", "HRT", "BPM"},
         {METRIC_BODY_TEMP, "Body Temp", "BDY", "C"},
     };
 
