@@ -1,6 +1,6 @@
 # OpenRideDash
 
-OpenRideDash is open-source firmware for an ESP32-C3 based e-bike dashboard. It provides a compact ride display, CAN data integration, Wi-Fi connectivity, OTA updates, Telnet diagnostics, and keypad-driven menus on a 240x240 ST7789 display.
+OpenRideDash is open-source firmware for an ESP32-C3 based e-bike dashboard. It provides a compact ride display, CAN data integration, Wi-Fi connectivity, OTA updates, Telnet diagnostics, and keypad-driven menus on a 240x240 ST7789 display. Currently, the Bafang M560 mid-drive is the only supported controller.
 
 ## Features
 
@@ -8,7 +8,7 @@ OpenRideDash is open-source firmware for an ESP32-C3 based e-bike dashboard. It 
 - ST7789 240x240 color display driver
 - CAN bus data integration for e-bike metrics
 - Wi-Fi connectivity and OTA firmware updates
-- Telnet access for diagnostics and remote command handling
+- Serial over WiFi access for diagnostics and command handling
 - Custom keypad/menu navigation
 - Task-based architecture for modular firmware components
 - Rolling firmware bootloader support via custom bootloader replacement
@@ -18,14 +18,14 @@ OpenRideDash is open-source firmware for an ESP32-C3 based e-bike dashboard. It 
 - ESP32-C3 development board (`esp32-c3-devkitm-1`)
 - ST7789 240x240 display
 - CAN bus interface
-- Keypad and buzzer support
+- Keypad support
 
 ## Software Stack
 
 - PlatformIO with Arduino framework
 - ESP32 platform version `6.13.0`
 - Arduino GFX library
-- MPU9250 dependency included via GitHub
+- Patched MPU9250 dependency 
 - `ACAN_ESP32` for CAN support
 - `OneButton` for keypad/button handling
 
@@ -57,7 +57,6 @@ OpenRideDash is open-source firmware for an ESP32-C3 based e-bike dashboard. It 
 - `loop()` is intentionally empty; tasks are scheduled via FreeRTOS.
 - The project applies a custom bootloader replacement during the build.
 - The display driver uses multiple canvas layers and animated page transitions.
-- `CANSim` support exists but is currently commented out in main.cpp.
 
 ## Planned Features
 
