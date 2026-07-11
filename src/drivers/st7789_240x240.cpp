@@ -82,7 +82,7 @@ void ST7789_240x240::setup() {
 }
 
 void ST7789_240x240::splash() {
-    static uint32_t f = 0;
+    static uint32_t f = 0;  // frame
 
     Canvas* c = canvasFullScreen;
     using i = int16_t;
@@ -94,6 +94,7 @@ void ST7789_240x240::splash() {
         c->setTextSize(1);
     }
 
+    const uint8_t animationLength = 10;  // frames
     const i targetY = 100;
     const i centerX = 100;
     const i letterSpacing = 30;
@@ -101,12 +102,12 @@ void ST7789_240x240::splash() {
     i rTargetX = centerX;
     i dTargetX = centerX + letterSpacing;
 
-    if (f <= 30) {
+    if (f <= animationLength) {
         if (f > 0) {
             i prev_f = f - 1;
-            i prev_oX = 0 + (prev_f * (oTargetX) / 30);
-            i prev_rY = 0 + (prev_f * targetY / 30);
-            i prev_dX = 200 - (prev_f * (200 - dTargetX) / 30);
+            i prev_oX = 0 + (prev_f * (oTargetX) / animationLength);
+            i prev_rY = 0 + (prev_f * targetY / animationLength);
+            i prev_dX = 200 - (prev_f * (200 - dTargetX) / animationLength);
             c->setTextColor(BLACK);
             c->setCursor(prev_oX, targetY);
             c->print("O");
@@ -115,9 +116,9 @@ void ST7789_240x240::splash() {
             c->setCursor(prev_dX, targetY);
             c->print("D");
         }
-        i oX = 0 + (f * (oTargetX) / 30);
-        i rY = 0 + (f * targetY / 30);
-        i dX = 200 - (f * (200 - dTargetX) / 30);
+        i oX = 0 + (f * (oTargetX) / animationLength);
+        i rY = 0 + (f * targetY / animationLength);
+        i dX = 200 - (f * (200 - dTargetX) / animationLength);
         c->setTextColor(WHITE);
         c->setCursor(oX, targetY);
         c->print("O");
@@ -125,7 +126,7 @@ void ST7789_240x240::splash() {
         c->print("R");
         c->setCursor(dX, targetY);
         c->print("D");
-    } else if (f == 31) {
+    } else if (f == animationLength + 1) {
         c->setFont(smallFont);
         c->setTextSize(1);
         c->setTextColor(WHITE);
@@ -133,8 +134,10 @@ void ST7789_240x240::splash() {
         c->print("OpenRideDash");
     }
 
-    c->flush();
-    if (f < 100) f++;
+    if (f <= animationLength + 1) {
+        c->flush();
+        f++;
+    }
 }
 
 void ST7789_240x240::update() {
@@ -147,7 +150,7 @@ void ST7789_240x240::update() {
     }
 
     if (_displayMode == MODE_SPLASH) {
-        if (t < 5000) {  // show splash for at least 5 seconds
+        if (t < 4000) {  // show splash for ~4 seconds
             splash();
             return;
         }
