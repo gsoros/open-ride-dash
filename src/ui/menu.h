@@ -41,22 +41,10 @@ class Menu {
 
     enum class Key : uint8_t {
         Wifi = 0,
-        SaveBrightness,
-        Dummy2,
-        AnotherMenuItem3,
-        ItemWithLongName4,
-        Short,
-        Dummy6,
-        Dummy7,
-        ItemWithLongName8,
-        Dummy9,
-        Dummy10,
-        Dummy11,
-        Dummy12,
-        Dummy13,
+        Brightness,
         Restart,
         Exit,
-        Count,
+        Count,  // Total number of menu items, must be last
     };
 
     struct Snapshot {
@@ -84,6 +72,8 @@ class Menu {
     void exit();
     Snapshot snapshot() const;
     void markRendered();
+
+    void onWifiStatusChange(const char* status);
     void onBrightnessChange(bool saved);
 
     auto begin() { return _items.begin(); }

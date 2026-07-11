@@ -49,7 +49,7 @@ class State : public HasPreferences {
         // Calculates human mechanical power in Watts
         float humanPower() {
             // power (W) = cadence (RPM) * torque (Nm) * 2 * pi / 60
-            float power = (float)cadence * (float)(torque + torqueOffset) / torqueNmFactor * 0.104719755f;
+            float power = (float)cadence * (float)(torque + TORQUE_OFFSET) / TORQUE_NM_FACTOR * 0.104719755f;
 
             static uint32_t lastLog = 0;
             static float lastPower = 0.0f;
@@ -254,13 +254,16 @@ class State : public HasPreferences {
     void setSnapshot(Snapshot s, bool withMutex = true);
 
     // Raw sensor value at rest: 750 counts
-    static constexpr int16_t torqueOffset = -750;
+    static constexpr int16_t TORQUE_OFFSET = -750;
 
     // Value with an 18.46 kg mass hanging from a horizontal 170 mm crank: 1875 counts.
     // Raw delta = 1875 - 750 = 1125 counts
     // Torque = 18.46 * 9.80665 * 0.170 = 30.78 Nm
-    // torqueNmFactor = 1125 / 30.78 = 36.55 counts/Nm
-    static constexpr float torqueNmFactor = 36.55f;
+    // factor = 1125 / 30.78 = 36.55 counts/Nm
+    static constexpr float TORQUE_NM_FACTOR = 36.55f;
+
+    static constexpr int8_t PAS_OFF = 0;
+    static constexpr int8_t PAS_WALK_ASSIST = -1;
 
    protected:
     SemaphoreHandle_t mutex = nullptr;

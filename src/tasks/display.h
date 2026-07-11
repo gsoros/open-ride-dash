@@ -33,6 +33,8 @@ class Display : public Task, public ApiClient, public HasPreferences {
         loadPreferences();
         output.setBrightnessPercent(brightnessPercent);
         output.splash();
+        // Initialize menu label based on saved brightness
+        menu.onBrightnessChange(savedBrightnessPercent == brightnessPercent);
         uiEventQueue = xQueueCreate(UI_EVENT_QUEUE_LENGTH, sizeof(UiEvent));
         if (uiEventQueue == nullptr) {
             ESP_LOGE(taskName(), "Failed to create UI event queue");
@@ -94,6 +96,7 @@ class Display : public Task, public ApiClient, public HasPreferences {
         }
         if (preferences.putUChar(brightnessPrefKey, brightnessPercent)) {
             savedBrightnessPercent = brightnessPercent;
+            menu.onBrightnessChange(true);
             ESP_LOGD(taskName(), "Saved brightness: %d%%", brightnessPercent);
             return true;
         }
@@ -231,24 +234,20 @@ class Display : public Task, public ApiClient, public HasPreferences {
     }
 
     void handleUpLongPress() {
-        if (menu.active()) return;
         if (lastBrightnessChange + brightnessChangeDelay > millis()) return;
-        if (shouldLogLongPress()) {
+        if (shouldLogLongPress())
             ESP_LOGD(taskName(), "Key up long press (increase brightness)");
-        }
         if (!increaseBrightness()) return;
         lastBrightnessChange = millis();
         menu.onBrightnessChange(brightnessPercent == savedBrightnessPercent);
     }
 
     void handleDownLongPress() {
-        if (menu.active()) return;
         if (lastBrightnessChange + brightnessChangeDelay > millis()) return;
-        bool isWalkAssist = state.pasLevel() == -1;
-        if (shouldLogLongPress()) {
+        bool isWalkAssist = state.pasLevel() == State::PAS_WALK_ASSIST;
+        if (shouldLogLongPress())
             ESP_LOGW(taskName(), "Key down long press (%s)",
                      isWalkAssist ? "walk assist" : "decrease brightness");
-        }
         if (isWalkAssist) return;
         if (!decreaseBrightness()) return;
         lastBrightnessChange = millis();

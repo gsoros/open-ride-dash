@@ -130,11 +130,11 @@ class CAN : public Task {
                     uint16_t unknown2 = (((uint16_t)frame.data[7] << 8) | (uint16_t)frame.data[6]);
                     static uint8_t lastCadence = 0;
                     static uint16_t lastTorque = 0;
-                    if ((int)rawTorque + State::torqueOffset < 0) {
-                        ESP_LOGW(taskName(), "Parsed raw torque %u is below expected offset %d, ignoring", rawTorque, State::torqueOffset);
+                    if ((int)rawTorque + State::TORQUE_OFFSET < 0) {
+                        ESP_LOGW(taskName(), "Parsed raw torque %u is below expected offset %d, ignoring", rawTorque, State::TORQUE_OFFSET);
                         break;
                     }
-                    uint16_t torque = rawTorque + State::torqueOffset;
+                    uint16_t torque = rawTorque + State::TORQUE_OFFSET;
                     // Ignore unchanged values
                     if (cadence == lastCadence && torque == lastTorque) break;
                     // Workaround for periodic drops in torque readings despite steady input,
@@ -265,10 +265,10 @@ class CAN : public Task {
                     int8_t newPas = INT8_MIN;
                     switch (frame.data[0]) {
                         case 0x06:  // Walk assist
-                            newPas = -1;
+                            newPas = State::PAS_WALK_ASSIST;
                             break;
                         case 0x00:  // Off
-                            newPas = 0;
+                            newPas = State::PAS_OFF;
                             break;
                         case 0x0b:
                             newPas = 1;
@@ -293,9 +293,9 @@ class CAN : public Task {
                     static int8_t lastPas = INT8_MIN;  // CAN is the only source of PAS level changes
                     if (newPas != lastPas) {           // so we can safely ignore the repeated identical values
                         ESP_LOGD(taskName(), "Parsed PAS level: %d%s", newPas,
-                                 newPas == 0    ? " (off)"          //
-                                 : newPas == -1 ? " (walk assist)"  //
-                                                : "");
+                                 newPas == State::PAS_OFF           ? " (off)"          //
+                                 : newPas == State::PAS_WALK_ASSIST ? " (walk assist)"  //
+                                                                    : "");
                         lastPas = newPas;
                         state.pasLevel(newPas);
                     }

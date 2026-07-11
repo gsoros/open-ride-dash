@@ -38,16 +38,19 @@ class Wifi : public Task,
 
         registerApiCommands();
 
+        // Initialize menu label
+        display.menu.onWifiStatusChange(staEnabled ? "WiFi Searching" : "WiFi Disabled");
+
+        WiFi.onEvent([this](WiFiEvent_t event, WiFiEventInfo_t info) {
+            handleWiFiEvent(event, info);
+        });
+
         if (staEnabled) {
             startSTA();
         } else {
             ESP_LOGI(taskName(), "STA is disabled");
             WiFi.mode(WIFI_MODE_NULL);
         }
-
-        WiFi.onEvent([this](WiFiEvent_t event, WiFiEventInfo_t info) {
-            handleWiFiEvent(event, info);
-        });
 
         setupDone = true;
     }
@@ -258,7 +261,8 @@ class Wifi : public Task,
             return;
         }
         ESP_LOGI(taskName(), "STA enabled, rebooting...");
-        delay(500);
+        display.menu.onWifiStatusChange("Restarting...");
+        delay(1000);
         esp_restart();
     }
 
@@ -268,8 +272,10 @@ class Wifi : public Task,
         if (!preferencesReady || preferences.putBool(staEnabledKey, false) == 0)
             ESP_LOGE(taskName(), "Failed to save STA disabled state");
         ESP_LOGI(taskName(), "STA disabled, rebooting...");
-        delay(500);
         stopSTA();
+        delay(500);
+        display.menu.onWifiStatusChange("Restarting...");
+        delay(500);
         esp_restart();
     }
 
@@ -285,14 +291,12 @@ class Wifi : public Task,
             case SYSTEM_EVENT_STA_GOT_IP:
                 ESP_LOGI(taskName(), "Connected to WiFi SSID: %s, IP: %s",
                          ssid.c_str(), WiFi.localIP().toString().c_str());
-                display.menu[Menu::Key::Wifi].label = "WiFi Connected";
-                display.menu.setDirty();
+                display.menu.onWifiStatusChange("WiFi Connected");
                 break;
             case SYSTEM_EVENT_STA_DISCONNECTED:
                 ESP_LOGW(taskName(), "Disconnected from WiFi SSID: %s",
                          ssid.c_str());
-                display.menu[Menu::Key::Wifi].label = "WiFi Disconnected";
-                display.menu.setDirty();
+                display.menu.onWifiStatusChange("WiFi Disconnected");
                 break;
             default:
                 ESP_LOGD(taskName(), "WiFi event: %s", WiFi.eventName(event));

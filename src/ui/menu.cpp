@@ -12,44 +12,8 @@ Menu::Menu() {
     _items[idx(Key::Wifi)].label = "WiFi";
     _items[idx(Key::Wifi)].action = &Menu::onWifiSelect;
 
-    _items[idx(Key::SaveBrightness)].label = "Save Brightness";
-    _items[idx(Key::SaveBrightness)].action = &Menu::onBrightnessSelect;
-
-    _items[idx(Key::Dummy2)].label = "Dummy 2";
-    _items[idx(Key::Dummy2)].action = &Menu::onNoopSelect;
-
-    _items[idx(Key::AnotherMenuItem3)].label = "Another menu item 3";
-    _items[idx(Key::AnotherMenuItem3)].action = &Menu::onNoopSelect;
-
-    _items[idx(Key::ItemWithLongName4)].label = "Item with a long name 4";
-    _items[idx(Key::ItemWithLongName4)].action = &Menu::onNoopSelect;
-
-    _items[idx(Key::Short)].label = "Short";
-    _items[idx(Key::Short)].action = &Menu::onNoopSelect;
-
-    _items[idx(Key::Dummy6)].label = "Dummy 6";
-    _items[idx(Key::Dummy6)].action = &Menu::onNoopSelect;
-
-    _items[idx(Key::Dummy7)].label = "Dummy 7";
-    _items[idx(Key::Dummy7)].action = &Menu::onNoopSelect;
-
-    _items[idx(Key::ItemWithLongName8)].label = "Item with a long name 8";
-    _items[idx(Key::ItemWithLongName8)].action = &Menu::onNoopSelect;
-
-    _items[idx(Key::Dummy9)].label = "Dummy 9";
-    _items[idx(Key::Dummy9)].action = &Menu::onNoopSelect;
-
-    _items[idx(Key::Dummy10)].label = "Dummy 10";
-    _items[idx(Key::Dummy10)].action = &Menu::onNoopSelect;
-
-    _items[idx(Key::Dummy11)].label = "Dummy 11";
-    _items[idx(Key::Dummy11)].action = &Menu::onNoopSelect;
-
-    _items[idx(Key::Dummy12)].label = "Dummy 12";
-    _items[idx(Key::Dummy12)].action = &Menu::onNoopSelect;
-
-    _items[idx(Key::Dummy13)].label = "Dummy 13";
-    _items[idx(Key::Dummy13)].action = &Menu::onNoopSelect;
+    _items[idx(Key::Brightness)].label = "Save Brightness";
+    _items[idx(Key::Brightness)].action = &Menu::onBrightnessSelect;
 
     _items[idx(Key::Restart)].label = "Restart";
     _items[idx(Key::Restart)].action = &Menu::onRestartSelect;
@@ -126,7 +90,12 @@ void Menu::markRendered() {
 }
 
 void Menu::onBrightnessChange(bool saved) {
-    _items[idx(Key::SaveBrightness)].label = saved ? "Brightness Saved" : "Save Brightness";
+    _items[idx(Key::Brightness)].label = saved ? "Brightness Saved" : "Save Brightness";
+    setDirty();
+}
+
+void Menu::onWifiStatusChange(const char* status) {
+    _items[idx(Key::Wifi)].label = status;
     setDirty();
 }
 
