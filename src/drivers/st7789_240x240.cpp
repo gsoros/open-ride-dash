@@ -96,7 +96,7 @@ void ST7789_240x240::splash() {
 
     const uint8_t animationLength = 10;  // frames
     const i targetY = 100;
-    const i centerX = 100;
+    const i centerX = 110;
     const i letterSpacing = 30;
     i oTargetX = centerX - letterSpacing;
     i rTargetX = centerX;
@@ -130,7 +130,7 @@ void ST7789_240x240::splash() {
         c->setFont(smallFont);
         c->setTextSize(1);
         c->setTextColor(WHITE);
-        c->setCursor(centerX - 60, targetY + 60);
+        c->setCursor(centerX - 70, targetY + 60);
         c->print("OpenRideDash");
     }
 
