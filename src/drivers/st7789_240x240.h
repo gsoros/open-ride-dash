@@ -21,6 +21,15 @@ extern State state;
 #include "fonts/u8g2/RobotoMono_Bold_48px_caps_digits.h"
 #include "fonts/u8g2/RobotoMono_Regular_24px_alpha_digits.h"
 
+class Canvas : public Arduino_Canvas_Mono {
+   public:
+    Canvas(int16_t w, int16_t h, Arduino_G* output = nullptr, int16_t x = 0, int16_t y = 0, bool verticalByte = false)
+        : Arduino_Canvas_Mono(w, h, output, x, y, verticalByte) {}
+
+    int16_t w() const { return _width; }
+    int16_t h() const { return _height; }
+};
+
 class ST7789_240x240 : public DisplayDriver {
    public:
     enum MetricID {
@@ -92,16 +101,16 @@ class ST7789_240x240 : public DisplayDriver {
     Arduino_DataBus* bus = nullptr;  // Data bus
     Arduino_GFX* tft = nullptr;      // Display
 
-    Arduino_Canvas_Mono* canvasMajor = nullptr;   // Main metric canvas, top, full width
-    Arduino_Canvas_Mono* canvasMinor1 = nullptr;  // Bottom left metric canvas
-    Arduino_Canvas_Mono* canvasMinor2 = nullptr;  // Bottom right metric canvas
-    Arduino_Canvas_Mono* canvasMenu = nullptr;    // Menu canvas, full screen
-    Arduino_Canvas_Mono* transitionLabelMajor = nullptr;
-    Arduino_Canvas_Mono* transitionValueMajor = nullptr;
-    Arduino_Canvas_Mono* transitionLabelMinor1 = nullptr;
-    Arduino_Canvas_Mono* transitionValueMinor1 = nullptr;
-    Arduino_Canvas_Mono* transitionLabelMinor2 = nullptr;
-    Arduino_Canvas_Mono* transitionValueMinor2 = nullptr;
+    Canvas* canvasMajor = nullptr;       // Main metric canvas, top, full width
+    Canvas* canvasMinor1 = nullptr;      // Bottom left metric canvas
+    Canvas* canvasMinor2 = nullptr;      // Bottom right metric canvas
+    Canvas* canvasFullScreen = nullptr;  // Full screen canvas
+    Canvas* transitionLabelMajor = nullptr;
+    Canvas* transitionValueMajor = nullptr;
+    Canvas* transitionLabelMinor1 = nullptr;
+    Canvas* transitionValueMinor1 = nullptr;
+    Canvas* transitionLabelMinor2 = nullptr;
+    Canvas* transitionValueMinor2 = nullptr;
 
     // Font for main slot, digits only
     const uint8_t* largeFont = u8g2_font_RobotoMono_Bold_90px_digits;
@@ -113,7 +122,7 @@ class ST7789_240x240 : public DisplayDriver {
     const uint8_t* labelFont = u8g2_font_RobotoMono_Bold_48px_caps_digits;
 
     // Alphanumeric characters
-    const uint8_t* menuFont = u8g2_font_RobotoMono_Bold_24px_alpha_digits;
+    const uint8_t* smallFont = u8g2_font_RobotoMono_Bold_24px_alpha_digits;
 
     static constexpr uint32_t PAGE_UPDATE_MS = 100;        // normal update rate
     static constexpr uint32_t TRANSITION_MS = 2000;        // total page transition time
@@ -156,9 +165,9 @@ class ST7789_240x240 : public DisplayDriver {
     };
 
     struct MetricSlot {
-        Arduino_Canvas_Mono* canvas;
-        Arduino_Canvas_Mono* labelCanvas;
-        Arduino_Canvas_Mono* valueCanvas;
+        Canvas* canvas;
+        Canvas* labelCanvas;
+        Canvas* valueCanvas;
         uint8_t valueTextSize;
         uint8_t labelTextSize;
         uint8_t valueVerticalOffset;
@@ -225,8 +234,8 @@ class ST7789_240x240 : public DisplayDriver {
     void drawMetricValue(uint8_t slotIndex, MetricID id, State::Snapshot& s, bool force, bool remember);
     const uint8_t* selectValueFont(const char* value, bool isNumeric) const;
     void drawSlotText(MetricSlot& slot, const char* text, const uint8_t* font, uint8_t textSize, uint8_t verticalOffset, bool invertColors = false);
-    void renderTextToCanvas(Arduino_Canvas_Mono* canvas, const char* text, const uint8_t* font, uint8_t textSize, uint8_t verticalOffset, bool invertColors = false);
-    void blendMonoCanvases(Arduino_Canvas_Mono* fromCanvas, Arduino_Canvas_Mono* toCanvas, Arduino_Canvas_Mono* outputCanvas, uint8_t blendStep);
+    void renderTextToCanvas(Canvas* canvas, const char* text, const uint8_t* font, uint8_t textSize, uint8_t verticalOffset, bool invertColors = false);
+    void blendMonoCanvases(Canvas* fromCanvas, Canvas* toCanvas, Canvas* outputCanvas, uint8_t blendStep);
     uint8_t bayerThreshold(uint16_t x, uint16_t y) const;
     bool formatMetricValue(MetricID id, State::Snapshot& s, char* buffer, size_t bufferSize, bool* isNumeric);
     bool formatPasValue(int8_t pas, char* buffer, size_t bufferSize, bool* isNumeric);

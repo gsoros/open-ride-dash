@@ -30,18 +30,18 @@ ST7789_240x240::ST7789_240x240(
                              ST7789_COL_OFFSET2, ST7789_ROW_OFFSET2);
 
     // Main canvases
-    canvasMajor = new Arduino_Canvas_Mono(w - 8, 140, tft, 4, 0);
-    canvasMinor1 = new Arduino_Canvas_Mono((w - 16) / 2, h - 144, tft, 4, 144);
-    canvasMinor2 = new Arduino_Canvas_Mono((w - 16) / 2, h - 144, tft, (w - 16) / 2 + 12, 144);
-    canvasMenu = new Arduino_Canvas_Mono(w, h, tft, 0, 0);
+    canvasMajor = new Canvas(w - 8, 140, tft, 4, 0);
+    canvasMinor1 = new Canvas((w - 16) / 2, h - 144, tft, 4, 144);
+    canvasMinor2 = new Canvas((w - 16) / 2, h - 144, tft, (w - 16) / 2 + 12, 144);
+    canvasFullScreen = new Canvas(w, h, tft, 0, 0);
 
-    // Transition canvases without output pointers
-    transitionLabelMajor = new Arduino_Canvas_Mono(canvasMajor->width(), canvasMajor->height(), nullptr);
-    transitionValueMajor = new Arduino_Canvas_Mono(canvasMajor->width(), canvasMajor->height(), nullptr);
-    transitionLabelMinor1 = new Arduino_Canvas_Mono(canvasMinor1->width(), canvasMinor1->height(), nullptr);
-    transitionValueMinor1 = new Arduino_Canvas_Mono(canvasMinor1->width(), canvasMinor1->height(), nullptr);
-    transitionLabelMinor2 = new Arduino_Canvas_Mono(canvasMinor2->width(), canvasMinor2->height(), nullptr);
-    transitionValueMinor2 = new Arduino_Canvas_Mono(canvasMinor2->width(), canvasMinor2->height(), nullptr);
+    // Transition canvases without output
+    transitionLabelMajor = new Canvas(canvasMajor->w(), canvasMajor->h());
+    transitionValueMajor = new Canvas(canvasMajor->w(), canvasMajor->h());
+    transitionLabelMinor1 = new Canvas(canvasMinor1->w(), canvasMinor1->h());
+    transitionValueMinor1 = new Canvas(canvasMinor1->w(), canvasMinor1->h());
+    transitionLabelMinor2 = new Canvas(canvasMinor2->w(), canvasMinor2->h());
+    transitionValueMinor2 = new Canvas(canvasMinor2->w(), canvasMinor2->h());
 }
 
 void ST7789_240x240::setup() {
@@ -62,7 +62,7 @@ void ST7789_240x240::setup() {
     if (!canvasMajor->begin(GFX_SKIP_OUTPUT_BEGIN) ||
         !canvasMinor1->begin(GFX_SKIP_OUTPUT_BEGIN) ||
         !canvasMinor2->begin(GFX_SKIP_OUTPUT_BEGIN) ||
-        !canvasMenu->begin(GFX_SKIP_OUTPUT_BEGIN) ||
+        !canvasFullScreen->begin(GFX_SKIP_OUTPUT_BEGIN) ||
         !transitionLabelMajor->begin(GFX_SKIP_OUTPUT_BEGIN) ||
         !transitionValueMajor->begin(GFX_SKIP_OUTPUT_BEGIN) ||
         !transitionLabelMinor1->begin(GFX_SKIP_OUTPUT_BEGIN) ||
@@ -78,20 +78,63 @@ void ST7789_240x240::setup() {
     canvasMajor->setTextColor(WHITE, BLACK);
     canvasMinor1->setTextColor(WHITE, BLACK);
     canvasMinor2->setTextColor(WHITE, BLACK);
-    canvasMenu->setTextColor(WHITE, BLACK);
+    canvasFullScreen->setTextColor(WHITE, BLACK);
 }
 
 void ST7789_240x240::splash() {
-    canvasMajor->fillScreen(BLACK);
-    canvasMinor1->fillScreen(BLACK);
-    canvasMinor2->fillScreen(BLACK);
-    canvasMajor->drawRect(0, 0, canvasMajor->width(), canvasMajor->height(), WHITE);
-    canvasMinor1->drawRect(0, 0, canvasMinor1->width(), canvasMinor1->height(), WHITE);
-    canvasMinor2->drawRect(0, 0, canvasMinor2->width(), canvasMinor2->height(), WHITE);
+    static uint32_t f = 0;
 
-    canvasMajor->flush();
-    canvasMinor1->flush();
-    canvasMinor2->flush();
+    Canvas* c = canvasFullScreen;
+    using i = int16_t;
+
+    if (f == 0) {
+        c->setFont(mediumFont);
+        c->fillScreen(BLACK);
+        c->setTextColor(WHITE);
+        c->setTextSize(1);
+    }
+
+    const i targetY = 100;
+    const i centerX = 100;
+    const i letterSpacing = 30;
+    i oTargetX = centerX - letterSpacing;
+    i rTargetX = centerX;
+    i dTargetX = centerX + letterSpacing;
+
+    if (f <= 30) {
+        if (f > 0) {
+            i prev_f = f - 1;
+            i prev_oX = 0 + (prev_f * (oTargetX) / 30);
+            i prev_rY = 0 + (prev_f * targetY / 30);
+            i prev_dX = 200 - (prev_f * (200 - dTargetX) / 30);
+            c->setTextColor(BLACK);
+            c->setCursor(prev_oX, targetY);
+            c->print("O");
+            c->setCursor(rTargetX, prev_rY);
+            c->print("R");
+            c->setCursor(prev_dX, targetY);
+            c->print("D");
+        }
+        i oX = 0 + (f * (oTargetX) / 30);
+        i rY = 0 + (f * targetY / 30);
+        i dX = 200 - (f * (200 - dTargetX) / 30);
+        c->setTextColor(WHITE);
+        c->setCursor(oX, targetY);
+        c->print("O");
+        c->setCursor(rTargetX, rY);
+        c->print("R");
+        c->setCursor(dX, targetY);
+        c->print("D");
+    } else if (f == 31) {
+        c->setFont(smallFont);
+        c->setTextSize(1);
+        c->setTextColor(WHITE);
+        c->setCursor(centerX - 60, targetY + 60);
+        c->print("OpenRideDash");
+    }
+
+    c->flush();
+    if (f < 100) f++;
 }
 
 void ST7789_240x240::update() {
@@ -104,7 +147,11 @@ void ST7789_240x240::update() {
     }
 
     if (_displayMode == MODE_SPLASH) {
-        if (t < 3000) return;  // show splash for at least 3 seconds
+        if (t < 5000) {  // show splash for at least 5 seconds
+            splash();
+            return;
+        }
+        clear();
         startPageTransition(_currentPage);
         return;
     }
@@ -187,9 +234,9 @@ bool ST7789_240x240::setBacklight(uint8_t level) {
 
 void ST7789_240x240::onSleep() {
     ESP_LOGD(tag, "onSleep()");
-    canvasMenu->fillScreen(BLACK);
-    renderTextToCanvas(canvasMenu, "SLEEPING", labelFont, 1, 0);
-    canvasMenu->flush();
+    canvasFullScreen->fillScreen(BLACK);
+    renderTextToCanvas(canvasFullScreen, "SLEEPING", labelFont, 1, 0);
+    canvasFullScreen->flush();
     setBrightnessPercent(0);
 
     // Switch pin from PWM mode to GPIO mode and hold it LOW during deep sleep.
@@ -224,8 +271,8 @@ bool ST7789_240x240::showMenu(const Menu::Snapshot& menu) {
 
 void ST7789_240x240::exitMenu() {
     if (_displayMode != MODE_MENU) return;
-    canvasMenu->fillScreen(BLACK);
-    canvasMenu->flush();
+    canvasFullScreen->fillScreen(BLACK);
+    canvasFullScreen->flush();
     startPageTransition(_currentPage);
 }
 
@@ -534,7 +581,7 @@ void ST7789_240x240::drawSlotText(
 }
 
 void ST7789_240x240::renderTextToCanvas(
-    Arduino_Canvas_Mono* canvas,
+    Canvas* canvas,
     const char* text,
     const uint8_t* font,
     uint8_t textSize,
@@ -547,7 +594,7 @@ void ST7789_240x240::renderTextToCanvas(
     canvas->setFont(font);
     canvas->setTextSize(textSize);
     canvas->setTextColor(textColor, backgroundColor);
-    canvas->fillRect(0, 0, canvas->width(), canvas->height(), backgroundColor);
+    canvas->fillRect(0, 0, canvas->w(), canvas->h(), backgroundColor);
 
     int16_t x1 = 0;
     int16_t y1 = 0;
@@ -556,18 +603,18 @@ void ST7789_240x240::renderTextToCanvas(
     canvas->getTextBounds(text, 0, 0, &x1, &y1, &textWidth, &textHeight);
 
     int16_t cursorX = -x1;
-    if (textWidth < canvas->width()) {
-        cursorX = (canvas->width() - textWidth) / 2 - x1;
+    if (textWidth < canvas->w()) {
+        cursorX = (canvas->w() - textWidth) / 2 - x1;
     }
 
-    canvas->setCursor(cursorX, canvas->height() - verticalOffset);
+    canvas->setCursor(cursorX, canvas->h() - verticalOffset);
     canvas->print(text);
 }
 
 void ST7789_240x240::blendMonoCanvases(
-    Arduino_Canvas_Mono* fromCanvas,
-    Arduino_Canvas_Mono* toCanvas,
-    Arduino_Canvas_Mono* outputCanvas,
+    Canvas* fromCanvas,
+    Canvas* toCanvas,
+    Canvas* outputCanvas,
     uint8_t blendStep) {
     if (fromCanvas == nullptr || toCanvas == nullptr || outputCanvas == nullptr) return;
 
@@ -576,8 +623,8 @@ void ST7789_240x240::blendMonoCanvases(
     uint8_t* output = outputCanvas->getFramebuffer();
     if (from == nullptr || to == nullptr || output == nullptr) return;
 
-    uint16_t width = outputCanvas->width();
-    uint16_t height = outputCanvas->height();
+    uint16_t width = outputCanvas->w();
+    uint16_t height = outputCanvas->h();
     uint16_t rowBytes = (width + 7) / 8;
 
     for (uint16_t y = 0; y < height; y++) {
@@ -880,10 +927,10 @@ void ST7789_240x240::formatUInt(char* buffer, size_t bufferSize, uint16_t value)
 }
 
 void ST7789_240x240::drawMenu(const Menu::Snapshot& menu) {
-    canvasMenu->setFont(menuFont);
-    canvasMenu->setTextSize(1);
-    canvasMenu->setTextColor(WHITE, BLACK);
-    canvasMenu->fillScreen(BLACK);
+    canvasFullScreen->setFont(smallFont);
+    canvasFullScreen->setTextSize(1);
+    canvasFullScreen->setTextColor(WHITE, BLACK);
+    canvasFullScreen->fillScreen(BLACK);
 
     constexpr uint8_t MAX_VISIBLE_MENU_ITEMS = 7;
     static uint8_t scrollOffset = 0;
@@ -909,7 +956,7 @@ void ST7789_240x240::drawMenu(const Menu::Snapshot& menu) {
         drawMenuLine(menu.items[i], 34 + (i - scrollOffset) * 36, i == menu.selectedItem);
     }
 
-    canvasMenu->flush();
+    canvasFullScreen->flush();
 }
 
 void ST7789_240x240::drawMenuLine(const char* text, int16_t baseline, bool selected) {
@@ -918,18 +965,18 @@ void ST7789_240x240::drawMenuLine(const char* text, int16_t baseline, bool selec
     uint16_t textColor = selected ? BLACK : WHITE;
     uint16_t backgroundColor = selected ? WHITE : BLACK;
 
-    canvasMenu->fillRect(0, baseline - 30, canvasMenu->width(), 34, backgroundColor);
-    canvasMenu->setTextColor(textColor);
+    canvasFullScreen->fillRect(0, baseline - 30, canvasFullScreen->w(), 34, backgroundColor);
+    canvasFullScreen->setTextColor(textColor);
     /* // centered
     int16_t x1 = 0;
     int16_t y1 = 0;
     uint16_t textWidth = 0;
     uint16_t textHeight = 0;
-    canvasMenu->getTextBounds(text, 0, 0, &x1, &y1, &textWidth, &textHeight);
-    int16_t cursorX = (canvasMenu->width() - textWidth) / 2 - x1;
-    canvasMenu->setCursor(cursorX, baseline);
+    canvasFullScreen->getTextBounds(text, 0, 0, &x1, &y1, &textWidth, &textHeight);
+    int16_t cursorX = (canvasFullScreen->w() - textWidth) / 2 - x1;
+    canvasFullScreen->setCursor(cursorX, baseline);
     */
     // left aligned
-    canvasMenu->setCursor(5, baseline);
-    canvasMenu->print(text);
+    canvasFullScreen->setCursor(5, baseline);
+    canvasFullScreen->print(text);
 }
