@@ -8,8 +8,9 @@
 #include "model/state.h"
 #include "config.h"
 #include "api.h"
-#include "ui/menu_controller.h"
-#include "ui/ui_events.h"
+#include "has_preferences.h"
+#include "ui/menu.h"
+#include "ui/events.h"
 
 #if ORD_DISPLAY == st7789_240x240
 #include "drivers/st7789_240x240.h"
@@ -19,7 +20,7 @@
 
 extern State state;
 
-class Display : public Task, public ApiClient {
+class Display : public Task, public ApiClient, public HasPreferences {
    public:
     virtual const char* taskName() const override {
         return "Display";
@@ -27,7 +28,7 @@ class Display : public Task, public ApiClient {
 
     virtual void setup() {
         output.setup();
-        brightnessPercent = 50;
+        loadPreferences();
         output.setBrightnessPercent(brightnessPercent);
         output.splash();
         uiEventQueue = xQueueCreate(UI_EVENT_QUEUE_LENGTH, sizeof(UiEvent));
@@ -62,24 +63,40 @@ class Display : public Task, public ApiClient {
         return true;
     }
 
-    void increaseBrightness() {
+    bool increaseBrightness() {
         static constexpr uint8_t step = 2;
         brightnessPercent += brightnessPercent <= 100 - step ? step : 1;
         if (brightnessPercent > 100) {
             brightnessPercent = 100;
-            return;
+            return false;
         }
         output.setBrightnessPercent(brightnessPercent);
+        return true;
     }
 
-    void decreaseBrightness() {
+    bool decreaseBrightness() {
         static constexpr uint8_t step = 2;
         brightnessPercent -= brightnessPercent >= step ? step : 1;
         if (brightnessPercent < 2) {
             brightnessPercent = 1;
-            return;
+            return false;
         }
         output.setBrightnessPercent(brightnessPercent);
+        return true;
+    }
+
+    bool saveBrightness() {
+        if (!preferencesReady) {
+            ESP_LOGW(taskName(), "Preferences not ready, cannot save brightness");
+            return false;
+        }
+        if (preferences.putUChar(brightnessPrefKey, brightnessPercent)) {
+            savedBrightnessPercent = brightnessPercent;
+            ESP_LOGD(taskName(), "Saved brightness: %d%%", brightnessPercent);
+            return true;
+        }
+        ESP_LOGE(taskName(), "Failed to save brightness");
+        return false;
     }
 
     Api::Reply nextPageCommand(const char* args) {
@@ -109,12 +126,25 @@ class Display : public Task, public ApiClient {
         PIN_TFT_BL,
         SPI2_HOST,
         TFT_ROTATION};
-    MenuController menu;
+    Menu menu;
     QueueHandle_t uiEventQueue = nullptr;
-    uint8_t brightnessPercent = 0;
+    char brightnessPrefKey[NVS_KEY_NAME_MAX_SIZE] = "brightness";
+    uint8_t savedBrightnessPercent = 100;  // default to 100% brightness
+    uint8_t brightnessPercent = 100;       // current brightness level, 0-100%
     uint32_t lastBrightnessChange = 0;
     static constexpr uint8_t brightnessChangeDelay = 50;
     bool menuShown = false;
+
+    bool loadPreferences() {
+        if (preferencesSetup("display", false)) {
+            savedBrightnessPercent = preferences.getUChar(brightnessPrefKey, savedBrightnessPercent);
+            brightnessPercent = savedBrightnessPercent;
+            ESP_LOGD(taskName(), "Loaded brightness from preferences: %d%%", brightnessPercent);
+            return true;
+        }
+        ESP_LOGW(taskName(), "Failed to setup preferences for display");
+        return false;
+    }
 
     void processUiEvents() {
         if (uiEventQueue == nullptr) return;
@@ -128,16 +158,16 @@ class Display : public Task, public ApiClient {
     void handleUiEvent(UiEvent event) {
         switch (event) {
             case UiEvent::UpClick:
-                if (menu.previousMenuItem()) return;
+                if (menu.previousItem()) return;
                 adjustPasLevel(1);
                 return;
             case UiEvent::DownClick:
-                if (menu.nextMenuItem()) return;
+                if (menu.nextItem()) return;
                 adjustPasLevel(-1);
                 return;
             case UiEvent::SelectClick:
                 if (menu.active()) {
-                    menu.selectMenuItem();
+                    menu.selectItem();
                     return;
                 }
                 output.nextPage();
@@ -153,9 +183,9 @@ class Display : public Task, public ApiClient {
                 return;
             case UiEvent::MenuChord:
                 if (menu.active())
-                    menu.exitMenu();
+                    menu.exit();
                 else
-                    menu.enterMenu();
+                    menu.enter();
                 return;
             case UiEvent::Sleep:
                 ESP_LOGD(taskName(), "Sleep event received");
@@ -169,7 +199,7 @@ class Display : public Task, public ApiClient {
 
     void syncMenuDisplay() {
         if (menu.active()) {
-            MenuSnapshot snapshot = menu.snapshot();
+            Menu::Snapshot snapshot = menu.snapshot();
             if (output.showMenu(snapshot)) {
                 menu.markRendered();
             }
@@ -204,8 +234,9 @@ class Display : public Task, public ApiClient {
         if (shouldLogLongPress()) {
             ESP_LOGD(taskName(), "Key up long press (increase brightness)");
         }
-        increaseBrightness();
+        if (!increaseBrightness()) return;
         lastBrightnessChange = millis();
+        // menu.onBrightnessChange(brightnessPercent == savedBrightnessPercent);
     }
 
     void handleDownLongPress() {
@@ -217,8 +248,9 @@ class Display : public Task, public ApiClient {
                      isWalkAssist ? "walk assist" : "decrease brightness");
         }
         if (isWalkAssist) return;
-        decreaseBrightness();
+        if (!decreaseBrightness()) return;
         lastBrightnessChange = millis();
+        // menu.onBrightnessChange(brightnessPercent == savedBrightnessPercent);
     }
 
     bool shouldLogLongPress() {

@@ -1,6 +1,6 @@
 # OpenRideDash
 
-OpenRideDash is open-source firmware for an ESP32-C3 based e-bike dashboard. It provides a compact ride display, CAN data integration, Wi-Fi connectivity, OTA updates, Telnet diagnostics, and keypad-driven menus on a 240x240 ST7789 display. Currently, the Bafang M560 mid-drive is the only supported controller.
+OpenRideDash is open-source firmware for an ESP32-C3 based e-bike dashboard. It provides a compact ride display, CAN data integration, Wi-Fi connectivity, OTA updates, Shell diagnostics, and keypad-driven menus on a 240x240 ST7789 display. Currently the Bafang M560 mid-drive controller is supported.
 
 ## Features
 

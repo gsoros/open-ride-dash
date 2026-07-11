@@ -1,4 +1,4 @@
-#include "menu_controller.h"
+#include "menu.h"
 
 #include "tasks/api.h"
 #include "tasks/wifi.h"
@@ -6,7 +6,7 @@
 extern Api api;
 extern Wifi wifi;
 
-void MenuController::enterMenu() {
+void Menu::enter() {
     if (_active) return;
     _active = true;
     _selectedItem = 0;
@@ -14,27 +14,27 @@ void MenuController::enterMenu() {
     ESP_LOGI(tag, "Entering menu");
 }
 
-bool MenuController::previousMenuItem() {
+bool Menu::previousItem() {
     if (!_active) return false;
-    _selectedItem = _selectedItem == 0 ? MENU_ITEM_COUNT - 1 : _selectedItem - 1;
+    _selectedItem = _selectedItem == 0 ? ITEM_COUNT - 1 : _selectedItem - 1;
     _dirty = true;
     return true;
 }
 
-bool MenuController::nextMenuItem() {
+bool Menu::nextItem() {
     if (!_active) return false;
-    _selectedItem = (_selectedItem + 1) % MENU_ITEM_COUNT;
+    _selectedItem = (_selectedItem + 1) % ITEM_COUNT;
     _dirty = true;
     return true;
 }
 
-MenuController::SelectResult MenuController::selectMenuItem() {
+Menu::SelectResult Menu::selectItem() {
     if (!_active) return SelectResult::Ignored;
 
-    if (_selectedItem == EXIT_MENU_ITEM) {
+    if (_selectedItem == EXIT_ITEM) {
         ESP_LOGI(tag, "Selected menu item: %s", _items[_selectedItem]);
-        exitMenu();
-        return SelectResult::ExitMenu;
+        exit();
+        return SelectResult::Exit;
     }
 
     switch (_selectedItem) {
@@ -65,24 +65,24 @@ MenuController::SelectResult MenuController::selectMenuItem() {
             delay(200);
             if (!api.queueCommand("restart")) ESP_LOGE(tag, "Failed to queue restart command");
             return SelectResult::Handled;
-        case EXIT_MENU_ITEM:  // Exit
+        case EXIT_ITEM:  // Exit
             ESP_LOGE(tag, "We should never get here");
-            return SelectResult::ExitMenu;
+            return SelectResult::Exit;
         default:
             ESP_LOGW(tag, "Unhandled menu item: %u", _selectedItem);
-            exitMenu();
-            return SelectResult::ExitMenu;
+            exit();
+            return SelectResult::Exit;
     }
 }
 
-void MenuController::exitMenu() {
+void Menu::exit() {
     if (!_active) return;
     _active = false;
     _dirty = true;
     ESP_LOGD(tag, "Exiting menu");
 }
 
-void MenuController::refreshItems() const {
+void Menu::refreshItems() const {
     char label[32] = {};
     snprintf(label, sizeof(label), "%s", wifi.getStatusLabel());
     if (strcmp(label, _item0Label) != 0) {
@@ -91,22 +91,22 @@ void MenuController::refreshItems() const {
         if (_active) _dirty = true;
     }
     _items[0] = _item0Label;
-    for (uint8_t i = 1; i < MENU_ITEM_COUNT; i++) {
-        _items[i] = STATIC_MENU_ITEMS[i];
+    for (uint8_t i = 1; i < ITEM_COUNT; i++) {
+        _items[i] = STATIC_ITEMS[i];
     }
 }
 
-MenuSnapshot MenuController::snapshot() const {
+Menu::Snapshot Menu::snapshot() const {
     refreshItems();
-    MenuSnapshot s = {};
+    Menu::Snapshot s = {};
     s.active = _active;
     s.dirty = _dirty;
     s.selectedItem = _selectedItem;
-    s.itemCount = MENU_ITEM_COUNT;
+    s.itemCount = ITEM_COUNT;
     s.items = _items;
     return s;
 }
 
-void MenuController::markRendered() {
+void Menu::markRendered() {
     _dirty = false;
 }

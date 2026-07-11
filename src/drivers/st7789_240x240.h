@@ -9,7 +9,7 @@
 
 #include "display_driver.h"
 #include "model/state.h"
-#include "ui/menu_controller.h"
+#include "ui/menu.h"
 
 extern State state;
 
@@ -72,6 +72,7 @@ class ST7789_240x240 : public DisplayDriver {
     void fillScreen(uint16_t color) override;
     void setRotation(uint8_t rotation) override;
     void setBrightnessPercent(uint8_t p) override;
+    bool saveBrightnessPercent();
     bool hasBacklight() override { return bl_pin >= 0; }
     bool setBacklight(uint8_t level) override;
     void onSleep() override;
@@ -79,7 +80,7 @@ class ST7789_240x240 : public DisplayDriver {
     void nextPage() override;
     uint8_t currentPage() override;
 
-    bool showMenu(const MenuSnapshot& menu);
+    bool showMenu(const Menu::Snapshot& menu);
     void exitMenu();
 
    protected:
@@ -233,7 +234,7 @@ class ST7789_240x240 : public DisplayDriver {
     uint16_t cappedMetricValue(uint32_t value, uint16_t cap = 999) const;
     void abbreviatedMetricValue(char* buffer, size_t bufferSize, uint32_t value, bool* isNumeric);
     void formatUInt(char* buffer, size_t bufferSize, uint16_t value);
-    void drawMenu(const MenuSnapshot& menu);
+    void drawMenu(const Menu::Snapshot& menu);
     void drawMenuLine(const char* text, int16_t baseline, bool selected);
 };
 

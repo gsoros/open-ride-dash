@@ -165,6 +165,7 @@ void ST7789_240x240::fillScreen(uint16_t color) {
 // exponential curve biased towards the low end
 void ST7789_240x240::setBrightnessPercent(uint8_t p) {
     if (!hasBacklight()) return;
+
     if (p == 0) {
         analogWrite((uint8_t)bl_pin, 0);
         return;
@@ -202,7 +203,7 @@ void ST7789_240x240::onSleep() {
     gpio_deep_sleep_hold_en();
 }
 
-bool ST7789_240x240::showMenu(const MenuSnapshot& menu) {
+bool ST7789_240x240::showMenu(const Menu::Snapshot& menu) {
     if (!menu.active || menu.items == nullptr || menu.itemCount == 0) return false;
 
     bool enteringMenu = _displayMode != MODE_MENU;
@@ -870,7 +871,7 @@ void ST7789_240x240::formatUInt(char* buffer, size_t bufferSize, uint16_t value)
     buffer[j] = '\0';  // Guarantee null termination
 }
 
-void ST7789_240x240::drawMenu(const MenuSnapshot& menu) {
+void ST7789_240x240::drawMenu(const Menu::Snapshot& menu) {
     canvasMenu->setFont(menuFont);
     canvasMenu->setTextSize(1);
     canvasMenu->setTextColor(WHITE, BLACK);
@@ -898,18 +899,6 @@ void ST7789_240x240::drawMenu(const MenuSnapshot& menu) {
 
     canvasMenu->flush();
 }
-
-/*
-const char *ST7789_240x240::dynamicMenuItem(uint8_t index) {
-    switch (index) {
-        case 0: {
-            // return WiFi status string
-        }
-        default:
-            return menu.items[index];
-    }
-}
-*/
 
 void ST7789_240x240::drawMenuLine(const char* text, int16_t baseline, bool selected) {
     if (text == nullptr) return;

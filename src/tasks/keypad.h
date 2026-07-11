@@ -7,7 +7,7 @@
 #include "config.h"
 #include "display.h"
 #include "task.h"
-#include "ui/ui_events.h"
+#include "ui/events.h"
 
 extern Display display;
 

@@ -43,6 +43,10 @@ class Wifi : public Task,
             WiFi.mode(WIFI_MODE_NULL);
         }
 
+        WiFi.onEvent([this](WiFiEvent_t event, WiFiEventInfo_t info) {
+            handleWiFiEvent(event, info);
+        });
+
         setupDone = true;
     }
 
@@ -272,6 +276,24 @@ class Wifi : public Task,
         ESP_LOGI(taskName(), "Restarting STA connection to %s", ssid.c_str());
         stopSTA();
         startSTA();
+    }
+
+    void handleWiFiEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
+        switch (event) {
+            case SYSTEM_EVENT_STA_GOT_IP:
+                ESP_LOGI(taskName(), "Connected to WiFi SSID: %s, IP: %s",
+                         ssid.c_str(), WiFi.localIP().toString().c_str());
+                // menu[Menu::Key::Wifi].label = "WiFi Connected";
+                break;
+            case SYSTEM_EVENT_STA_DISCONNECTED:
+                ESP_LOGW(taskName(), "Disconnected from WiFi SSID: %s",
+                         ssid.c_str());
+                // menu[Menu::Key::Wifi].label = "WiFi Disconnected";
+                break;
+            default:
+                ESP_LOGD(taskName(), "WiFi event: %s", WiFi.eventName(event));
+                break;
+        }
     }
 };
 
