@@ -14,8 +14,10 @@
 #include "config.h"
 #include "api.h"
 #include "tasks/telnet.h"
+#include "tasks/display.h"
 
 extern Telnet telnet;
+extern Display display;
 
 class Wifi : public Task,
              public HasPreferences {
@@ -283,12 +285,14 @@ class Wifi : public Task,
             case SYSTEM_EVENT_STA_GOT_IP:
                 ESP_LOGI(taskName(), "Connected to WiFi SSID: %s, IP: %s",
                          ssid.c_str(), WiFi.localIP().toString().c_str());
-                // menu[Menu::Key::Wifi].label = "WiFi Connected";
+                display.menu[Menu::Key::Wifi].label = "WiFi Connected";
+                display.menu.setDirty();
                 break;
             case SYSTEM_EVENT_STA_DISCONNECTED:
                 ESP_LOGW(taskName(), "Disconnected from WiFi SSID: %s",
                          ssid.c_str());
-                // menu[Menu::Key::Wifi].label = "WiFi Disconnected";
+                display.menu[Menu::Key::Wifi].label = "WiFi Disconnected";
+                display.menu.setDirty();
                 break;
             default:
                 ESP_LOGD(taskName(), "WiFi event: %s", WiFi.eventName(event));

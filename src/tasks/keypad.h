@@ -8,8 +8,10 @@
 #include "display.h"
 #include "task.h"
 #include "ui/events.h"
+#include "tasks/api.h"
 
 extern Display display;
+extern Api api;
 
 class Keypad : public Task {
    public:
@@ -29,6 +31,13 @@ class Keypad : public Task {
         keyUp.attachDuringLongPress([](void* s) { ((Keypad*)s)->keyUpLongPress(); }, this);
         keyDown.attachDuringLongPress([](void* s) { ((Keypad*)s)->keyDownLongPress(); }, this);
         keyPower.attachDuringLongPress([](void* s) { ((Keypad*)s)->keyPowerLongPress(); }, this);
+
+        api.registerCommand(
+            "key",
+            [this](const char* args) {
+                return keyCommand(args);
+            },
+            "Usage: key <up|down|upLong|downLong|power|menu>\nSimulate a key press.");
     }
 
     virtual void taskRun() override {
@@ -100,6 +109,31 @@ class Keypad : public Task {
             pageMenuChordHandled = true;
         }
         return true;
+    }
+
+    Api::Reply keyCommand(const char* args) {
+        if (strcmp(args, "up") == 0) {
+            keyUpClick();
+        } else if (strcmp(args, "down") == 0) {
+            keyDownClick();
+        } else if (strcmp(args, "upLong") == 0) {
+            keyUpLongPress();
+        } else if (strcmp(args, "downLong") == 0) {
+            keyDownLongPress();
+        } else if (strcmp(args, "power") == 0) {
+            keyPowerClick();
+        } else if (strcmp(args, "menu") == 0) {
+            display.queueUiEvent(UiEvent::MenuChord);
+        } else {
+            Api::Reply reply = {};
+            reply.code = Api::ReplyCode::INVALID_ARGS;
+            snprintf((char*)reply.data, sizeof(reply.data), "Invalid argument: %s", args);
+            return reply;
+        }
+        Api::Reply reply = {};
+        reply.code = Api::ReplyCode::SUCCESS;
+        snprintf((char*)reply.data, sizeof(reply.data), "Key event simulated: %s", args);
+        return reply;
     }
 };
 

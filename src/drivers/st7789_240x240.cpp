@@ -204,7 +204,15 @@ void ST7789_240x240::onSleep() {
 }
 
 bool ST7789_240x240::showMenu(const Menu::Snapshot& menu) {
-    if (!menu.active || menu.items == nullptr || menu.itemCount == 0) return false;
+    if (!menu.active || menu.itemCount == 0) {
+        static uint32_t lastWarningTime = 0;
+        if (!lastWarningTime || millis() - lastWarningTime > 5000) {
+            if (!menu.active) ESP_LOGE(tag, "Menu snapshot is not active");
+            if (menu.itemCount == 0) ESP_LOGE(tag, "Menu snapshot itemCount is zero");
+            lastWarningTime = millis();
+        }
+        return false;
+    }
 
     bool enteringMenu = _displayMode != MODE_MENU;
     _displayMode = MODE_MENU;
@@ -893,7 +901,11 @@ void ST7789_240x240::drawMenu(const Menu::Snapshot& menu) {
         end = menu.itemCount;
     }
     for (uint8_t i = scrollOffset; i < end; i++) {
-        // TODO: replace menu.items[i] with dynamicMenuItem(i)
+        if (i > menu.itemCount) {
+            ESP_LOGW(tag, "Menu item index %u exceeds itemCount %u", i, menu.itemCount);
+            break;
+        }
+        ESP_LOGD(tag, "Drawing menu item %u: '%s'%s", i, menu.items[i], i == menu.selectedItem ? " (selected)" : "");
         drawMenuLine(menu.items[i], 34 + (i - scrollOffset) * 36, i == menu.selectedItem);
     }
 

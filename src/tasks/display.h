@@ -22,6 +22,8 @@ extern State state;
 
 class Display : public Task, public ApiClient, public HasPreferences {
    public:
+    Menu menu;
+
     virtual const char* taskName() const override {
         return "Display";
     }
@@ -126,7 +128,7 @@ class Display : public Task, public ApiClient, public HasPreferences {
         PIN_TFT_BL,
         SPI2_HOST,
         TFT_ROTATION};
-    Menu menu;
+
     QueueHandle_t uiEventQueue = nullptr;
     char brightnessPrefKey[NVS_KEY_NAME_MAX_SIZE] = "brightness";
     uint8_t savedBrightnessPercent = 100;  // default to 100% brightness
@@ -236,7 +238,7 @@ class Display : public Task, public ApiClient, public HasPreferences {
         }
         if (!increaseBrightness()) return;
         lastBrightnessChange = millis();
-        // menu.onBrightnessChange(brightnessPercent == savedBrightnessPercent);
+        menu.onBrightnessChange(brightnessPercent == savedBrightnessPercent);
     }
 
     void handleDownLongPress() {
@@ -250,7 +252,7 @@ class Display : public Task, public ApiClient, public HasPreferences {
         if (isWalkAssist) return;
         if (!decreaseBrightness()) return;
         lastBrightnessChange = millis();
-        // menu.onBrightnessChange(brightnessPercent == savedBrightnessPercent);
+        menu.onBrightnessChange(brightnessPercent == savedBrightnessPercent);
     }
 
     bool shouldLogLongPress() {
