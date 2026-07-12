@@ -466,6 +466,7 @@ const ST7789_240x240::PageLayout& ST7789_240x240::currentPageLayout() const {
 }
 
 ST7789_240x240::MetricSlot ST7789_240x240::metricSlot(uint8_t slotIndex) const {
+    // canvas, labelCanvas, valueCanvas, valueTextSize, labelTextSize, valueVOffset, labelVOffset
     switch (slotIndex) {
         case SLOT_MAJOR:
             return {canvasMajor, transitionLabelMajor, transitionValueMajor, 2, 2, 4, 8};
@@ -514,7 +515,7 @@ void ST7789_240x240::drawPageLabels() {
 }
 
 /*
-    Draws all metric values to all slots.
+    Draws metric values to all slots.
     s: snapshot of the current state
     force: if true, always draw the value, even if it hasn't changed
     remember: if true, remember the value and don't redraw it if it hasn't changed
@@ -605,9 +606,24 @@ void ST7789_240x240::renderTextToCanvas(
     uint16_t textHeight = 0;
     canvas->getTextBounds(text, 0, 0, &x1, &y1, &textWidth, &textHeight);
 
+    /*
     int16_t cursorX = -x1;
     if (textWidth < canvas->w()) {
         cursorX = (canvas->w() - textWidth) / 2 - x1;
+    }
+    */
+
+    int16_t cursorX = canvas->w() - textWidth - 8;  // align right
+
+    if ((canvas == canvasMajor || canvas == transitionLabelMajor || canvas == transitionValueMajor) &&
+        font == largeFont) {
+        cursorX -= 6;
+        // ESP_LOGD(tag, "Extra offset for '%s'", text);
+    }
+
+    if (cursorX < 0) {
+        // ESP_LOGW(tag, "Text overflow for '%s' (%dpx), aligning to left", text, textWidth);
+        cursorX = 0;
     }
 
     canvas->setCursor(cursorX, canvas->h() - verticalOffset);
@@ -680,14 +696,17 @@ bool ST7789_240x240::formatMetricValue(MetricID id, State::Snapshot& s, char* bu
             formatUInt(buffer, bufferSize, roundedMetricValue(s.speed()));
             return true;
         case METRIC_CADENCE:
+            // formatUInt(buffer, bufferSize, 87);
             formatUInt(buffer, bufferSize, s.cadence);
             return true;
         case METRIC_PAS:
             return formatPasValue(s.pasLevel, buffer, bufferSize, isNumeric);
         case METRIC_MOTOR_PWR:
+            // abbreviatedMetricValue(buffer, bufferSize, (uint32_t)789, isNumeric);
             abbreviatedMetricValue(buffer, bufferSize, (uint32_t)s.motorPower(), isNumeric);
             return true;
         case METRIC_HUMAN_PWR:
+            // abbreviatedMetricValue(buffer, bufferSize, (uint32_t)234, isNumeric);
             abbreviatedMetricValue(buffer, bufferSize, (uint32_t)s.humanPower(), isNumeric);
             return true;
         case METRIC_VOLTAGE:  // 49.2 → "492"

@@ -18,7 +18,7 @@ extern State state;
 #endif
 
 #include "fonts/u8g2/RobotoMono_Bold_90px_digits.h"
-#include "fonts/u8g2/RobotoMono_Bold_48px_caps_digits.h"
+#include "fonts/u8g2/RobotoMono_Bold_62px_caps_digits.h"
 #include "fonts/u8g2/RobotoMono_Regular_24px_alpha_digits.h"
 
 class Canvas : public Arduino_Canvas_Mono {
@@ -116,10 +116,10 @@ class ST7789_240x240 : public DisplayDriver {
     const uint8_t* largeFont = u8g2_font_RobotoMono_Bold_90px_digits;
 
     // Capital letters and digits
-    const uint8_t* mediumFont = u8g2_font_RobotoMono_Bold_48px_caps_digits;
+    const uint8_t* mediumFont = u8g2_font_RobotoMono_Bold_62px_caps_digits;
 
     // Capital letters and digits
-    const uint8_t* labelFont = u8g2_font_RobotoMono_Bold_48px_caps_digits;
+    const uint8_t* labelFont = mediumFont;
 
     // Alphanumeric characters
     const uint8_t* smallFont = u8g2_font_RobotoMono_Bold_24px_alpha_digits;
@@ -131,7 +131,7 @@ class ST7789_240x240 : public DisplayDriver {
     static constexpr uint32_t FEEDBACK_FADE_MS = TRANSITION_MS - TRANSITION_STATIC_MS;
     static constexpr uint8_t SLOT_COUNT = 3;            // number of metric slots
     static constexpr uint8_t PAGE_COUNT = 3;            // number of pages
-    static constexpr uint8_t MAX_METRIC_VALUE_LEN = 5;  // max length of a metric value
+    static constexpr uint8_t MAX_METRIC_VALUE_LEN = 3;  // max length of a metric value
 
     enum DisplayMode {
         MODE_SPLASH,
