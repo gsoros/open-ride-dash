@@ -39,7 +39,7 @@ void State::registerApiCommands() {
         [this](const char* args) {
             Api::Reply reply = {};
             State::Snapshot s = getSnapshot();
-            snprintf((char*)reply.data, sizeof(reply.data), "{\"speed\":%.2f,\"pas\":%d,\"torque\":%u,\"cadence\":%u,\"current\":%.1f,\"voltage\":%.1f,\"motor\":%uC,\"contr\":%uC,\"wheelM\":%.1f,\"wheelSi\":%u,\"wheelC\":%u}",
+            snprintf((char*)reply.data, sizeof(reply.data), "{\"speed\":%.2f,\"pas\":%d,\"torque\":%u,\"cadence\":%u,\"current\":%.1f,\"voltage\":%.1f,\"motor\":%uC,\"contr\":%uC,\"wheelM\":%.1f,\"wheelSi\":%.1f,\"wheelC\":%u}",
                      s.speed(),
                      s.pasLevelRequested,
                      s.torque,
@@ -49,7 +49,7 @@ void State::registerApiCommands() {
                      s.motorTemp,
                      s.controllerTemp,
                      s.maxAssistSpeed_x100 / 100.0f,
-                     s.wheelSize,
+                     s.wheelSize_x10 / 10.0f,
                      s.wheelCircumference);
             return reply;
         },
@@ -146,11 +146,11 @@ void State::maxAssistSpeed_x100(uint16_t v) {
 uint16_t State::maxAssistSpeed_x100() {
     return getUInt16(&_latest.maxAssistSpeed_x100);
 }
-void State::wheelSize(uint8_t v) {
-    setUInt8(&_latest.wheelSize, v);
+void State::wheelSize_x10(uint16_t v) {
+    setUInt16(&_latest.wheelSize_x10, v);
 }
-uint8_t State::wheelSize() {
-    return getUInt8(&_latest.wheelSize);
+uint16_t State::wheelSize_x10() {
+    return getUInt16(&_latest.wheelSize_x10);
 }
 void State::wheelCircumference(uint16_t v) {
     setUInt16(&_latest.wheelCircumference, v);

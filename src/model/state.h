@@ -14,6 +14,7 @@ class State : public HasPreferences {
         uint16_t maxAssistSpeed_x100 = 0;  // RPM * 100
         uint16_t batteryVoltage_x100 = 0;  // V * 100
         uint16_t batteryCurrent_x100 = 0;  // A * 100
+        uint16_t wheelSize_x10 = 0;        // inches * 10
         uint16_t wheelCircumference = 0;   // mm
         uint16_t batteryCapacity =         // Wh
             DEFAULT_BATTERY_CAPACITY;      // 720 Wh
@@ -22,7 +23,6 @@ class State : public HasPreferences {
         uint8_t cadence = 0;               // RPM
         uint8_t motorTemp = 0;             // °C
         uint8_t controllerTemp = 0;        // °C
-        uint8_t wheelSize = 0;             // inches
         bool controllerAlive = false;      // true if motor controller is reachable
 
         // Calculates speed in km/h
@@ -240,8 +240,8 @@ class State : public HasPreferences {
 
     void maxAssistSpeed_x100(uint16_t v);
     uint16_t maxAssistSpeed_x100();
-    void wheelSize(uint8_t v);
-    uint8_t wheelSize();
+    void wheelSize_x10(uint16_t v);
+    uint16_t wheelSize_x10();
     void wheelCircumference(uint16_t v);
     uint16_t wheelCircumference();
 

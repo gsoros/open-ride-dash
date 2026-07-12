@@ -34,7 +34,7 @@ class SystemMonitor : public Task {
             lastStateLog = t;
             state.getSnapshot();
             State::Snapshot s = state.getSnapshot();
-            ESP_LOGI(taskName(), "speed: %.2f, pas: %d, torque: %u, cadence: %u, current: %.1f, voltage: %.1f, motorT: %u, contrT: %uC, wheelMax: %.1f, wheelSi: %u, wheelC: %u}",
+            ESP_LOGI(taskName(), "speed: %.2f, pas: %d, torque: %u, cadence: %u, current: %.1f, voltage: %.1f, motorT: %u, contrT: %uC, wheelMax: %.1f, wheelSi: %.1f, wheelC: %u}",
                      s.speed(),
                      s.pasLevelRequested,
                      s.torque,
@@ -44,7 +44,7 @@ class SystemMonitor : public Task {
                      s.motorTemp,
                      s.controllerTemp,
                      s.maxAssistSpeed_x100 / 100.0f,
-                     s.wheelSize,
+                     s.wheelSize_x10 / 10.0f,
                      s.wheelCircumference);
         }
     }

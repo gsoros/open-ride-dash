@@ -200,23 +200,22 @@ class CAN : public Task {
 
                 case 0x02F83203: {  // [8] Max assist speed, wheel size, wheel circumference
                     uint16_t maxAssistSpeed_x100 = ((uint16_t)frame.data[1] << 8) | (uint16_t)frame.data[0];
-                    uint8_t highNibble = frame.data[3] >> 4;
-                    uint8_t lowNibble = frame.data[2] & 0x0F;
-                    uint8_t wheelSize = (highNibble * 10) + lowNibble;
+                    // 12.4-bit fixed-point integer spread across the byte boundary
+                    uint16_t wheelSize_x10 = (((frame.data[3] << 4) | (frame.data[2] >> 4)) * 10) + (frame.data[2] & 0x0F);
                     uint16_t wheelCircumference = ((uint16_t)frame.data[5] << 8) | (uint16_t)frame.data[4];
                     static uint16_t lastMaxAssistSpeed = 0;
-                    static uint8_t lastWheelSize = 0;
+                    static uint16_t lastWheelSize = 0;
                     static uint16_t lastWheelCircumference = 0;
-                    if (maxAssistSpeed_x100 == lastMaxAssistSpeed && wheelSize == lastWheelSize && wheelCircumference == lastWheelCircumference) break;
+                    if (maxAssistSpeed_x100 == lastMaxAssistSpeed && wheelSize_x10 == lastWheelSize && wheelCircumference == lastWheelCircumference) break;
                     lastMaxAssistSpeed = maxAssistSpeed_x100;
-                    lastWheelSize = wheelSize;
+                    lastWheelSize = wheelSize_x10;
                     lastWheelCircumference = wheelCircumference;
-                    state.maxAssistSpeed_x100(((uint16_t)frame.data[1] << 8) | (uint32_t)frame.data[0]);
-                    state.wheelSize(wheelSize);
+                    state.maxAssistSpeed_x100(maxAssistSpeed_x100);
+                    state.wheelSize_x10(wheelSize_x10);
                     state.wheelCircumference(wheelCircumference);
                     ESP_LOGD(taskName(),
-                             "Parsed wheel max speed: %.1f km/h, wheel size: %d mm, wheel circumference: %d mm",
-                             maxAssistSpeed_x100 / 100.0f, wheelSize, wheelCircumference);
+                             "Parsed max assist speed: %d km/h, wheel size: %.1f\", wheel circumference: %d mm",
+                             maxAssistSpeed_x100 / 100, wheelSize_x10 / 10.0f, wheelCircumference);
                     break;
                 }
 
