@@ -79,6 +79,12 @@ void ST7789_240x240::setup() {
     canvasMinor1->setTextColor(WHITE, BLACK);
     canvasMinor2->setTextColor(WHITE, BLACK);
     canvasFullScreen->setTextColor(WHITE, BLACK);
+
+    // Wrapping may interfere with getTextBounds()
+    canvasMajor->setTextWrap(false);
+    canvasMinor1->setTextWrap(false);
+    canvasMinor2->setTextWrap(false);
+    canvasFullScreen->setTextWrap(false);
 }
 
 void ST7789_240x240::splash() {
