@@ -15,7 +15,7 @@
 
     - Maximum connections: 1. Advertising stops immediately upon connection.
     - Security: Enforces LE Secure Connections with MITM protection (Passkey/Numeric Comparison)
-      for proprietary services.
+      for CTS and NUS.
     - Advertising Data: Includes Flags, Appearance (0x0484 - Cycling Computer),
       and Mandatory UUIDs (0x1816, 0x1818) to fit 31-byte legacy limit.
     - Minimize BLE stack footprint.
