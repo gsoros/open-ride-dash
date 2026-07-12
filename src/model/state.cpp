@@ -56,6 +56,12 @@ void State::registerApiCommands() {
         "Usage: state\nShows some current values.");
 }
 
+void State::lastPassKey(uint32_t v) {
+    setUInt32(&_latest.lastPassKey, v);
+}
+uint32_t State::lastPassKey() {
+    return getUInt32(&_latest.lastPassKey);
+}
 void State::odo_mx10(uint32_t v) {
     setUInt32(&_latest.odo_mx10, v);
 }

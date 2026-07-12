@@ -12,8 +12,10 @@
 
 #include "build_info.h"
 #include "model/state.h"
+#include "tasks/display.h"
 
 extern State state;
+extern Display display;
 
 namespace {
 class BleServerCallbacks : public BLEServerCallbacks {
@@ -107,6 +109,8 @@ void Ble::setup() {
     uint8_t initialLevel = 0;
     _batteryCharacteristic->setValue(&initialLevel, 1);
 
+    initializeCyclingServices();
+
     disService->start();
     basService->start();
 
@@ -124,7 +128,107 @@ void Ble::setup() {
 void Ble::taskRun() {
     if (_connected) {
         updateBatteryLevel();
+        updateCyclingServices();
     }
+}
+
+void Ble::initializeCyclingServices() {
+    BLEService* cscService = _server->createService(BLEUUID((uint16_t)0x1816));
+    _cscCharacteristic = cscService->createCharacteristic(
+        BLEUUID((uint16_t)0x2A5B), BLECharacteristic::PROPERTY_NOTIFY);
+    _cscCharacteristic->addDescriptor(new BLE2902());
+
+    BLEService* cpsService = _server->createService(BLEUUID((uint16_t)0x1818));
+    _cpsCharacteristic = cpsService->createCharacteristic(
+        BLEUUID((uint16_t)0x2A63), BLECharacteristic::PROPERTY_NOTIFY);
+    _cpsCharacteristic->addDescriptor(new BLE2902());
+
+    cscService->start();
+    cpsService->start();
+}
+
+void Ble::updateCyclingServices() {
+    if (_server == nullptr || _cscCharacteristic == nullptr || _cpsCharacteristic == nullptr) return;
+
+    uint32_t now = millis();
+    if ((now - _lastCyclingPublishMs) < 1000U) return;
+
+    _lastCyclingPublishMs = now;
+    publishCscMeasurement();
+    publishCpsMeasurement();
+}
+
+void Ble::publishCscMeasurement() {
+    State::Snapshot snapshot = state.getSnapshot(true);
+    const uint32_t now = millis();
+    const float speedKph = snapshot.speed();
+    const uint8_t cadenceRpm = snapshot.cadence;
+
+    if (_lastCscWheelMs == 0U) {
+        _lastCscWheelMs = now;
+    }
+    if (_lastCscCrankMs == 0U) {
+        _lastCscCrankMs = now;
+    }
+
+    const uint32_t elapsedWheelMs = now - _lastCscWheelMs;
+    const uint32_t elapsedCrankMs = now - _lastCscCrankMs;
+    if (elapsedWheelMs > 0U) {
+        const float wheelRevPerSecond = (speedKph * 1000.0f / 3600.0f) / 2.1f;
+        const uint32_t addedWheelRevs = static_cast<uint32_t>(wheelRevPerSecond * (elapsedWheelMs / 1000.0f));
+        if (addedWheelRevs > 0U) {
+            _cscWheelRevolutions += addedWheelRevs;
+        }
+        _lastCscWheelMs = now;
+    }
+    if (elapsedCrankMs > 0U) {
+        const float crankRevPerSecond = cadenceRpm / 60.0f;
+        const uint32_t addedCrankRevs = static_cast<uint32_t>(crankRevPerSecond * (elapsedCrankMs / 1000.0f));
+        if (addedCrankRevs > 0U) {
+            _cscCrankRevolutions += addedCrankRevs;
+        }
+        _lastCscCrankMs = now;
+    }
+
+    const uint8_t flags = 0x03;
+    uint8_t payload[11] = {0};
+    payload[0] = flags;
+
+    uint32_t wheelRevs = _cscWheelRevolutions;
+    payload[1] = static_cast<uint8_t>((wheelRevs >> 24) & 0xFF);
+    payload[2] = static_cast<uint8_t>((wheelRevs >> 16) & 0xFF);
+    payload[3] = static_cast<uint8_t>((wheelRevs >> 8) & 0xFF);
+    payload[4] = static_cast<uint8_t>(wheelRevs & 0xFF);
+
+    uint16_t wheelEventTime = static_cast<uint16_t>(now / 1000U);
+    payload[5] = static_cast<uint8_t>((wheelEventTime >> 8) & 0xFF);
+    payload[6] = static_cast<uint8_t>(wheelEventTime & 0xFF);
+
+    uint32_t crankRevs = _cscCrankRevolutions;
+    payload[7] = static_cast<uint8_t>((crankRevs >> 24) & 0xFF);
+    payload[8] = static_cast<uint8_t>((crankRevs >> 16) & 0xFF);
+    payload[9] = static_cast<uint8_t>((crankRevs >> 8) & 0xFF);
+    payload[10] = static_cast<uint8_t>(crankRevs & 0xFF);
+
+    _cscCharacteristic->setValue(payload, sizeof(payload));
+    _cscCharacteristic->notify();
+}
+
+void Ble::publishCpsMeasurement() {
+    State::Snapshot snapshot = state.getSnapshot(true);
+    const uint16_t power = static_cast<uint16_t>(std::clamp(snapshot.motorPower(), 0.0f, 65535.0f));
+    if (power == _lastCpsPower) return;
+
+    _lastCpsPower = power;
+
+    uint8_t payload[4] = {0};
+    payload[0] = 0x00;
+    payload[1] = static_cast<uint8_t>((power >> 8) & 0xFF);
+    payload[2] = static_cast<uint8_t>(power & 0xFF);
+    payload[3] = 0x00;
+
+    _cpsCharacteristic->setValue(payload, sizeof(payload));
+    _cpsCharacteristic->notify();
 }
 
 void Ble::initializeSecurity() {
@@ -143,14 +247,18 @@ void Ble::initializeSecurity() {
 
 void Ble::handlePassKeyNotify(uint32_t passKey) {
     _activePassKey = passKey;
-    _bonded = false;
     ESP_LOGI(taskName(), "BLE pairing passkey: %06u", passKey);
-    // TODO: display passkey on the fullscreen canvas
+    state.lastPassKey(passKey);
+    display.queueUiEvent(UiEvent::PasskeyStart);
 }
 
 void Ble::handleAuthenticationComplete() {
-    _bonded = true;
-    ESP_LOGI(taskName(), "BLE pairing/authentication complete");
+    ESP_LOGI(taskName(), "BLE authentication complete");
+    state.lastPassKey(0);
+    // TODO: we're sending the passkey end event after every authentication,
+    // even if the passkey was never used (reconnect) or when a wrong passkey
+    // was entered. The event name may be confusing.
+    display.queueUiEvent(UiEvent::PasskeyEnd);
 }
 
 void Ble::handleConnect() {

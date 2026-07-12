@@ -50,6 +50,7 @@ class Display : public Task, public ApiClient, public HasPreferences {
 
     virtual void taskRun() override {
         processUiEvents();
+        syncPasskeyDisplay();
         syncMenuDisplay();
         output.update();
     }
@@ -139,6 +140,8 @@ class Display : public Task, public ApiClient, public HasPreferences {
     uint32_t lastBrightnessChange = 0;
     static constexpr uint8_t brightnessChangeDelay = 50;
     bool menuShown = false;
+    bool passkeyActive = false;
+    bool passkeyShown = false;
 
     bool loadPreferences() {
         if (preferencesSetup("display", false)) {
@@ -196,9 +199,30 @@ class Display : public Task, public ApiClient, public HasPreferences {
                 ESP_LOGD(taskName(), "Sleep event received");
                 output.onSleep();
                 return;
+            case UiEvent::PasskeyStart:
+                ESP_LOGD(taskName(), "Passkey start event received: %d", state.lastPassKey());
+                passkeyActive = true;
+                return;
+            case UiEvent::PasskeyEnd:
+                ESP_LOGD(taskName(), "Passkey end event received");
+                passkeyActive = false;
+                return;
             default:
                 ESP_LOGW(taskName(), "Unhandled UI event: %u", (uint8_t)event);
                 return;
+        }
+    }
+
+    void syncPasskeyDisplay() {
+        if (passkeyActive) {
+            if (!passkeyShown && output.showPasskey(state.lastPassKey())) {
+                passkeyShown = true;
+            }
+            return;
+        }
+        if (passkeyShown) {
+            output.exitPasskey();
+            passkeyShown = false;
         }
     }
 

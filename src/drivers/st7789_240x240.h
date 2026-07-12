@@ -81,10 +81,11 @@ class ST7789_240x240 : public DisplayDriver {
     void fillScreen(uint16_t color) override;
     void setRotation(uint8_t rotation) override;
     void setBrightnessPercent(uint8_t p) override;
-    bool saveBrightnessPercent();
     bool hasBacklight() override { return bl_pin >= 0; }
     bool setBacklight(uint8_t level) override;
     void onSleep() override;
+    bool showPasskey(uint32_t passkey) override;
+    void exitPasskey() override;
 
     void nextPage() override;
     uint8_t currentPage() override;
@@ -139,6 +140,7 @@ class ST7789_240x240 : public DisplayDriver {
         MODE_LABEL_TRANSITION,
         MODE_FEEDBACK,
         MODE_MENU,
+        MODE_PASSKEY,
     };
 
     inline String displayModeToStr(DisplayMode m) {
@@ -153,6 +155,8 @@ class ST7789_240x240 : public DisplayDriver {
                 return "feedback";
             case MODE_MENU:
                 return "menu";
+            case MODE_PASSKEY:
+                return "passkey";
             default:
                 return "unknown";
         }

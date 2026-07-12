@@ -165,6 +165,11 @@ void ST7789_240x240::update() {
         return;
     }
 
+    if (_displayMode == MODE_PASSKEY) {
+        // TODO: Timeout and exit passkey mode
+        return;
+    }
+
     if (_displayMode == MODE_MENU) {
         return;
     }
@@ -257,6 +262,25 @@ void ST7789_240x240::onSleep() {
     gpio_set_level((gpio_num_t)bl_pin, 0);
     gpio_hold_en((gpio_num_t)bl_pin);
     gpio_deep_sleep_hold_en();
+}
+
+bool ST7789_240x240::showPasskey(uint32_t passkey) {
+    if (passkey == 0) {
+        ESP_LOGE(tag, "Invalid passkey");
+        return false;
+    }
+    _displayMode = MODE_PASSKEY;
+    char buf[32] = {};
+    snprintf(buf, sizeof(buf), "%06u", passkey);
+    renderTextToCanvas(canvasFullScreen, buf, labelFont, 1, 20);
+    canvasFullScreen->flush();
+    return true;
+}
+
+void ST7789_240x240::exitPasskey() {
+    canvasFullScreen->fillScreen(BLACK);
+    canvasFullScreen->flush();
+    startPageTransition(_currentPage);
 }
 
 bool ST7789_240x240::showMenu(const Menu::Snapshot& menu) {

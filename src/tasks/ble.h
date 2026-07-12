@@ -82,19 +82,32 @@ class Ble : public Task {
     class SecurityCallbacks;
 
     void updateBatteryLevel();
+    void updateCyclingServices();
     void initializeSecurity();
+    void initializeCyclingServices();
+    void publishCscMeasurement();
+    void publishCpsMeasurement();
     void handlePassKeyNotify(uint32_t passKey);
     void handleAuthenticationComplete();
 
     bool _connected = false;
-    bool _bonded = false;
     uint8_t _batteryLevel = 0;
     uint32_t _lastBatteryPublishMs = 0;
     uint32_t _activePassKey = 0;
     BLEServer* _server = nullptr;
     BLECharacteristic* _batteryCharacteristic = nullptr;
+    BLECharacteristic* _cscCharacteristic = nullptr;
+    BLECharacteristic* _cpsCharacteristic = nullptr;
     SecurityCallbacks* _securityCallbacks = nullptr;
     BLESecurity _security;
+    uint32_t _lastCyclingPublishMs = 0;
+    uint32_t _cscWheelRevolutions = 0;
+    uint16_t _cscLastWheelEventTime = 0;
+    uint32_t _cscCrankRevolutions = 0;
+    uint16_t _cscLastCrankEventTime = 0;
+    uint32_t _lastCscWheelMs = 0;
+    uint32_t _lastCscCrankMs = 0;
+    uint16_t _lastCpsPower = 0;
 };
 
 #endif  // BLE_H

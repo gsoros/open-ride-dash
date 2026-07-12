@@ -7,6 +7,7 @@
 class State : public HasPreferences {
    public:
     struct Snapshot {
+        uint32_t lastPassKey = 0;          // Last passkey used for BLE pairing
         uint32_t odo_mx10 = 0;             // m * 10
         uint32_t trip_mx10 = 0;            // m * 10
         uint16_t torque = 0;               // Raw sensor reading (needs calibration factor to become Nm)
@@ -212,6 +213,8 @@ class State : public HasPreferences {
 
     void registerApiCommands();
 
+    void lastPassKey(uint32_t v);
+    uint32_t lastPassKey();
     void odo_mx10(uint32_t v);
     uint32_t odo_mx10();
     void trip_mx10(uint32_t v);
