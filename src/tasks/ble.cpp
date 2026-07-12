@@ -145,6 +145,7 @@ void Ble::handlePassKeyNotify(uint32_t passKey) {
     _activePassKey = passKey;
     _bonded = false;
     ESP_LOGI(taskName(), "BLE pairing passkey: %06u", passKey);
+    // TODO: display passkey on the fullscreen canvas
 }
 
 void Ble::handleAuthenticationComplete() {
