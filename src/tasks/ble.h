@@ -62,6 +62,7 @@
 #include <BLEDevice.h>
 #include <BLEServer.h>
 #include <BLECharacteristic.h>
+#include <BLESecurity.h>
 
 #include "task.h"
 
@@ -78,13 +79,22 @@ class Ble : public Task {
     void handleDisconnect();
 
    private:
+    class SecurityCallbacks;
+
     void updateBatteryLevel();
+    void initializeSecurity();
+    void handlePassKeyNotify(uint32_t passKey);
+    void handleAuthenticationComplete();
 
     bool _connected = false;
+    bool _bonded = false;
     uint8_t _batteryLevel = 0;
     uint32_t _lastBatteryPublishMs = 0;
+    uint32_t _activePassKey = 0;
     BLEServer* _server = nullptr;
     BLECharacteristic* _batteryCharacteristic = nullptr;
+    SecurityCallbacks* _securityCallbacks = nullptr;
+    BLESecurity _security;
 };
 
 #endif  // BLE_H

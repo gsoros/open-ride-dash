@@ -33,6 +33,44 @@ class BleServerCallbacks : public BLEServerCallbacks {
 };
 }  // namespace
 
+class Ble::SecurityCallbacks : public BLESecurityCallbacks {
+   public:
+    explicit SecurityCallbacks(Ble* ble) : _ble(ble) {}
+
+    uint32_t onPassKeyRequest() override {
+        if (_ble != nullptr) {
+            ESP_LOGW(_ble->taskName(), "BLE pairing requested a passkey input from the peer");
+        }
+        return 0;
+    }
+
+    void onPassKeyNotify(uint32_t passKey) override {
+        if (_ble != nullptr) {
+            _ble->handlePassKeyNotify(passKey);
+        }
+    }
+
+    bool onSecurityRequest() override {
+        return true;
+    }
+
+    void onAuthenticationComplete(esp_ble_auth_cmpl_t) override {
+        if (_ble != nullptr) {
+            _ble->handleAuthenticationComplete();
+        }
+    }
+
+    bool onConfirmPIN(uint32_t pin) override {
+        if (_ble != nullptr) {
+            ESP_LOGI(_ble->taskName(), "BLE pairing confirmation for PIN %06u", pin);
+        }
+        return true;
+    }
+
+   private:
+    Ble* _ble;
+};
+
 void Ble::setup() {
     if (_connected) return;
 
@@ -44,6 +82,7 @@ void Ble::setup() {
     server->setCallbacks(new BleServerCallbacks(this));
 
     _server = server;
+    initializeSecurity();
 
     BLEService* disService = server->createService(BLEUUID((uint16_t)0x180A));
     BLECharacteristic* modelCharacteristic = disService->createCharacteristic(
@@ -86,6 +125,31 @@ void Ble::taskRun() {
     if (_connected) {
         updateBatteryLevel();
     }
+}
+
+void Ble::initializeSecurity() {
+    if (_securityCallbacks != nullptr) return;
+
+    _securityCallbacks = new SecurityCallbacks(this);
+    BLEDevice::setSecurityCallbacks(_securityCallbacks);
+    BLEDevice::setEncryptionLevel(ESP_BLE_SEC_ENCRYPT_MITM);
+
+    _security.setAuthenticationMode(ESP_LE_AUTH_REQ_SC_MITM_BOND);
+    _security.setCapability(ESP_IO_CAP_OUT);
+    _security.setKeySize(16);
+    _security.setInitEncryptionKey(ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK);
+    _security.setRespEncryptionKey(ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK);
+}
+
+void Ble::handlePassKeyNotify(uint32_t passKey) {
+    _activePassKey = passKey;
+    _bonded = false;
+    ESP_LOGI(taskName(), "BLE pairing passkey: %06u", passKey);
+}
+
+void Ble::handleAuthenticationComplete() {
+    _bonded = true;
+    ESP_LOGI(taskName(), "BLE pairing/authentication complete");
 }
 
 void Ble::handleConnect() {
