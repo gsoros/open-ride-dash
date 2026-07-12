@@ -1,51 +1,120 @@
 #include "ble.h"
 
-/*
-    BLE task implementation plan.
+#include <algorithm>
+#include <cstring>
 
-    Scope:
-    - Provide basic BLE telemetry via standard services first.
-    - Expose a compact custom telemetry service for the mobile app.
-    - Add a simple UART-like bridge later, once the app is ready.
+#include <BLEDevice.h>
+#include <BLEServer.h>
+#include <BLEAdvertising.h>
+#include <BLECharacteristic.h>
+#include <BLEService.h>
+#include <BLE2902.h>
 
-    Architecture:
-    - The BLE task owns the BLE state machine, connection lifecycle, and outgoing notifications.
-    - It should work from a fixed snapshot of the bike state, not by reading live state directly
-      from multiple places. The natural input is State::Snapshot from model/state.h.
-    - Notification paths should be non-blocking, bounded, and use fixed-size buffers.
+#include "build_info.h"
+#include "model/state.h"
 
-    Phased implementation:
-    1. DIS + BAS
-       - Implement Device Information Service and Battery Service.
-       - Add basic advertising and connection handling.
-       - Validate the first pairing flow and confirm the security model early.
+extern State state;
 
-    2. CSC + CPS
-       - Add Cycling Speed & Cadence and Cycling Power services.
-       - Send updates at a low rate, e.g. 1-2 Hz maximum, and only when values change.
-       - Keep the rolling counter logic simple and deterministic.
+namespace {
+class BleServerCallbacks : public BLEServerCallbacks {
+   public:
+    explicit BleServerCallbacks(Ble* ble) : _ble(ble) {}
 
-    3. CTS
-       - Add a compact custom telemetry service for the mobile app.
-       - Payload should be fixed-size and contain the most useful fields from the state snapshot,
-         such as speed, range, assist level, battery voltage/current, and temperatures.
-       - Apply the same rate limiting and change suppression as the standard services.
+    void onConnect(BLEServer* server) override {
+        if (_ble != nullptr) _ble->handleConnect();
+    }
 
-    4. NUS
-       - Add this last, once the mobile app is in active development.
-       - Keep a hardcoded payload limit, for example 250 bytes.
-       - The initial version can stay simple and best-effort; fragmentation can be deferred until
-         there is a concrete app requirement.
+    void onDisconnect(BLEServer* server) override {
+        if (_ble != nullptr) _ble->handleDisconnect();
+    }
 
-    Security:
-    - The goal is to prevent random BLE clients from sending API commands to the e-bike.
-    - For CTS and NUS, require authenticated pairing and a confirmation step on the keypad
-      for the first pairing.
-    - Keep standard services broadly compatible unless there is a clear reason to lock them down.
+   private:
+    Ble* _ble;
+};
+}  // namespace
 
-    Implementation notes:
-    - Use a small state machine: init -> advertise -> connected -> secured -> ready -> disconnect.
-    - Avoid dynamic allocation on the notification path.
-    - Prefer change detection and coalescing over sending every update.
-    - Avoid blocking the task with long serialization or large buffers.
-*/
+void Ble::setup() {
+    if (_connected) return;
+
+    BLEDevice::init("ORD Dash");
+
+    BLEServer* server = BLEDevice::createServer();
+    if (server == nullptr) return;
+
+    server->setCallbacks(new BleServerCallbacks(this));
+
+    _server = server;
+
+    BLEService* disService = server->createService(BLEUUID((uint16_t)0x180A));
+    BLECharacteristic* modelCharacteristic = disService->createCharacteristic(
+        BLEUUID((uint16_t)0x2A24), BLECharacteristic::PROPERTY_READ);
+    BLECharacteristic* manufacturerCharacteristic = disService->createCharacteristic(
+        BLEUUID((uint16_t)0x2A29), BLECharacteristic::PROPERTY_READ);
+    BLECharacteristic* fwVersionCharacteristic = disService->createCharacteristic(
+        BLEUUID((uint16_t)0x2A26), BLECharacteristic::PROPERTY_READ);
+
+    const char* model = "ORD Dash";
+    const char* manufacturer = "OpenRide";
+    const char* version = (whoami != nullptr && whoami[0] != '\0') ? whoami : (ord_version != nullptr ? ord_version : "dev");
+
+    modelCharacteristic->setValue(std::string(model));
+    manufacturerCharacteristic->setValue(std::string(manufacturer));
+    fwVersionCharacteristic->setValue(std::string(version));
+
+    BLEService* basService = server->createService(BLEUUID((uint16_t)0x180F));
+    _batteryCharacteristic = basService->createCharacteristic(
+        BLEUUID((uint16_t)0x2A19), BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY);
+    _batteryCharacteristic->addDescriptor(new BLE2902());
+    uint8_t initialLevel = 0;
+    _batteryCharacteristic->setValue(&initialLevel, 1);
+
+    disService->start();
+    basService->start();
+
+    BLEAdvertising* advertising = BLEDevice::getAdvertising();
+    BLEAdvertisementData advData;
+    advData.setName("ORD Dash");
+    advData.setAppearance(0x0484);
+    advertising->setAdvertisementData(advData);
+    advertising->addServiceUUID(BLEUUID((uint16_t)0x1816));
+    advertising->addServiceUUID(BLEUUID((uint16_t)0x1818));
+    advertising->setScanResponse(true);
+    advertising->start();
+}
+
+void Ble::taskRun() {
+    if (_connected) {
+        updateBatteryLevel();
+    }
+}
+
+void Ble::handleConnect() {
+    _connected = true;
+    BLEDevice::stopAdvertising();
+    updateBatteryLevel();
+}
+
+void Ble::handleDisconnect() {
+    _connected = false;
+    BLEDevice::startAdvertising();
+}
+
+void Ble::updateBatteryLevel() {
+    State::Snapshot snapshot = state.getSnapshot(true);
+    float soc = snapshot.soc();
+    uint8_t newLevel = static_cast<uint8_t>(std::clamp(soc, 0.0f, 100.0f));
+
+    if (newLevel == _batteryLevel && (millis() - _lastBatteryPublishMs) < 1000U) {
+        return;
+    }
+
+    _batteryLevel = newLevel;
+    _lastBatteryPublishMs = millis();
+
+    if (_server == nullptr || _batteryCharacteristic == nullptr) return;
+
+    _batteryCharacteristic->setValue(&_batteryLevel, 1);
+    if (_connected) {
+        _batteryCharacteristic->notify();
+    }
+}

@@ -7,6 +7,7 @@
 #include "tasks/telnet.h"
 #include "tasks/system_monitor.h"
 #include "tasks/api.h"
+#include "tasks/ble.h"
 #include "tasks/display.h"
 #include "tasks/can_sim.h"
 #include "tasks/can.h"
@@ -15,6 +16,7 @@
 
 State state;
 Api api;
+Ble ble;
 // CANSim canSim;
 CAN can;
 Display display;
@@ -41,6 +43,9 @@ void setup() {
 
     api.setup();
     api.taskStart(10.0f, 4096);
+
+    ble.setup();
+    ble.taskStart(1.0f, 4096);
 
     wifi.setup();
     wifi.taskStart(1.0f, 4096);
