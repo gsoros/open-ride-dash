@@ -200,12 +200,15 @@ class Display : public Task, public ApiClient, public HasPreferences {
                 output.onSleep();
                 return;
             case UiEvent::PasskeyStart:
-                ESP_LOGD(taskName(), "Passkey start event received: %06u", state.lastPassKey());
+                ESP_LOGD(taskName(), "Passkey start event received: %06u", state.blePassKey());
                 passkeyActive = true;
                 return;
             case UiEvent::PasskeyEnd:
                 ESP_LOGD(taskName(), "Passkey end event received");
                 passkeyActive = false;
+                return;
+            case UiEvent::OtaChange:
+                ESP_LOGD(taskName(), "OTA change event received: %d", state.ota());
                 return;
             default:
                 ESP_LOGW(taskName(), "Unhandled UI event: %u", (uint8_t)event);
@@ -215,7 +218,7 @@ class Display : public Task, public ApiClient, public HasPreferences {
 
     void syncPasskeyDisplay() {
         if (passkeyActive) {
-            if (!passkeyShown && output.showPasskey(state.lastPassKey())) {
+            if (!passkeyShown && output.showPasskey(state.blePassKey())) {
                 passkeyShown = true;
             }
             return;

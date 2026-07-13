@@ -103,6 +103,9 @@ class OTA : public Task, public HasPreferences {
         ArduinoOTA.onStart([this]() {
             taskSetFrequency(uploadFrequencyHz);
             ESP_LOGI(taskName(), "Start");
+            state.ota(State::OTA_START);
+            display.queueUiEvent(UiEvent::OtaChange);
+            // TODO: BLE disconnect, server->stop, deinit to stop sharing radio between BLE and WiFi and speed up OTA?
         });
         ArduinoOTA.onEnd([this]() {
             logNextBootPartition();
@@ -115,22 +118,31 @@ class OTA : public Task, public HasPreferences {
                 if (!preferences.putInt(crashCountKey, 0))
                     ESP_LOGE(taskName(), "Failed to reset crash count");
             }
+            state.ota(State::OTA_END);
+            display.queueUiEvent(UiEvent::OtaChange);
             ESP_LOGI(taskName(), "Enabling WiFi");
             api.queueCommand("wifi on");  // make sure WiFi is enabled
             wifiSerial.disconnectWithNotice("OTA update: disconnecting wifiSerial session.");
             taskSetFrequency(idleFrequencyHz);
             delay(1000);
+            // NOTE: reboot is initiated by ArduinoOTA
         });
         ArduinoOTA.onProgress([this](unsigned int progress, unsigned int total) {
+            uint8_t percent = std::clamp((progress / (total / 100U)), 0U, 100U);
+            state.ota(percent);
+            display.queueUiEvent(UiEvent::OtaChange);
             static uint32_t lastProgressLog = 0;
             if (millis() - lastProgressLog > 3000 || progress == total) {
                 lastProgressLog = millis();
-                ESP_LOGI(taskName(), "Progress: %u%%", (progress / (total / 100)));
+                ESP_LOGI(taskName(), "Progress: %u%%", percent);
             }
         });
         ArduinoOTA.onError([this](ota_error_t err) {
             taskSetFrequency(idleFrequencyHz);
             ESP_LOGE(taskName(), "Error: %s", otaErrorToString(err));
+            state.ota(State::OTA_ERROR);
+            display.queueUiEvent(UiEvent::OtaChange);
+            // TODO: reboot to restart BLE?
         });
 
         wifi.waitForReady();  // make sure WiFi is ready before starting OTA

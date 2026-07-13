@@ -11,9 +11,10 @@ enum class UiEvent : uint8_t {
     DownLongPress,
     PowerLongPress,
     MenuChord,
-    Sleep,
-    PasskeyStart,  // Sent when a passkey is required
-    PasskeyEnd,    // Sent after every authentication, even if the passkey was never used (reconnect) or when a wrong passkey was entered
+    Sleep,         // Sent when the system is about to sleep.
+    PasskeyStart,  // Sent when a passkey is required. Actual passkey is State::blePassKey().
+    PasskeyEnd,    // Passkey requirement ended. Sent after every authentication, even if the passkey was never used (reconnect) or when a wrong passkey was entered.
+    OtaChange,     // Sent when the OTA state changes. Actual state is State::ota().
 };
 
 #endif  // UI_EVENTS_H

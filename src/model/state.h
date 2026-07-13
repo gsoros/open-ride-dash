@@ -7,7 +7,8 @@
 class State : public HasPreferences {
    public:
     struct Snapshot {
-        uint32_t lastPassKey = 0;          // Last passkey used for BLE pairing
+        // TODO: Keep the order of these fields or use __attribute__((packed)) ?
+        uint32_t blePassKey = 0;           // Passkey used for BLE pairing/bonding
         uint32_t odo_mx10 = 0;             // m * 10
         uint32_t trip_mx10 = 0;            // m * 10
         uint16_t torque = 0;               // Raw sensor reading (needs calibration factor to become Nm)
@@ -19,6 +20,7 @@ class State : public HasPreferences {
         uint16_t wheelCircumference = 0;   // mm
         uint16_t batteryCapacity =         // Wh
             DEFAULT_BATTERY_CAPACITY;      // 720 Wh
+        int16_t ota = OTA_IDLE;            // OTA state (-4 = idle, -3 = start, -2 = end, -1 = error, 0-100 = progress)
         int8_t pasLevelRequested = 0;      // Pedal Assist Level (-1 walk assist, 0 off, 1-5 PAS) requested by UI
         int8_t pasLevel = 0;               // Actual PAS level updated by CAN
         uint8_t cadence = 0;               // RPM
@@ -208,13 +210,11 @@ class State : public HasPreferences {
     State();
 
     void setup();
-
     bool restoreFromPreferences();
-
     void registerApiCommands();
 
-    void lastPassKey(uint32_t v);
-    uint32_t lastPassKey();
+    void blePassKey(uint32_t v);
+    uint32_t blePassKey();
     void odo_mx10(uint32_t v);
     uint32_t odo_mx10();
     void trip_mx10(uint32_t v);
@@ -229,7 +229,8 @@ class State : public HasPreferences {
     uint8_t cadence();
     void batteryCapacity(uint16_t v, bool persist = true);
     uint16_t batteryCapacity();
-
+    void ota(int16_t v);
+    int16_t ota();
     void speed_x100(uint16_t v);
     uint16_t speed_x100();
     void batteryCurrent_x100(uint16_t v);
@@ -240,14 +241,12 @@ class State : public HasPreferences {
     uint8_t motorTemp();
     void controllerTemp(uint8_t v);
     uint8_t controllerTemp();
-
     void maxAssistSpeed_x100(uint16_t v);
     uint16_t maxAssistSpeed_x100();
     void wheelSize_x10(uint16_t v);
     uint16_t wheelSize_x10();
     void wheelCircumference(uint16_t v);
     uint16_t wheelCircumference();
-
     void controllerAlive(bool v);
     bool controllerAlive();
 
@@ -267,6 +266,11 @@ class State : public HasPreferences {
 
     static constexpr int8_t PAS_OFF = 0;
     static constexpr int8_t PAS_WALK_ASSIST = -1;
+
+    static constexpr int8_t OTA_IDLE = -4;
+    static constexpr int8_t OTA_START = -3;
+    static constexpr int8_t OTA_END = -2;
+    static constexpr int8_t OTA_ERROR = -1;
 
    protected:
     SemaphoreHandle_t mutex = nullptr;

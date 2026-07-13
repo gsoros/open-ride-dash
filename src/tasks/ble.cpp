@@ -13,6 +13,13 @@
 extern State state;
 extern Display display;
 
+/*
+     TODO: ESP_LOGE works but ESP_LOGI does not despite
+       -DCORE_DEBUG_LEVEL=ARDUHAL_LOG_LEVEL_DEBUG
+       -DCONFIG_BT_NIMBLE_LOG_LEVEL=1  ; 1 = INFO
+       -DCONFIG_NIMBLE_CPP_LOG_LEVEL=3 ; 3 = INFO
+*/
+
 namespace {
 
 class BleServerCallbacks : public BLEServerCallbacks {
@@ -21,27 +28,34 @@ class BleServerCallbacks : public BLEServerCallbacks {
 
     void onConnect(BLEServer* server, NimBLEConnInfo& connInfo) override {
         if (_ble != nullptr) _ble->handleConnect(connInfo);
+        ESP_LOGE(tag, "onConnect");
     }
 
     void onDisconnect(BLEServer* server, NimBLEConnInfo& connInfo, int reason) override {
         if (_ble != nullptr) _ble->handleDisconnect(connInfo, reason);
+        ESP_LOGE(tag, "onDisconnect");
     }
 
     uint32_t onPassKeyDisplay() override {
         return _ble != nullptr ? _ble->generatePassKey() : 0;
+        ESP_LOGE(tag, "onPassKeyDisplay");
     }
 
     void onAuthenticationComplete(NimBLEConnInfo& connInfo) override {
         if (_ble != nullptr) _ble->handleAuthenticationComplete(connInfo);
+        ESP_LOGE(tag, "onAuthenticationComplete");
     }
 
    private:
     Ble* _ble;
+    const char* tag = "BleSC";
 };
 }  // namespace
 
 void Ble::setup() {
     if (_connected) return;
+
+    // TODO: Use a shared hostname across WiFi and BLE
 
     BLEDevice::init("ORD Dash");
 
@@ -118,9 +132,13 @@ void Ble::updateCyclingServices() {
 }
 
 void Ble::publishCscMeasurement() {
+    /*
+        NOTE: The wheeRevs and crankRevs data is probably available in one of the CAN frames,
+        it would be nice to use that instead of calculating it here.
+    */
     State::Snapshot snapshot = state.getSnapshot(true);
     const uint32_t now = millis();
-    const float speedKph = snapshot.speed();
+    const float speedKmph = snapshot.speed();
     const uint8_t cadenceRpm = snapshot.cadence;
 
     if (_lastCscWheelMs == 0U) {
@@ -133,7 +151,7 @@ void Ble::publishCscMeasurement() {
     const uint32_t elapsedWheelMs = now - _lastCscWheelMs;
     const uint32_t elapsedCrankMs = now - _lastCscCrankMs;
     if (elapsedWheelMs > 0U) {
-        const float wheelRevPerSecond = (speedKph * 1000.0f / 3600.0f) / 2.1f;
+        const float wheelRevPerSecond = (speedKmph * 1000.0f / 3600.0f) / 2.1f;
         const uint32_t addedWheelRevs = static_cast<uint32_t>(wheelRevPerSecond * (elapsedWheelMs / 1000.0f));
         if (addedWheelRevs > 0U) {
             _cscWheelRevolutions += addedWheelRevs;
@@ -175,7 +193,7 @@ void Ble::publishCscMeasurement() {
 
 void Ble::publishCpsMeasurement() {
     State::Snapshot snapshot = state.getSnapshot(true);
-    const uint16_t power = static_cast<uint16_t>(std::clamp(snapshot.motorPower(), 0.0f, 65535.0f));
+    const uint16_t power = static_cast<uint16_t>(std::clamp(snapshot.motorPower(), 0.0f, (float)UINT16_MAX));
     if (power == _lastCpsPower) return;
 
     _lastCpsPower = power;
@@ -199,17 +217,16 @@ void Ble::initializeSecurity() {
 
 uint32_t Ble::generatePassKey() {
     uint32_t passKey = (esp_random() + 1) % 1000000U;  // avoid zero
-    _activePassKey = passKey;
-    ESP_LOGI(taskName(), "BLE pairing passkey: %06u", passKey);
-    state.lastPassKey(passKey);
+    state.blePassKey(passKey);
+    ESP_LOGE(taskName(), "BLE pairing passkey: %06u", passKey);
     display.queueUiEvent(UiEvent::PasskeyStart);
     return passKey;
 }
 
 void Ble::handleAuthenticationComplete(NimBLEConnInfo& connInfo) {
-    ESP_LOGI(taskName(), "BLE authentication complete");
-    state.lastPassKey(0);
-    // TODO: We are sending the passkey end event after every authentication,
+    ESP_LOGE(taskName(), "BLE authentication complete");
+    state.blePassKey(0);  // reset to invalid passkey
+    // TODO: We are sending the PasskeyEnd event after every authentication,
     // even if the passkey was never used (reconnect) or when a wrong passkey
     // was entered. The event name may be confusing.
     display.queueUiEvent(UiEvent::PasskeyEnd);
@@ -219,15 +236,16 @@ void Ble::handleConnect(NimBLEConnInfo& connInfo) {
     _connected = true;
     NimBLEDevice::stopAdvertising();
     // Require pairing for any further communication
+    ESP_LOGE(taskName(), "startSecurity");
     NimBLEDevice::startSecurity(connInfo.getConnHandle());
     updateBatteryLevel();
-    ESP_LOGD(taskName(), "Connected");
+    ESP_LOGE(taskName(), "Connected");
 }
 
 void Ble::handleDisconnect(NimBLEConnInfo& connInfo, int reason) {
     _connected = false;
     NimBLEDevice::startAdvertising();
-    ESP_LOGD(taskName(), "Disconnected");
+    ESP_LOGE(taskName(), "Disconnected");
 }
 
 void Ble::updateBatteryLevel() {

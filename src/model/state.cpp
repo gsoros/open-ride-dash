@@ -33,7 +33,6 @@ bool State::restoreFromPreferences() {
 }
 
 void State::registerApiCommands() {
-    // Example: Register a command to get/set speed
     api.registerCommand(
         "state",
         [this](const char* args) {
@@ -56,11 +55,11 @@ void State::registerApiCommands() {
         "Usage: state\nShows some current values.");
 }
 
-void State::lastPassKey(uint32_t v) {
-    setUInt32(&_latest.lastPassKey, v);
+void State::blePassKey(uint32_t v) {
+    setUInt32(&_latest.blePassKey, v);
 }
-uint32_t State::lastPassKey() {
-    return getUInt32(&_latest.lastPassKey);
+uint32_t State::blePassKey() {
+    return getUInt32(&_latest.blePassKey);
 }
 void State::odo_mx10(uint32_t v) {
     setUInt32(&_latest.odo_mx10, v);
@@ -100,21 +99,24 @@ void State::cadence(uint8_t v) {
 uint8_t State::cadence() {
     return getUInt8(&_latest.cadence);
 }
-
 void State::batteryCapacity(uint16_t v, bool persist) {
     setUInt16(&_latest.batteryCapacity, v);
-    if (persist) {
-        if (!preferencesReady) {
-            ESP_LOGE(tag, "batteryCapacity() preferences not ready");
-            return;
-        }
-        preferences.putUInt("batteryCapacity", v);
+    if (!persist) return;
+    if (!preferencesReady) {
+        ESP_LOGE(tag, "batteryCapacity() prefs not ready");
+        return;
     }
+    preferences.putUInt("batteryCapacity", v);
 }
 uint16_t State::batteryCapacity() {
     return getUInt16(&_latest.batteryCapacity);
 }
-
+void State::ota(int16_t v) {
+    setInt16(&_latest.ota, v);
+}
+int16_t State::ota() {
+    return getInt16(&_latest.ota);
+}
 void State::speed_x100(uint16_t v) {
     setUInt16(&_latest.speed_x100, v);
 }
