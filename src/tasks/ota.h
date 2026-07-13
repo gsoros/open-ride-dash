@@ -117,7 +117,7 @@ class OTA : public Task, public HasPreferences {
             }
             ESP_LOGI(taskName(), "Enabling WiFi");
             api.queueCommand("wifi on");  // make sure WiFi is enabled
-            telnet.disconnectWithNotice("OTA update: disconnecting telnet session.");
+            wifiSerial.disconnectWithNotice("OTA update: disconnecting wifiSerial session.");
             taskSetFrequency(idleFrequencyHz);
             delay(1000);
         });

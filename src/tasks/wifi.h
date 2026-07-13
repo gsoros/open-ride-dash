@@ -3,7 +3,7 @@
 
 /*
  * TODO: Fallback AP support and full API interface for configuring WiFi AP/STA.
- * TODO: Manage dependent tasks (OTA, Telnet) based on WiFi mode, instead of rebooting on mode change.
+ * TODO: Manage dependent tasks (OTA, WifiSerial) based on WiFi mode, instead of rebooting on mode change.
  */
 
 #include <WiFi.h>
@@ -13,10 +13,10 @@
 #include "has_preferences.h"
 #include "config.h"
 #include "api.h"
-#include "tasks/telnet.h"
+#include "tasks/wifiserial.h"
 #include "tasks/display.h"
 
-extern Telnet telnet;
+extern WifiSerial wifiSerial;
 extern Display display;
 
 class Wifi : public Task,
@@ -268,7 +268,7 @@ class Wifi : public Task,
 
     void disableSTA() {
         if (!staEnabled) return;
-        telnet.disconnectWithNotice("WiFi STA disabled: disconnecting telnet session.");
+        wifiSerial.disconnectWithNotice("WiFi STA disabled: disconnecting wifiSerial session.");
         if (!preferencesReady || preferences.putBool(staEnabledKey, false) == 0)
             ESP_LOGE(taskName(), "Failed to save STA disabled state");
         ESP_LOGI(taskName(), "STA disabled, rebooting...");

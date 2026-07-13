@@ -4,7 +4,7 @@
 #include "model/state.h"
 #include "tasks/wifi.h"
 #include "tasks/ota.h"
-#include "tasks/telnet.h"
+#include "tasks/wifiserial.h"
 #include "tasks/system_monitor.h"
 #include "tasks/api.h"
 #include "tasks/ble.h"
@@ -22,7 +22,7 @@ CAN can;
 Display display;
 Wifi wifi;
 OTA ota;
-Telnet telnet(23);
+WifiSerial wifiSerial(23);
 SystemMonitor systemMonitor;
 Keypad keypad;
 Alarm alarmTask;  // 'alarm' is a reserved word
@@ -57,8 +57,8 @@ void setup() {
         ota.taskStart(2.0f, 100.0f, 4096);
     }
 
-    telnet.setup(wifi.isEnabled());
-    telnet.taskStart(10.0f, 4096);
+    wifiSerial.setup(wifi.isEnabled());
+    wifiSerial.taskStart(10.0f, 4096);
 
     display.setup();
     display.taskStart(50.0f, 4096);
@@ -75,7 +75,7 @@ void setup() {
     alarmTask.setup();
     alarmTask.taskStart(100.0f, 2048);
 
-    // static Task* tasksToMonitor[] = {&api, &wifi, &ota, &telnet, &display, &can};
+    // static Task* tasksToMonitor[] = {&api, &wifi, &ota, &wifiSerial, &display, &can};
     // systemMonitor.setup(tasksToMonitor, sizeof(tasksToMonitor) / sizeof(tasksToMonitor[0]));
     // systemMonitor.taskStart(10.0f, 4096);
 }

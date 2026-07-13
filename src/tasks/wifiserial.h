@@ -1,29 +1,33 @@
-#ifndef TELNET_H
-#define TELNET_H
+#ifndef WIFISERIAL_H
+#define WIFISERIAL_H
 
 /*
-   TODO: Move Serial IO handling to the API task.
-   TODO: Rename task to WifiSerial or WifiConsole or WifiShell or WifiCLI
+   TODO: Move Serial IO handling to the main loop or the API task.
 */
 
 #include <WiFi.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/queue.h>
 #include "task.h"
 #include "api.h"
 #include "config.h"
 #include "build_info.h"  // whoami
 
-class Telnet : public Task, public ApiClient {
+class WifiSerial : public Task, public ApiClient {
    public:
-    Telnet(uint16_t port = 23) : port(port) {
+    WifiSerial(uint16_t port = 23) : port(port) {
         instance = this;
     }
 
     virtual const char* taskName() const override {
-        return "Telnet";
+        return "WifiSerial";
     }
 
     virtual void setup(bool withWifi = true) {
         instance = this;
+        logQueue = xQueueCreate(8, sizeof(LogLine));
+
+        esp_log_set_vprintf(&queue_vprintf);
         if (withWifi) {
             wifiServer.begin();
             ESP_LOGI(taskName(), "Ready on port %d", port);
@@ -34,10 +38,12 @@ class Telnet : public Task, public ApiClient {
             [this](const char* args) {
                 return setEchoCommand(args);
             },
-            "Usage: echo 0|1|True|true|False|false|On|on|Off|off\nEnables or disables Telnet input echo.");
+            "Usage: echo 0|1|True|true|False|false|On|on|Off|off\nEnables or disables WifiSerial input echo.");
     }
 
     virtual void taskRun() override {
+        drainLogQueue();
+
 #ifdef FEATURE_SERIAL
         static String serialBuf = "";
 
@@ -70,20 +76,17 @@ class Telnet : public Task, public ApiClient {
                     wifiClient = newClient;
                     logClientActive = true;
                     ESP_LOGI(taskName(), "Client connected.");
-                    esp_log_set_vprintf(&telnet_vprintf);
                     wifiClient.printf("=== Welcome to %s ===\n", whoami);
                 }
             } else {
                 wifiClient.stop();
                 logClientActive = false;
-                esp_log_set_vprintf(&serial_vprintf);
                 ESP_LOGI(taskName(), "Client disconnected.");
             }
         } else if (wifiClient.available()) {
             String line = wifiClient.readStringUntil('\n');
             // Echo back any received data if echo is enabled
             if (echo) {
-                // ESP_LOGI(taskName(), "Received from client: %s", line.c_str());
                 wifiClient.println(line);
             }
             // Send command to API (non-blocking) and ask for a reply on our queue
@@ -96,7 +99,7 @@ class Telnet : public Task, public ApiClient {
             }
         }
 
-        // Check for API replies destined to this Telnet instance
+        // Check for API replies destined to this WifiSerial instance
         apiClientReceiveReplies();
     }
 
@@ -124,37 +127,41 @@ class Telnet : public Task, public ApiClient {
                      reply.command,
                      (char*)reply.data);
         }
-#ifdef FEATURE_SERIAL
-        Serial.println(line);
-#endif
-        if (client) {
+        if (serial)
+            Serial.println(line);
+
+        if (client)
             instance->wifiClient.println(line);
-        }
     }
 
     void setEcho(bool enable) {
         echo = enable;
     }
 
-    static int serial_vprintf(const char* fmt, va_list args) {
-        char buf[256];
-        vsnprintf(buf, sizeof(buf), fmt, args);
-#ifdef FEATURE_SERIAL
-        return Serial.print(buf);
-#else
-        return sizeof(buf);
-#endif
+    static int queue_vprintf(const char* fmt, va_list args) {
+        if (instance == nullptr || instance->logQueue == nullptr) return 0;
+        LogLine line;
+        int len = vsnprintf(line.text, sizeof(line.text), fmt, args);
+        // Never block the caller here - this can run on any task, including
+        // the NimBLE host task. If the queue's full we just drop the line
+        // rather than stall whatever called ESP_LOGx.
+        xQueueSend(instance->logQueue, &line, 0);
+        return len;
     }
 
-    static int telnet_vprintf(const char* fmt, va_list args) {
-        char buf[256];
-        int res = 0;
-        vsnprintf(buf, sizeof(buf), fmt, args);
-        if (instance && instance->wifiClient && instance->wifiClient.connected()) {
-            res = instance->wifiClient.print(buf);
+    void drainLogQueue() {
+        if (logQueue == nullptr) return;
+        LogLine line;
+        // Cap lines drained per loop iteration so a burst of log output
+        // can't starve the rest of taskRun().
+        for (int i = 0; i < 10 && xQueueReceive(logQueue, &line, 0) == pdTRUE; ++i) {
+#ifdef FEATURE_SERIAL
+            Serial.print(line.text);
+#endif
+            if (wifiClient && wifiClient.connected()) {
+                wifiClient.print(line.text);
+            }
         }
-        // Serial.print(buf);
-        return res;
     }
 
     void flush() {
@@ -172,7 +179,6 @@ class Telnet : public Task, public ApiClient {
             delay(100);
             wifiClient.stop();
             logClientActive = false;
-            esp_log_set_vprintf(&serial_vprintf);
             ESP_LOGI(taskName(), "Client disconnected after notice.");
         }
     }
@@ -216,19 +222,26 @@ class Telnet : public Task, public ApiClient {
         }
 
         setEcho(enable);
-        snprintf((char*)reply.data, sizeof(reply.data), "Telnet echo %s", enable ? "enabled" : "disabled");
+        snprintf((char*)reply.data, sizeof(reply.data), "WifiSerial echo %s", enable ? "enabled" : "disabled");
         return reply;
     }
 
     // std=GNU++17 allows inline static member variables
-    inline static Telnet* instance = nullptr;
+    inline static WifiSerial* instance = nullptr;
     uint16_t port = 23;
     WiFiServer wifiServer{port};
     WiFiClient wifiClient;
     bool echo = false;
     bool logClientActive = false;
+
+    struct LogLine {
+        // 200 chars covers the usual app log lines with room to
+        // spare; bump if something legitimately gets truncated.
+        char text[200];
+    };
+    QueueHandle_t logQueue = nullptr;
 };
 
-extern Telnet telnet;
+extern WifiSerial wifiSerial;
 
-#endif  // TELNET_H
+#endif  // WIFISERIAL_H

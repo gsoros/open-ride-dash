@@ -200,7 +200,7 @@ class Display : public Task, public ApiClient, public HasPreferences {
                 output.onSleep();
                 return;
             case UiEvent::PasskeyStart:
-                ESP_LOGD(taskName(), "Passkey start event received: %d", state.lastPassKey());
+                ESP_LOGD(taskName(), "Passkey start event received: %06u", state.lastPassKey());
                 passkeyActive = true;
                 return;
             case UiEvent::PasskeyEnd:

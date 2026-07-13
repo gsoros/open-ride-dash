@@ -2,7 +2,7 @@
 #define BLE_H
 
 /*
-    BLE (GAP Peripheral, GATT Server) task using NimBLE.
+    BLE (GAP Peripheral, GATT Server) task.
 
     IMPLEMENTATION PLAN:
 
@@ -12,7 +12,12 @@
     - Provide an API bridge to the custom mobile app via NUS once the app is ready.
 
     Constraints and policies:
+    - Stack: NimBLE (h2zero/NimBLE-Arduino), not the bundled Bluedroid BLE lib.
     - Maximum connections: 1. Advertising stops immediately upon connection.
+      NimBLE defaults to 3 max connections; cap it via a build flag
+      (-D CONFIG_BT_NIMBLE_MAX_CONNECTIONS=1) if the RAM saving matters, since
+      the app-level stop-advertising-on-connect logic alone won't shrink the
+      stack's connection pool.
     - Security: use authenticated pairing and keypad confirmation for the first pairing of CTS/NUS.
       Standard services should remain broadly compatible unless there is a clear need to lock them down.
     - Advertising payload should fit the legacy 31-byte limit and include flags, appearance,
@@ -59,10 +64,7 @@
     - Avoid blocking the task with long serialization or large buffers.
 */
 
-#include <BLEDevice.h>
-#include <BLEServer.h>
-#include <BLECharacteristic.h>
-#include <BLESecurity.h>
+#include <NimBLEDevice.h>
 
 #include "task.h"
 
@@ -75,20 +77,21 @@ class Ble : public Task {
     virtual void setup();
     virtual void taskRun() override;
 
-    void handleConnect();
-    void handleDisconnect();
+    // NOTE: NimBLE's server callbacks require NimBLEConnInfo& now (peer info),
+    // and onDisconnect gets a reason code too. See BleServerCallbacks in ble.cpp.
+    void handleConnect(NimBLEConnInfo& connInfo);
+    void handleDisconnect(NimBLEConnInfo& connInfo, int reason);
+    void handleAuthenticationComplete(NimBLEConnInfo& connInfo);
+
+    uint32_t generatePassKey();
 
    private:
-    class SecurityCallbacks;
-
     void updateBatteryLevel();
     void updateCyclingServices();
     void initializeSecurity();
     void initializeCyclingServices();
     void publishCscMeasurement();
     void publishCpsMeasurement();
-    void handlePassKeyNotify(uint32_t passKey);
-    void handleAuthenticationComplete();
 
     bool _connected = false;
     uint8_t _batteryLevel = 0;
@@ -98,8 +101,6 @@ class Ble : public Task {
     BLECharacteristic* _batteryCharacteristic = nullptr;
     BLECharacteristic* _cscCharacteristic = nullptr;
     BLECharacteristic* _cpsCharacteristic = nullptr;
-    SecurityCallbacks* _securityCallbacks = nullptr;
-    BLESecurity _security;
     uint32_t _lastCyclingPublishMs = 0;
     uint32_t _cscWheelRevolutions = 0;
     uint16_t _cscLastWheelEventTime = 0;

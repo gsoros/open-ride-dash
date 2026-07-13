@@ -3,12 +3,8 @@
 #include <algorithm>
 #include <cstring>
 
-#include <BLEDevice.h>
-#include <BLEServer.h>
-#include <BLEAdvertising.h>
-#include <BLECharacteristic.h>
-#include <BLEService.h>
-#include <BLE2902.h>
+#include <NimBLEDevice.h>
+#include <esp_random.h>
 
 #include "build_info.h"
 #include "model/state.h"
@@ -18,60 +14,31 @@ extern State state;
 extern Display display;
 
 namespace {
+
 class BleServerCallbacks : public BLEServerCallbacks {
    public:
     explicit BleServerCallbacks(Ble* ble) : _ble(ble) {}
 
-    void onConnect(BLEServer* server) override {
-        if (_ble != nullptr) _ble->handleConnect();
+    void onConnect(BLEServer* server, NimBLEConnInfo& connInfo) override {
+        if (_ble != nullptr) _ble->handleConnect(connInfo);
     }
 
-    void onDisconnect(BLEServer* server) override {
-        if (_ble != nullptr) _ble->handleDisconnect();
+    void onDisconnect(BLEServer* server, NimBLEConnInfo& connInfo, int reason) override {
+        if (_ble != nullptr) _ble->handleDisconnect(connInfo, reason);
+    }
+
+    uint32_t onPassKeyDisplay() override {
+        return _ble != nullptr ? _ble->generatePassKey() : 0;
+    }
+
+    void onAuthenticationComplete(NimBLEConnInfo& connInfo) override {
+        if (_ble != nullptr) _ble->handleAuthenticationComplete(connInfo);
     }
 
    private:
     Ble* _ble;
 };
 }  // namespace
-
-class Ble::SecurityCallbacks : public BLESecurityCallbacks {
-   public:
-    explicit SecurityCallbacks(Ble* ble) : _ble(ble) {}
-
-    uint32_t onPassKeyRequest() override {
-        if (_ble != nullptr) {
-            ESP_LOGW(_ble->taskName(), "BLE pairing requested a passkey input from the peer");
-        }
-        return 0;
-    }
-
-    void onPassKeyNotify(uint32_t passKey) override {
-        if (_ble != nullptr) {
-            _ble->handlePassKeyNotify(passKey);
-        }
-    }
-
-    bool onSecurityRequest() override {
-        return true;
-    }
-
-    void onAuthenticationComplete(esp_ble_auth_cmpl_t) override {
-        if (_ble != nullptr) {
-            _ble->handleAuthenticationComplete();
-        }
-    }
-
-    bool onConfirmPIN(uint32_t pin) override {
-        if (_ble != nullptr) {
-            ESP_LOGI(_ble->taskName(), "BLE pairing confirmation for PIN %06u", pin);
-        }
-        return true;
-    }
-
-   private:
-    Ble* _ble;
-};
 
 void Ble::setup() {
     if (_connected) return;
@@ -88,11 +55,11 @@ void Ble::setup() {
 
     BLEService* disService = server->createService(BLEUUID((uint16_t)0x180A));
     BLECharacteristic* modelCharacteristic = disService->createCharacteristic(
-        BLEUUID((uint16_t)0x2A24), BLECharacteristic::PROPERTY_READ);
+        BLEUUID((uint16_t)0x2A24), NIMBLE_PROPERTY::READ);
     BLECharacteristic* manufacturerCharacteristic = disService->createCharacteristic(
-        BLEUUID((uint16_t)0x2A29), BLECharacteristic::PROPERTY_READ);
+        BLEUUID((uint16_t)0x2A29), NIMBLE_PROPERTY::READ);
     BLECharacteristic* fwVersionCharacteristic = disService->createCharacteristic(
-        BLEUUID((uint16_t)0x2A26), BLECharacteristic::PROPERTY_READ);
+        BLEUUID((uint16_t)0x2A26), NIMBLE_PROPERTY::READ);
 
     const char* model = "ORD Dash";
     const char* manufacturer = "OpenRide";
@@ -104,25 +71,22 @@ void Ble::setup() {
 
     BLEService* basService = server->createService(BLEUUID((uint16_t)0x180F));
     _batteryCharacteristic = basService->createCharacteristic(
-        BLEUUID((uint16_t)0x2A19), BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY);
-    _batteryCharacteristic->addDescriptor(new BLE2902());
+        BLEUUID((uint16_t)0x2A19), NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
     uint8_t initialLevel = 0;
     _batteryCharacteristic->setValue(&initialLevel, 1);
 
     initializeCyclingServices();
 
-    disService->start();
-    basService->start();
-
     BLEAdvertising* advertising = BLEDevice::getAdvertising();
     BLEAdvertisementData advData;
     advData.setName("ORD Dash");
     advData.setAppearance(0x0484);
+    advData.addServiceUUID(BLEUUID((uint16_t)0x1816));
+    advData.addServiceUUID(BLEUUID((uint16_t)0x1818));
     advertising->setAdvertisementData(advData);
-    advertising->addServiceUUID(BLEUUID((uint16_t)0x1816));
-    advertising->addServiceUUID(BLEUUID((uint16_t)0x1818));
-    advertising->setScanResponse(true);
+    advertising->enableScanResponse(true);
     advertising->start();
+    server->start();
 }
 
 void Ble::taskRun() {
@@ -135,16 +99,11 @@ void Ble::taskRun() {
 void Ble::initializeCyclingServices() {
     BLEService* cscService = _server->createService(BLEUUID((uint16_t)0x1816));
     _cscCharacteristic = cscService->createCharacteristic(
-        BLEUUID((uint16_t)0x2A5B), BLECharacteristic::PROPERTY_NOTIFY);
-    _cscCharacteristic->addDescriptor(new BLE2902());
+        BLEUUID((uint16_t)0x2A5B), NIMBLE_PROPERTY::NOTIFY);
 
     BLEService* cpsService = _server->createService(BLEUUID((uint16_t)0x1818));
     _cpsCharacteristic = cpsService->createCharacteristic(
-        BLEUUID((uint16_t)0x2A63), BLECharacteristic::PROPERTY_NOTIFY);
-    _cpsCharacteristic->addDescriptor(new BLE2902());
-
-    cscService->start();
-    cpsService->start();
+        BLEUUID((uint16_t)0x2A63), NIMBLE_PROPERTY::NOTIFY);
 }
 
 void Ble::updateCyclingServices() {
@@ -232,44 +191,43 @@ void Ble::publishCpsMeasurement() {
 }
 
 void Ble::initializeSecurity() {
-    if (_securityCallbacks != nullptr) return;
-
-    _securityCallbacks = new SecurityCallbacks(this);
-    BLEDevice::setSecurityCallbacks(_securityCallbacks);
-    BLEDevice::setEncryptionLevel(ESP_BLE_SEC_ENCRYPT_MITM);
-
-    _security.setAuthenticationMode(ESP_LE_AUTH_REQ_SC_MITM_BOND);
-    _security.setCapability(ESP_IO_CAP_OUT);
-    _security.setKeySize(16);
-    _security.setInitEncryptionKey(ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK);
-    _security.setRespEncryptionKey(ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK);
+    NimBLEDevice::setSecurityAuth(/*bonding=*/true, /*mitm=*/true, /*sc=*/true);
+    NimBLEDevice::setSecurityIOCap(BLE_HS_IO_DISPLAY_ONLY);
+    NimBLEDevice::setSecurityInitKey(BLE_SM_PAIR_KEY_DIST_ENC | BLE_SM_PAIR_KEY_DIST_ID);
+    NimBLEDevice::setSecurityRespKey(BLE_SM_PAIR_KEY_DIST_ENC | BLE_SM_PAIR_KEY_DIST_ID);
 }
 
-void Ble::handlePassKeyNotify(uint32_t passKey) {
+uint32_t Ble::generatePassKey() {
+    uint32_t passKey = (esp_random() + 1) % 1000000U;  // avoid zero
     _activePassKey = passKey;
     ESP_LOGI(taskName(), "BLE pairing passkey: %06u", passKey);
     state.lastPassKey(passKey);
     display.queueUiEvent(UiEvent::PasskeyStart);
+    return passKey;
 }
 
-void Ble::handleAuthenticationComplete() {
+void Ble::handleAuthenticationComplete(NimBLEConnInfo& connInfo) {
     ESP_LOGI(taskName(), "BLE authentication complete");
     state.lastPassKey(0);
-    // TODO: we're sending the passkey end event after every authentication,
+    // TODO: We are sending the passkey end event after every authentication,
     // even if the passkey was never used (reconnect) or when a wrong passkey
     // was entered. The event name may be confusing.
     display.queueUiEvent(UiEvent::PasskeyEnd);
 }
 
-void Ble::handleConnect() {
+void Ble::handleConnect(NimBLEConnInfo& connInfo) {
     _connected = true;
-    BLEDevice::stopAdvertising();
+    NimBLEDevice::stopAdvertising();
+    // Require pairing for any further communication
+    NimBLEDevice::startSecurity(connInfo.getConnHandle());
     updateBatteryLevel();
+    ESP_LOGD(taskName(), "Connected");
 }
 
-void Ble::handleDisconnect() {
+void Ble::handleDisconnect(NimBLEConnInfo& connInfo, int reason) {
     _connected = false;
-    BLEDevice::startAdvertising();
+    NimBLEDevice::startAdvertising();
+    ESP_LOGD(taskName(), "Disconnected");
 }
 
 void Ble::updateBatteryLevel() {
