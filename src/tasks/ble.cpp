@@ -14,10 +14,25 @@ extern State state;
 extern Display display;
 
 /*
-     TODO: ESP_LOGE works but ESP_LOGI does not despite
-       -DCORE_DEBUG_LEVEL=ARDUHAL_LOG_LEVEL_DEBUG
-       -DCONFIG_BT_NIMBLE_LOG_LEVEL=1  ; 1 = INFO
-       -DCONFIG_NIMBLE_CPP_LOG_LEVEL=3 ; 3 = INFO
+     TODO: ESP_LOG* calls are not consistently resulting in output.
+
+     Levels seem OK.
+
+     Increasing stack using
+     -DCONFIG_BT_NIMBLE_HOST_TASK_STACK_SIZE=8192
+       or
+     ble.taskStart(1.0f, 8192);
+     do not help.
+
+*** first connection sometimes has output: ***
+I (7369) BLE: startSecurity
+I (7371) BLE: Connected
+I (7371) BleSC: onConnect
+I (7661) BLE: BLE authentication complete
+I (7662) BleSC: onAuthenticationComplete
+D (7665) Display: Passkey end event received
+*** but no more output on disconnect or subsequent connections ***
+
 */
 
 namespace {
@@ -28,22 +43,22 @@ class BleServerCallbacks : public BLEServerCallbacks {
 
     void onConnect(BLEServer* server, NimBLEConnInfo& connInfo) override {
         if (_ble != nullptr) _ble->handleConnect(connInfo);
-        ESP_LOGE(tag, "onConnect");
+        ESP_LOGI(tag, "onConnect");
     }
 
     void onDisconnect(BLEServer* server, NimBLEConnInfo& connInfo, int reason) override {
         if (_ble != nullptr) _ble->handleDisconnect(connInfo, reason);
-        ESP_LOGE(tag, "onDisconnect");
+        ESP_LOGI(tag, "onDisconnect");
     }
 
     uint32_t onPassKeyDisplay() override {
         return _ble != nullptr ? _ble->generatePassKey() : 0;
-        ESP_LOGE(tag, "onPassKeyDisplay");
+        ESP_LOGI(tag, "onPassKeyDisplay");
     }
 
     void onAuthenticationComplete(NimBLEConnInfo& connInfo) override {
         if (_ble != nullptr) _ble->handleAuthenticationComplete(connInfo);
-        ESP_LOGE(tag, "onAuthenticationComplete");
+        ESP_LOGI(tag, "onAuthenticationComplete");
     }
 
    private:
@@ -133,7 +148,7 @@ void Ble::updateCyclingServices() {
 
 void Ble::publishCscMeasurement() {
     /*
-        NOTE: The wheeRevs and crankRevs data is probably available in one of the CAN frames,
+        NOTE: The wheeRevs and crankRevs data may be available in one of the unparsed CAN frames,
         it would be nice to use that instead of calculating it here.
     */
     State::Snapshot snapshot = state.getSnapshot(true);
@@ -218,13 +233,13 @@ void Ble::initializeSecurity() {
 uint32_t Ble::generatePassKey() {
     uint32_t passKey = (esp_random() + 1) % 1000000U;  // avoid zero
     state.blePassKey(passKey);
-    ESP_LOGE(taskName(), "BLE pairing passkey: %06u", passKey);
+    ESP_LOGI(taskName(), "BLE pairing passkey: %06u", passKey);
     display.queueUiEvent(UiEvent::PasskeyStart);
     return passKey;
 }
 
 void Ble::handleAuthenticationComplete(NimBLEConnInfo& connInfo) {
-    ESP_LOGE(taskName(), "BLE authentication complete");
+    ESP_LOGI(taskName(), "BLE authentication complete");
     state.blePassKey(0);  // reset to invalid passkey
     // TODO: We are sending the PasskeyEnd event after every authentication,
     // even if the passkey was never used (reconnect) or when a wrong passkey
@@ -236,16 +251,16 @@ void Ble::handleConnect(NimBLEConnInfo& connInfo) {
     _connected = true;
     NimBLEDevice::stopAdvertising();
     // Require pairing for any further communication
-    ESP_LOGE(taskName(), "startSecurity");
+    ESP_LOGI(taskName(), "startSecurity");
     NimBLEDevice::startSecurity(connInfo.getConnHandle());
     updateBatteryLevel();
-    ESP_LOGE(taskName(), "Connected");
+    ESP_LOGI(taskName(), "Connected");
 }
 
 void Ble::handleDisconnect(NimBLEConnInfo& connInfo, int reason) {
     _connected = false;
     NimBLEDevice::startAdvertising();
-    ESP_LOGE(taskName(), "Disconnected");
+    ESP_LOGI(taskName(), "Disconnected");
 }
 
 void Ble::updateBatteryLevel() {

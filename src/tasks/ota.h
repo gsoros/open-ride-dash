@@ -129,6 +129,8 @@ class OTA : public Task, public HasPreferences {
         });
         ArduinoOTA.onProgress([this](unsigned int progress, unsigned int total) {
             uint8_t percent = std::clamp((progress / (total / 100U)), 0U, 100U);
+            uint8_t lastOtaState = state.ota();
+            if (percent == lastOtaState) return;
             state.ota(percent);
             display.queueUiEvent(UiEvent::OtaChange);
             static uint32_t lastProgressLog = 0;

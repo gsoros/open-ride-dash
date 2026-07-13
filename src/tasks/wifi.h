@@ -4,6 +4,7 @@
 /*
  * TODO: Fallback AP support and full API interface for configuring WiFi AP/STA.
  * TODO: Manage dependent tasks (OTA, WifiSerial) based on WiFi mode, instead of rebooting on mode change.
+ * TODO: The system sometimes becomes bogged down (barely responsive) when moving out of WiFi range.
  */
 
 #include <WiFi.h>

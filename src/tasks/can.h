@@ -174,13 +174,25 @@ class CAN : public Task {
                     uint16_t speed_x100 = ((uint16_t)frame.data[1] << 8) | (uint16_t)frame.data[0];
                     uint16_t batteryCurrent_x100 = ((uint16_t)frame.data[3] << 8) | (uint16_t)frame.data[2];
                     uint16_t batteryVoltage_x100 = ((uint16_t)frame.data[5] << 8) | (uint16_t)frame.data[4];
+                    int8_t motorTemp = (int8_t)frame.data[6] - 40;
+                    int8_t controllerTemp = (int8_t)frame.data[7] - 40;
                     if (state.acquireMutex()) {
                         State::Snapshot s = state.getSnapshot(false);
+                        uint16_t voltageDelta_x100 = std::abs(s.batteryVoltage_x100 - batteryVoltage_x100);
+                        if (s.speed_x100 == speed_x100 &&
+                            s.batteryCurrent_x100 == batteryCurrent_x100 &&
+                            voltageDelta_x100 <= 10 &&
+                            s.motorTemp == motorTemp &&
+                            s.controllerTemp == controllerTemp) {
+                            // ignore voltage jitter <= 100 mV
+                            state.releaseMutex();
+                            break;
+                        }
                         s.speed_x100 = speed_x100;
                         s.batteryCurrent_x100 = batteryCurrent_x100;
                         s.batteryVoltage_x100 = batteryVoltage_x100;
-                        s.motorTemp = (int8_t)frame.data[6] - 40;
-                        s.controllerTemp = (int8_t)frame.data[7] - 40;
+                        s.motorTemp = motorTemp;
+                        s.controllerTemp = controllerTemp;
                         state.setSnapshot(s, false);
                         state.releaseMutex();
                     }
