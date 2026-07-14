@@ -2,24 +2,40 @@
 #define WIFI_H
 
 /*
+ * TODOs in order of priority:
  *
- * TODO: Full API interface for configuring WiFi AP/STA.
+ * Find out why the AP is not visible using the laptop or WiFi Analyzer
+ * on Android for scanning. Other 2.4GHz APs are visible. Logging shows
+ * no errors. Toggling STA makes no difference.
  *
- * TODO: Manage dependent tasks (OTA, WifiSerial) based on WiFi mode, instead of rebooting on mode change.
  *
- * TODO: Find out why the system sometimes becomes bogged down (barely responsive) when moving out of WiFi range.
+ * Find out why the system sometimes becomes bogged down
+ * (barely responsive) when moving out of WiFi range.
  *
- * TODO: Move hostname to main or API task and share it with BLE
  *
- * TODO: Revise API syntax:
+ * Move hostname to main or API task and share it with BLE.
+ *
+ *
+ * Revise API syntax.
  *   - Use "wifi" as the top-level command
- *   - Ommitting the subcommand returns a the current settings: "sta: on, ap: off, ssid: myNetwork, password: myPassword"
- *   - Use "wifi on", "wifi off", "wifi toggle", "wifi ssid", "wifi password", "wifi ap", and "wifi status" as subcommands
- *   - "wifi toggle" toggles the current STA enabled flag, "wifi on" enables STA, "wifi off" disables STA
- *   - "wifi ssid" returns the current STA SSID, "wifi ssid myNetwork" sets the STA SSID
- *   - "wifi password" returns the current STA password, "wifi password myPassword" sets the STA password
- *   - "wifi ap" returns the current AP enabled flag, "wifi ap toggle" toggles AP, "wifi ap on" enables AP, "wifi ap off" disables AP
- *   - "wifi status" returns the current status: "sta: disconnected, ap_clients: 1"
+ *   - Ommitting the subcommand returns a the current settings:
+ *     "sta: on, ap: off, ssid: myNetwork, password: myPassword"
+ *   - Use "wifi on", "wifi off", "wifi toggle", "wifi ssid",
+ *     "wifi password", "wifi ap", and "wifi status" as subcommands
+ *   - "wifi toggle" toggles the current STA enabled flag, "wifi on"
+ *      enables STA, "wifi off" disables STA
+ *   - "wifi ssid" returns the current STA SSID, "wifi ssid myNetwork"
+ *      sets the STA SSID
+ *   - "wifi password" returns the current STA password,
+ *     "wifi password myPassword" sets the STA password
+ *   - "wifi ap" returns the current AP enabled flag, "wifi ap toggle"
+ *     toggles AP, "wifi ap on" enables AP, "wifi ap off" disables AP
+ *   - "wifi status" returns the current status:
+ *     "sta: disconnected, ap_clients: 1"
+ *
+ *
+ *  Manage dependent tasks (OTA, WifiSerial) based on WiFi mode,
+ *  instead of rebooting on mode change?
  */
 
 #include <WiFi.h>
