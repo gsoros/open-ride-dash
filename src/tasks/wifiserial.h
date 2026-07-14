@@ -1,16 +1,13 @@
 #ifndef WIFISERIAL_H
 #define WIFISERIAL_H
 
-/*
-   TODO: Move Serial IO handling to the main loop or the API task.
-*/
-
 #include <WiFi.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
 #include <cstring>
 #include "task.h"
 #include "api.h"
+#include "util.h"
 #include "config.h"
 #include "build_info.h"  // whoami
 
@@ -45,38 +42,6 @@ class WifiSerial : public Task, public ApiClient {
     virtual void taskRun() override {
         drainLogQueue();
 
-#ifdef FEATURE_SERIAL
-        static char serialBuf[128] = {};
-        static size_t serialBufLen = 0;
-
-        while (Serial.available()) {
-            char c = Serial.read();
-            Serial.print(c);
-            if (c == '\n' || c == '\r') {
-                if (serialBufLen > 0) {
-                    serialBuf[serialBufLen] = '\0';
-                    trimInPlace(serialBuf);
-                    if (serialBuf[0] != '\0') {
-                        if (!apiClientQueueCommand(serialBuf)) {
-                            ESP_LOGE(taskName(), "API request dropped");
-                        }
-                    }
-                    serialBufLen = 0;
-                    serialBuf[0] = '\0';
-                }
-            } else {
-                if (serialBufLen < sizeof(serialBuf) - 1) {
-                    serialBuf[serialBufLen++] = c;
-                } else {
-                    ESP_LOGE(taskName(), "Serial buffer overflow");
-                    serialBufLen = 0;
-                    serialBuf[0] = '\0';
-                }
-            }
-        }
-
-#endif
-
         if (!wifiClient.connected()) {
             if (!logClientActive) {
                 WiFiClient newClient = wifiServer.accept();
@@ -96,7 +61,7 @@ class WifiSerial : public Task, public ApiClient {
             int len = wifiClient.readBytesUntil('\n', line, sizeof(line) - 1);
             if (len > 0) {
                 line[len] = '\0';
-                trimInPlace(line);
+                Util::trimInPlace(line);
                 // Echo back any received data if echo is enabled
                 if (echo) {
                     wifiClient.println(line);
@@ -116,13 +81,8 @@ class WifiSerial : public Task, public ApiClient {
     }
 
     void receiveReply(const Api::Reply& reply) override {
-#ifdef FEATURE_SERIAL
-        bool serial = true;
-#else
-        bool serial = false;
-#endif
         bool client = instance && instance->wifiClient && instance->wifiClient.connected();
-        if (!client && !serial) {
+        if (!client) {
             return;
         }
 
@@ -139,8 +99,6 @@ class WifiSerial : public Task, public ApiClient {
                      reply.command,
                      (char*)reply.data);
         }
-        if (serial)
-            Serial.println(line);
 
         if (client)
             instance->wifiClient.println(line);
@@ -148,20 +106,6 @@ class WifiSerial : public Task, public ApiClient {
 
     void setEcho(bool enable) {
         echo = enable;
-    }
-
-    static void trimInPlace(char* text) {
-        if (text == nullptr) return;
-        char* start = text;
-        while (*start == ' ' || *start == '\t' || *start == '\r' || *start == '\n') ++start;
-        if (start != text) {
-            size_t len = strlen(start) + 1;
-            memmove(text, start, len);
-        }
-        size_t len = strlen(text);
-        while (len > 0 && (text[len - 1] == ' ' || text[len - 1] == '\t' || text[len - 1] == '\r' || text[len - 1] == '\n')) {
-            text[--len] = '\0';
-        }
     }
 
     static int queue_vprintf(const char* fmt, va_list args) {

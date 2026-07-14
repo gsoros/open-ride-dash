@@ -110,20 +110,6 @@ void Wifi::copyString(char* dst, size_t dstSize, const char* src) {
     dst[dstSize - 1] = '\0';
 }
 
-void Wifi::trimInPlace(char* text) {
-    if (text == nullptr) return;
-    char* start = text;
-    while (*start == ' ' || *start == '\t' || *start == '\r' || *start == '\n') ++start;
-    if (start != text) {
-        size_t len = strlen(start) + 1;
-        memmove(text, start, len);
-    }
-    size_t len = strlen(text);
-    while (len > 0 && (text[len - 1] == ' ' || text[len - 1] == '\t' || text[len - 1] == '\r' || text[len - 1] == '\n')) {
-        text[--len] = '\0';
-    }
-}
-
 bool Wifi::loadPreferences() {
     if (!preferencesReady) {
         ESP_LOGE(taskName(), "Prefs not ready");
@@ -164,7 +150,7 @@ Api::Reply Wifi::credentialCommand(const char* args, char* value, size_t valueSi
     char newValue[64] = {};
     if (args != nullptr) {
         strncpy(newValue, args, sizeof(newValue) - 1);
-        trimInPlace(newValue);
+        Util::trimInPlace(newValue);
     }
 
     if (newValue[0] != '\0' && strcmp(value, newValue) != 0) {

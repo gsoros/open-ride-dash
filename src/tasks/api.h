@@ -7,6 +7,7 @@
 
 #include "task.h"
 #include "config.h"
+#include "util.h"
 
 #include "model/state.h"
 extern State state;
@@ -169,6 +170,10 @@ class Api : public Task {
                 }
             }
         }
+
+#ifdef FEATURE_SERIAL
+        handleSerialInput();
+#endif
     }
 
    protected:
@@ -371,6 +376,55 @@ class Api : public Task {
         snprintf((char*)reply.data, sizeof(reply.data), "%s", state.hostname());
         return reply;
     }
+
+#ifdef FEATURE_SERIAL
+    void handleSerialInput() {
+        static char serialBuf[128] = {};
+        static size_t serialBufLen = 0;
+
+        while (Serial.available()) {
+            char c = Serial.read();
+            Serial.print(c);
+            if (c == '\n' || c == '\r') {
+                if (serialBufLen > 0) {
+                    serialBuf[serialBufLen] = '\0';
+                    Util::trimInPlace(serialBuf);
+                    if (serialBuf[0] != '\0') {
+                        Reply reply = handleCommand(serialBuf);
+                        formatReplyToSerial(reply);
+                    }
+                    serialBufLen = 0;
+                    serialBuf[0] = '\0';
+                }
+            } else {
+                if (serialBufLen < sizeof(serialBuf) - 1) {
+                    serialBuf[serialBufLen++] = c;
+                } else {
+                    ESP_LOGE(taskName(), "Serial buffer overflow");
+                    serialBufLen = 0;
+                    serialBuf[0] = '\0';
+                }
+            }
+        }
+    }
+
+    void formatReplyToSerial(const Reply& reply) {
+        char line[300];
+        if (reply.code != ReplyCode::SUCCESS) {
+            char errorText[32];
+            replyCodeToString(reply.code, errorText, sizeof(errorText));
+            snprintf(line, sizeof(line), "API [%s] Error (%s): %s",
+                     reply.command,
+                     errorText,
+                     (char*)reply.data);
+        } else {
+            snprintf(line, sizeof(line), "API [%s] Reply: %s",
+                     reply.command,
+                     (char*)reply.data);
+        }
+        Serial.println(line);
+    }
+#endif
 };
 
 // Global instance declared in main.cpp

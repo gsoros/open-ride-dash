@@ -24,6 +24,7 @@
 #include <Preferences.h>
 #include <cstring>
 #include "task.h"
+#include "util.h"
 #include "has_preferences.h"
 #include "config.h"
 #include "api.h"
@@ -69,7 +70,6 @@ class Wifi : public Task,
 
     void setDefaults();
     static void copyString(char* dst, size_t dstSize, const char* src);
-    static void trimInPlace(char* text);
     bool loadPreferences();
     void registerApiCommands();
     Api::Reply credentialCommand(const char* args, char* value, size_t valueSize, const char* key);
