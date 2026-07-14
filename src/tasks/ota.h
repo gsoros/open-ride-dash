@@ -50,7 +50,7 @@ class OTA : public Task, public HasPreferences {
         if (!preferencesReady || !preferences.isKey(hostnameKey))
             ESP_LOGW(taskName(), "Hostname not found in preferences, using defaults");
         else
-            setHostname(preferences.getString(hostnameKey, default_hostname).c_str());
+            setHostname(preferences.getString(hostnameKey, DEFAULT_HOSTNAME).c_str());
 
         if (!preferencesReady)
             ESP_LOGE(taskName(), "Prefs not ready");
@@ -121,8 +121,8 @@ class OTA : public Task, public HasPreferences {
             state.ota(State::OTA_END);
             display.queueUiEvent(UiEvent::OtaChange);
             ESP_LOGI(taskName(), "Enabling WiFi");
-            api.queueCommand("wifi on");  // make sure WiFi is enabled
-            wifiSerial.disconnectWithNotice("OTA update: disconnecting wifiSerial session.");
+            // api.queueCommand("wifi on");  // make sure WiFi STA is enabled
+            wifiSerial.disconnectWithNotice("Update done, disconnecting");
             taskSetFrequency(idleFrequencyHz);
             delay(1000);
             // NOTE: reboot is initiated by ArduinoOTA
@@ -175,8 +175,8 @@ class OTA : public Task, public HasPreferences {
                 ESP_LOGD(taskName(), "Stability timer: %d/%ds",
                          (t - stabilityTestStartTime) / 1000, stabilityTimeValid / 1000);
             }
-            if (!wifi.isConnected()) {
-                ESP_LOGE(taskName(), "WiFi not connected, resetting stability timer");
+            if (!wifi.isConnected() && !wifi.hasApClient()) {
+                ESP_LOGE(taskName(), "WiFi not connected and no AP client, resetting stability timer");
                 stabilityTestStartTime = t;
             } else if (t - stabilityTestStartTime >= stabilityTimeValid) {
                 ESP_LOGD(taskName(), "Firmware survived %ds with active WiFi, partition is valid", stabilityTimeValid / 1000);
@@ -198,13 +198,13 @@ class OTA : public Task, public HasPreferences {
     }
 
     void setHostname(const char* newHostname) {
-        hostname = (newHostname != nullptr && newHostname[0] != '\0') ? newHostname : default_hostname;
+        hostname = (newHostname != nullptr && newHostname[0] != '\0') ? newHostname : DEFAULT_HOSTNAME;
     }
 
    protected:
     float idleFrequencyHz = 10.0f;
     float uploadFrequencyHz = 100.0f;
-    String hostname = default_hostname;
+    String hostname = DEFAULT_HOSTNAME;
 
     static constexpr const char* partitionStateKey = "partitionState";
     static constexpr const char* crashCountKey = "crashCount";

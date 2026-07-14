@@ -47,6 +47,9 @@ void setup() {
     ble.setup();
     ble.taskStart(1.0f, 4096);
 
+    display.setup();
+    display.taskStart(50.0f, 4096);
+
     wifi.setup();
     wifi.taskStart(1.0f, 4096);
     wifi.waitForReady();
@@ -59,9 +62,6 @@ void setup() {
 
     wifiSerial.setup(wifi.isEnabled());
     wifiSerial.taskStart(10.0f, 4096);
-
-    display.setup();
-    display.taskStart(50.0f, 4096);
 
     // canSim.setup();
     // canSim.taskStart(100.0f, 2048);

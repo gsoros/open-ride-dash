@@ -170,6 +170,10 @@ void ST7789_240x240::update() {
         return;
     }
 
+    if (_displayMode == MODE_WIFI_AP) {
+        return;
+    }
+
     if (_displayMode == MODE_MENU) {
         return;
     }
@@ -283,6 +287,38 @@ void ST7789_240x240::exitPasskey() {
     startPageTransition(_currentPage);
 }
 
+bool ST7789_240x240::showApSsid(const char* ssid) {
+    if (ssid == nullptr || strlen(ssid) == 0) {
+        ESP_LOGE(tag, "Invalid AP SSID");
+        return false;
+    }
+    _displayMode = MODE_WIFI_AP;
+    canvasFullScreen->fillScreen(BLACK);
+    canvasFullScreen->setFont(smallFont);
+    canvasFullScreen->setTextColor(WHITE);
+    canvasFullScreen->setTextSize(1);
+    // Draw "AP Active" label near the top
+    canvasFullScreen->setCursor(10, 20);
+    canvasFullScreen->print("AP Active");
+    // Draw the SSID centered vertically
+    int16_t x1, y1;
+    uint16_t w, h;
+    canvasFullScreen->getTextBounds(ssid, 0, 0, &x1, &y1, &w, &h);
+    int16_t cx = (canvasFullScreen->w() - w) / 2;
+    int16_t cy = (canvasFullScreen->h() - h) / 2;
+    // canvasFullScreen->setFont(labelFont); //too large without wrapping
+    canvasFullScreen->setCursor(cx, cy);
+    canvasFullScreen->print(ssid);
+    canvasFullScreen->flush();
+    return true;
+}
+
+void ST7789_240x240::exitApSsid() {
+    canvasFullScreen->fillScreen(BLACK);
+    canvasFullScreen->flush();
+    startPageTransition(_currentPage);
+}
+
 bool ST7789_240x240::showMenu(const Menu::Snapshot& menu) {
     if (!menu.active || menu.itemCount == 0) {
         static uint32_t lastWarningTime = 0;
@@ -295,6 +331,7 @@ bool ST7789_240x240::showMenu(const Menu::Snapshot& menu) {
     }
 
     bool enteringMenu = _displayMode != MODE_MENU;
+    if (enteringMenu) _displayModeBeforeMenu = _displayMode;
     _displayMode = MODE_MENU;
     if (!enteringMenu && !menu.dirty) return false;
 
@@ -306,6 +343,11 @@ void ST7789_240x240::exitMenu() {
     if (_displayMode != MODE_MENU) return;
     canvasFullScreen->fillScreen(BLACK);
     canvasFullScreen->flush();
+    // Restore AP mode if it was active before entering the menu
+    if (_displayModeBeforeMenu == MODE_WIFI_AP) {
+        _displayMode = MODE_WIFI_AP;
+        return;
+    }
     startPageTransition(_currentPage);
 }
 
@@ -1004,7 +1046,7 @@ void ST7789_240x240::drawMenu(const Menu::Snapshot& menu) {
             ESP_LOGW(tag, "Menu item index %u exceeds itemCount %u", i, menu.itemCount);
             break;
         }
-        ESP_LOGD(tag, "Drawing menu item %u: '%s'%s", i, menu.items[i], i == menu.selectedItem ? " (selected)" : "");
+        // ESP_LOGD(tag, "Drawing menu item %u: '%s'%s", i, menu.items[i], i == menu.selectedItem ? " (selected)" : "");
         drawMenuLine(menu.items[i], 34 + (i - scrollOffset) * 36, i == menu.selectedItem);
     }
 

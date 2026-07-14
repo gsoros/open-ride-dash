@@ -87,6 +87,9 @@ class ST7789_240x240 : public DisplayDriver {
     bool showPasskey(uint32_t passkey) override;
     void exitPasskey() override;
 
+    bool showApSsid(const char* ssid);
+    void exitApSsid();
+
     void nextPage() override;
     uint8_t currentPage() override;
 
@@ -141,6 +144,7 @@ class ST7789_240x240 : public DisplayDriver {
         MODE_FEEDBACK,
         MODE_MENU,
         MODE_PASSKEY,
+        MODE_WIFI_AP,
     };
 
     inline String displayModeToStr(DisplayMode m) {
@@ -157,6 +161,8 @@ class ST7789_240x240 : public DisplayDriver {
                 return "menu";
             case MODE_PASSKEY:
                 return "passkey";
+            case MODE_WIFI_AP:
+                return "wifi_ap";
             default:
                 return "unknown";
         }
@@ -206,6 +212,7 @@ class ST7789_240x240 : public DisplayDriver {
     };
 
     DisplayMode _displayMode = MODE_SPLASH;
+    DisplayMode _displayModeBeforeMenu = MODE_PAGE;
     uint8_t _currentPage = 0;  // default to page 0 (first page)
     uint32_t _lastPageUpdate = 0;
     uint32_t _transitionStart = 0;

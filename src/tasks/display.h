@@ -11,6 +11,7 @@
 #include "has_preferences.h"
 #include "ui/menu.h"
 #include "ui/events.h"
+// #include "tasks/wifi.h"
 
 #if ORD_DISPLAY == st7789_240x240
 #include "drivers/st7789_240x240.h"
@@ -19,26 +20,25 @@
 #endif
 
 extern State state;
+// extern Wifi wifi;
 
 class Display : public Task, public ApiClient, public HasPreferences {
    public:
-    Menu menu;
-
     virtual const char* taskName() const override {
         return "Display";
     }
 
     virtual void setup() {
+        uiEventQueue = xQueueCreate(UI_EVENT_QUEUE_LENGTH, sizeof(UiEvent));
+        if (uiEventQueue == nullptr) {
+            ESP_LOGE(taskName(), "Failed to create UI event queue");
+        }
         output.setup();
         loadPreferences();
         output.setBrightnessPercent(brightnessPercent);
         output.splash();
         // Initialize menu label based on saved brightness
         menu.onBrightnessChange(savedBrightnessPercent == brightnessPercent);
-        uiEventQueue = xQueueCreate(UI_EVENT_QUEUE_LENGTH, sizeof(UiEvent));
-        if (uiEventQueue == nullptr) {
-            ESP_LOGE(taskName(), "Failed to create UI event queue");
-        }
         apiClientSetup(taskName());
         api.registerCommand(
             "nextpage",
@@ -51,6 +51,7 @@ class Display : public Task, public ApiClient, public HasPreferences {
     virtual void taskRun() override {
         processUiEvents();
         syncPasskeyDisplay();
+        syncApDisplay();
         syncMenuDisplay();
         output.update();
     }
@@ -120,6 +121,11 @@ class Display : public Task, public ApiClient, public HasPreferences {
         ESP_LOGD(taskName(), "Received API reply: %s: %s", reply.command, rtext);
     }
 
+    Menu menu;
+
+    bool wifiApMode = false;  // Set by Wifi task
+    String wifiApSsid;        // Set by Wifi task
+
    protected:
     static constexpr UBaseType_t UI_EVENT_QUEUE_LENGTH = 16;
 
@@ -142,6 +148,7 @@ class Display : public Task, public ApiClient, public HasPreferences {
     bool menuShown = false;
     bool passkeyActive = false;
     bool passkeyShown = false;
+    bool apSsidShown = false;
 
     bool loadPreferences() {
         if (preferencesSetup("display", false)) {
@@ -196,19 +203,22 @@ class Display : public Task, public ApiClient, public HasPreferences {
                     menu.enter();
                 return;
             case UiEvent::Sleep:
-                ESP_LOGD(taskName(), "Sleep event received");
+                ESP_LOGD(taskName(), "Sleep");
                 output.onSleep();
                 return;
             case UiEvent::PasskeyStart:
-                ESP_LOGD(taskName(), "Passkey start event received: %06u", state.blePassKey());
+                ESP_LOGD(taskName(), "PasskeyStart: %06u", state.blePassKey());
                 passkeyActive = true;
                 return;
             case UiEvent::PasskeyEnd:
-                ESP_LOGD(taskName(), "Passkey end event received");
+                ESP_LOGD(taskName(), "PasskeyEnd");
                 passkeyActive = false;
                 return;
             case UiEvent::OtaChange:
-                ESP_LOGD(taskName(), "OTA change event received: %d", state.ota());
+                ESP_LOGD(taskName(), "OtaChange: %d", state.ota());
+                return;
+            case UiEvent::WifiStatusChange:
+                ESP_LOGD(taskName(), "WifiStatusChange");
                 return;
             default:
                 ESP_LOGW(taskName(), "Unhandled UI event: %u", (uint8_t)event);
@@ -226,6 +236,21 @@ class Display : public Task, public ApiClient, public HasPreferences {
         if (passkeyShown) {
             output.exitPasskey();
             passkeyShown = false;
+        }
+    }
+
+    void syncApDisplay() {
+        if (wifiApMode) {
+            if (!apSsidShown && wifiApSsid.length() > 0) {
+                if (output.showApSsid(wifiApSsid.c_str())) {
+                    apSsidShown = true;
+                }
+            }
+            return;
+        }
+        if (apSsidShown) {
+            output.exitApSsid();
+            apSsidShown = false;
         }
     }
 

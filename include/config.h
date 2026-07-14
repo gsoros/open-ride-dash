@@ -10,8 +10,13 @@
 #error "Unsupported board. Please define ORD_BOARD in platformio.ini"
 #endif
 
-constexpr const char* default_wifi_ssid = "myNetwork";
-constexpr const char* default_wifi_password = "myPassword";
+constexpr const char* DEFAULT_WIFI_SSID = "myNetwork";
+constexpr const char* DEFAULT_WIFI_PASSWORD = "myPassword";
+
+// Fallback AP: if STA doesn't connect within this time, start a passwordless AP
+constexpr unsigned long WIFI_STA_TIMEOUT_MS = 60000;
+constexpr unsigned char WIFI_AP_CHANNEL = 1;
+constexpr unsigned char WIFI_AP_MAX_CONNECTIONS = 2;
 
 #ifndef ORD_NAME
 // keep the format, build_info.py will parse this
@@ -24,9 +29,9 @@ constexpr const char* default_wifi_password = "myPassword";
 #endif
 
 #ifdef BUILDTAG
-constexpr const char* default_hostname = ORD_SHORT_NAME "-" STR(BUILDTAG);
+constexpr const char* DEFAULT_HOSTNAME = ORD_SHORT_NAME "-" STR(BUILDTAG);
 #else
-constexpr const char* default_hostname = ORD_SHORT_NAME;
+constexpr const char* DEFAULT_HOSTNAME = ORD_SHORT_NAME;
 #endif
 
 #ifndef TFT_ROTATION

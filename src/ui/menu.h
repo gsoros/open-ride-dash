@@ -41,6 +41,7 @@ class Menu {
 
     enum class Key : uint8_t {
         Wifi = 0,
+        AP,
         Brightness,
         Restart,
         Exit,
@@ -74,6 +75,7 @@ class Menu {
     void markRendered();
 
     void onWifiStatusChange(const char* status);
+    void onWifiApStatusChange(const char* status);
     void onBrightnessChange(bool saved);
 
     auto begin() { return _items.begin(); }
@@ -89,6 +91,7 @@ class Menu {
     static constexpr size_t idx(Key k) { return static_cast<size_t>(k); }
 
     void onWifiSelect();
+    void onApSelect();
     void onBrightnessSelect();
     void onRestartSelect();
     void onNoopSelect();

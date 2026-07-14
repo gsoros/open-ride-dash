@@ -12,6 +12,9 @@ Menu::Menu() {
     _items[idx(Key::Wifi)].label = "WiFi";
     _items[idx(Key::Wifi)].action = &Menu::onWifiSelect;
 
+    _items[idx(Key::AP)].label = "WiFi AP";
+    _items[idx(Key::AP)].action = &Menu::onApSelect;
+
     _items[idx(Key::Brightness)].label = "Save Brightness";
     _items[idx(Key::Brightness)].action = &Menu::onBrightnessSelect;
 
@@ -99,9 +102,20 @@ void Menu::onWifiStatusChange(const char* status) {
     setDirty();
 }
 
+void Menu::onWifiApStatusChange(const char* status) {
+    _items[idx(Key::AP)].label = status;
+    setDirty();
+}
+
 void Menu::onWifiSelect() {
-    if (!api.queueCommand("wifi")) {
+    if (!api.queueCommand("wifi toggle")) {
         ESP_LOGE(tag, "Failed to queue WiFi toggle command");
+    }
+}
+
+void Menu::onApSelect() {
+    if (!api.queueCommand("wifi_ap toggle")) {
+        ESP_LOGE(tag, "Failed to queue WiFi AP toggle command");
     }
 }
 
