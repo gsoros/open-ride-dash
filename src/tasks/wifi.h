@@ -5,27 +5,9 @@
  * TODOs in order of priority:
  *
  *
- * Find out why the system sometimes becomes bogged down (barely responsive)
- * when moving out of WiFi range.
  *
- *
- * Revise API syntax.
- *   - Use "wifi" as the top-level command
- *   - Ommitting the subcommand returns a the current settings:
- *     "sta: on, ap: off, ssid: myNetwork, password: myPassword"
- *   - Use "wifi on", "wifi off", "wifi toggle", "wifi ssid",
- *     "wifi password", "wifi ap", and "wifi status" as subcommands
- *   - "wifi toggle" toggles the current STA enabled flag, "wifi on"
- *      enables STA, "wifi off" disables STA
- *   - "wifi ssid" returns the current STA SSID, "wifi ssid myNetwork"
- *      sets the STA SSID
- *   - "wifi password" returns the current STA password,
- *     "wifi password myPassword" sets the STA password
- *   - "wifi ap" returns the current AP enabled flag, "wifi ap toggle"
- *     toggles AP, "wifi ap on" enables AP, "wifi ap off" disables AP
- *   - "wifi status" returns the current status:
- *     "sta: disconnected, ap_clients: 1"
- *
+ *  Find out why the system sometimes becomes bogged down (barely responsive)
+ *  when moving out of WiFi range.
  *
  *  Manage dependent tasks (OTA, WifiSerial) based on WiFi mode,
  *  instead of rebooting on mode change?
@@ -208,25 +190,8 @@ class Wifi : public Task,
             [this](const char* args) {
                 return wifiCommand(args);
             },
-            "Usage: wifi [on|off|toggle]\nToggles or sets WiFi enabled state.");
-        api.registerCommand(
-            "wifi_ssid",
-            [this](const char* args) {
-                return credentialCommand(args, ssid, sizeof(ssid), ssidKey);
-            },
-            "Usage: wifi_ssid [ssid]\nShows the current WiFi SSID, or stores a new SSID when provided.");
-        api.registerCommand(
-            "wifi_password",
-            [this](const char* args) {
-                return credentialCommand(args, password, sizeof(password), passwordKey);
-            },
-            "Usage: wifi_password [password]\nShows the current WiFi password, or stores a new password when provided.");
-        api.registerCommand(
-            "wifi_ap",
-            [this](const char* args) {
-                return apCommand(args);
-            },
-            "Usage: wifi_ap [on|off|toggle]\nShows the current WiFi AP mode, or sets it when provided.");
+            "Usage: wifi [on|off|toggle|ssid|password|ap|status]\n"
+            "  Shows or sets WiFi settings.");
     }
 
     Api::Reply credentialCommand(const char* args, char* value, size_t valueSize, const char* key) {
@@ -254,55 +219,81 @@ class Wifi : public Task,
 
     Api::Reply wifiCommand(const char* args) {
         Api::Reply reply = {};
-        String command(args);
-        command.trim();
 
-        if (command.length() == 0) {
-            // no-op
-        } else if (command.equalsIgnoreCase("toggle")) {
+        // Skip leading whitespace
+        while (*args == ' ' || *args == '\t') args++;
+
+        if (*args == '\0') {
+            // Bare "wifi" — return current settings summary
+            snprintf((char*)reply.data, sizeof(reply.data),
+                     "sta: %s, ap: %s, ssid: %s, password: %s",
+                     staEnabled ? "on" : "off",
+                     apEnabled ? "on" : "off",
+                     ssid, password);
+            return reply;
+        }
+
+        // Extract the subcommand
+        char sub[16] = {};
+        size_t i = 0;
+        while (*args && *args != ' ' && *args != '\t' && i < sizeof(sub) - 1) {
+            sub[i++] = *args++;
+        }
+        sub[i] = '\0';
+        while (*args == ' ' || *args == '\t') args++;
+
+        if (strcmp(sub, "on") == 0) {
+            enableSta();
+            snprintf((char*)reply.data, sizeof(reply.data), "%s", staEnabled ? "enabled" : "disabled");
+        } else if (strcmp(sub, "off") == 0) {
+            disableSta();
+            snprintf((char*)reply.data, sizeof(reply.data), "%s", staEnabled ? "enabled" : "disabled");
+        } else if (strcmp(sub, "toggle") == 0) {
             if (staEnabled)
                 disableSta();
             else
                 enableSta();
-        } else if (command.equalsIgnoreCase("on")) {
-            enableSta();
-        } else if (command.equalsIgnoreCase("off")) {
-            disableSta();
+            snprintf((char*)reply.data, sizeof(reply.data), "%s", staEnabled ? "enabled" : "disabled");
+        } else if (strcmp(sub, "ssid") == 0) {
+            return credentialCommand(args, ssid, sizeof(ssid), ssidKey);
+        } else if (strcmp(sub, "password") == 0) {
+            return credentialCommand(args, password, sizeof(password), passwordKey);
+        } else if (strcmp(sub, "ap") == 0) {
+            while (*args == ' ' || *args == '\t') args++;
+            if (*args == '\0') {
+                snprintf((char*)reply.data, sizeof(reply.data), "%s", apEnabled ? "enabled" : "disabled");
+            } else if (strcmp(args, "on") == 0) {
+                enableAP();
+                snprintf((char*)reply.data, sizeof(reply.data), "%s", apEnabled ? "enabled" : "disabled");
+            } else if (strcmp(args, "off") == 0) {
+                disableAP();
+                snprintf((char*)reply.data, sizeof(reply.data), "%s", apEnabled ? "enabled" : "disabled");
+            } else if (strcmp(args, "toggle") == 0) {
+                if (apEnabled)
+                    disableAP();
+                else
+                    enableAP();
+                snprintf((char*)reply.data, sizeof(reply.data), "%s", apEnabled ? "enabled" : "disabled");
+            } else {
+                reply.code = Api::ReplyCode::INVALID_ARGS;
+                snprintf((char*)reply.data, sizeof(reply.data), "Usage: wifi ap [on|off|toggle]");
+            }
+        } else if (strcmp(sub, "status") == 0) {
+            if (*args != '\0') {
+                reply.code = Api::ReplyCode::INVALID_ARGS;
+                snprintf((char*)reply.data, sizeof(reply.data), "Usage: wifi status (no arguments)");
+            } else {
+                snprintf((char*)reply.data, sizeof(reply.data),
+                         "sta: %s, ap_clients: %d",
+                         isStaConnected() ? "connected" : "disconnected",
+                         apClientCount());
+            }
         } else {
             reply.code = Api::ReplyCode::INVALID_ARGS;
-            snprintf((char*)reply.data, sizeof(reply.data), "Usage: wifi [on|off|toggle]");
-            return reply;
+            snprintf((char*)reply.data, sizeof(reply.data),
+                     "Usage: wifi [on|off|toggle|ssid|password|ap|status]");
         }
 
-        snprintf((char*)reply.data, sizeof(reply.data), "%s", staEnabled ? "enabled" : "disabled");
-        return reply;
-    }
-
-    Api::Reply apCommand(const char* args) {
-        Api::Reply reply = {};
-        int8_t newValue = -1;
-        if (args != nullptr && args[0] != '\0') {
-            if (strcmp(args, "off") == 0)
-                newValue = 0;
-            else if (strcmp(args, "on") == 0)
-                newValue = 1;
-            else if (strcmp(args, "toggle") == 0)
-                newValue = apEnabled ? 0 : 1;
-            else {
-                reply.code = Api::ReplyCode::INVALID_ARGS;
-                snprintf((char*)reply.data, sizeof(reply.data), "Usage: wifi_ap [on|off|toggle]");
-                return reply;
-            }
-        }
-
-        if (newValue != -1 && newValue != apEnabled) {
-            if (newValue == 0)
-                disableAP();
-            else if (newValue == 1)
-                enableAP();
-        }
-
-        snprintf((char*)reply.data, sizeof(reply.data), "%s", apEnabled ? "enabled" : "disabled");
         return reply;
     }
 

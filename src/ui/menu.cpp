@@ -114,7 +114,7 @@ void Menu::onWifiSelect() {
 }
 
 void Menu::onApSelect() {
-    if (!api.queueCommand("wifi_ap toggle")) {
+    if (!api.queueCommand("wifi ap toggle")) {
         ESP_LOGE(tag, "Failed to queue WiFi AP toggle command");
     }
 }
