@@ -46,12 +46,6 @@ class OTA : public Task, public HasPreferences {
         if (!preferencesSetup(taskName()))
             ESP_LOGE(taskName(), "Failed to open preferences, using defaults");
 
-        static constexpr const char* hostnameKey = "hostname";
-        if (!preferencesReady || !preferences.isKey(hostnameKey))
-            ESP_LOGW(taskName(), "Hostname not found in preferences, using defaults");
-        else
-            setHostname(preferences.getString(hostnameKey, DEFAULT_HOSTNAME).c_str());
-
         if (!preferencesReady)
             ESP_LOGE(taskName(), "Prefs not ready");
         else {
@@ -99,7 +93,7 @@ class OTA : public Task, public HasPreferences {
             stabilityTestStartTime = millis();
         }
 
-        ArduinoOTA.setHostname(hostname.c_str());
+        ArduinoOTA.setHostname(state.hostname());
         ArduinoOTA.onStart([this]() {
             taskSetFrequency(uploadFrequencyHz);
             ESP_LOGI(taskName(), "Start");
@@ -197,14 +191,9 @@ class OTA : public Task, public HasPreferences {
         return "OTA";
     }
 
-    void setHostname(const char* newHostname) {
-        hostname = (newHostname != nullptr && newHostname[0] != '\0') ? newHostname : DEFAULT_HOSTNAME;
-    }
-
    protected:
     float idleFrequencyHz = 10.0f;
     float uploadFrequencyHz = 100.0f;
-    String hostname = DEFAULT_HOSTNAME;
 
     static constexpr const char* partitionStateKey = "partitionState";
     static constexpr const char* crashCountKey = "crashCount";

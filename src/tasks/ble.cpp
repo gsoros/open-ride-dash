@@ -70,9 +70,7 @@ class BleServerCallbacks : public BLEServerCallbacks {
 void Ble::setup() {
     if (_connected) return;
 
-    // TODO: Use a shared hostname across WiFi and BLE
-
-    BLEDevice::init("ORD Dash");
+    BLEDevice::init(state.hostname());
 
     BLEServer* server = BLEDevice::createServer();
     if (server == nullptr) return;
@@ -108,7 +106,7 @@ void Ble::setup() {
 
     BLEAdvertising* advertising = BLEDevice::getAdvertising();
     BLEAdvertisementData advData;
-    advData.setName("ORD Dash");
+    advData.setName(state.hostname());
     advData.setAppearance(0x0484);
     advData.addServiceUUID(BLEUUID((uint16_t)0x1816));
     advData.addServiceUUID(BLEUUID((uint16_t)0x1818));

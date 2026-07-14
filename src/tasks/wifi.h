@@ -4,16 +4,9 @@
 /*
  * TODOs in order of priority:
  *
- * Find out why the AP is not visible using the laptop or WiFi Analyzer
- * on Android for scanning. Other 2.4GHz APs are visible. Logging shows
- * no errors. Toggling STA makes no difference.
  *
- *
- * Find out why the system sometimes becomes bogged down
- * (barely responsive) when moving out of WiFi range.
- *
- *
- * Move hostname to main or API task and share it with BLE.
+ * Find out why the system sometimes becomes bogged down (barely responsive)
+ * when moving out of WiFi range.
  *
  *
  * Revise API syntax.
@@ -41,6 +34,7 @@
 #include <WiFi.h>
 #include <ESPmDNS.h>
 #include <Preferences.h>
+#include <cstring>
 #include "task.h"
 #include "has_preferences.h"
 #include "config.h"
@@ -59,9 +53,7 @@ class Wifi : public Task,
     }
 
     virtual void setup() {
-        ssid = DEFAULT_WIFI_SSID;
-        password = DEFAULT_WIFI_PASSWORD;
-        hostname = DEFAULT_HOSTNAME;
+        setDefaults();
 
         if (!preferencesSetup(taskName()))
             ESP_LOGE(taskName(), "Failed to open preferences, using defaults");
@@ -120,8 +112,8 @@ class Wifi : public Task,
         return isStaConnected() || isApConnected();
     }
 
-    const char* getHostname() const {
-        return hostname.c_str();
+    const char* getHostname() {
+        return state.hostname();
     }
 
     bool isStaEnabled() const {
@@ -136,10 +128,6 @@ class Wifi : public Task,
         return isStaEnabled() || isApEnabled();
     }
 
-    String apSsid() const {
-        return WiFi.softAPSSID();
-    }
-
     uint8_t apClientCount() const {
         return WiFi.softAPgetStationNum();
     }
@@ -148,29 +136,46 @@ class Wifi : public Task,
         return apClientCount() > 0;
     }
 
-    String getStatusLabel() const {
-        char buf[32] = {};
-        snprintf(buf, sizeof(buf), "WiFi STA: %s, AP: %s",
-                 isStaEnabled() ? isStaConnected() ? "Connected" : "Searching"
-                                : "Disabled",
-                 isApEnabled() ? apClientCount() > 0 ? "Connected" : "Ready"
-                               : "Disabled");
-        return String(buf);
-    }
-
    protected:
     static constexpr const char* ssidKey = "ssid";
     static constexpr const char* passwordKey = "password";
-    static constexpr const char* hostnameKey = "hostname";
     static constexpr const char* staEnabledKey = "staEnabled";
     static constexpr const char* apEnabledKey = "apEnabled";
-    String ssid;
-    String password;
-    String hostname;
+    char ssid[64] = {};
+    char password[64] = {};
     bool setupDone = false;
     bool staEnabled = false;  // STA    disabled by default
     bool apEnabled = true;    // AP      enabled by default
     bool mdnsStarted = false;
+
+    void setDefaults() {
+        copyString(ssid, sizeof(ssid), DEFAULT_WIFI_SSID);
+        copyString(password, sizeof(password), DEFAULT_WIFI_PASSWORD);
+    }
+
+    static void copyString(char* dst, size_t dstSize, const char* src) {
+        if (dst == nullptr || dstSize == 0) return;
+        if (src == nullptr) {
+            dst[0] = '\0';
+            return;
+        }
+        strncpy(dst, src, dstSize - 1);
+        dst[dstSize - 1] = '\0';
+    }
+
+    static void trimInPlace(char* text) {
+        if (text == nullptr) return;
+        char* start = text;
+        while (*start == ' ' || *start == '\t' || *start == '\r' || *start == '\n') ++start;
+        if (start != text) {
+            size_t len = strlen(start) + 1;
+            memmove(text, start, len);
+        }
+        size_t len = strlen(text);
+        while (len > 0 && (text[len - 1] == ' ' || text[len - 1] == '\t' || text[len - 1] == '\r' || text[len - 1] == '\n')) {
+            text[--len] = '\0';
+        }
+    }
 
     bool loadPreferences() {
         if (!preferencesReady) {
@@ -182,31 +187,22 @@ class Wifi : public Task,
         apEnabled = preferences.getBool(apEnabledKey, apEnabled);
 
         if (preferences.isKey(ssidKey) && preferences.isKey(passwordKey)) {
-            ssid = preferences.getString(ssidKey, DEFAULT_WIFI_SSID);
-            password = preferences.getString(passwordKey, DEFAULT_WIFI_PASSWORD);
+            String storedSsid = preferences.getString(ssidKey, DEFAULT_WIFI_SSID);
+            String storedPassword = preferences.getString(passwordKey, DEFAULT_WIFI_PASSWORD);
+            copyString(ssid, sizeof(ssid), storedSsid.c_str());
+            copyString(password, sizeof(password), storedPassword.c_str());
         } else {
             ESP_LOGI(taskName(), "Credentials not found in preferences, using defaults (%s:%s)",
                      DEFAULT_WIFI_SSID, DEFAULT_WIFI_PASSWORD);
         }
 
-        if (preferences.isKey(hostnameKey))
-            hostname = preferences.getString(hostnameKey, DEFAULT_HOSTNAME);
-        else
-            ESP_LOGI(taskName(), "Hostname not found in preferences, using default: %s", DEFAULT_HOSTNAME);
-
-        ESP_LOGD(taskName(), "staEnabled: %s, apEnabled: %s, ssid: %s, password: %s, hostname: %s",
+        ESP_LOGD(taskName(), "staEnabled: %s, apEnabled: %s, ssid: %s, password: %s",
                  staEnabled ? "true" : "false", apEnabled ? "true" : "false",
-                 ssid.c_str(), password.c_str(), hostname.c_str());
+                 ssid, password);
         return true;
     }
 
     void registerApiCommands() {
-        api.registerCommand(
-            "hostname",
-            [this](const char* args) {
-                return hostnameCommand(args);
-            },
-            "Usage: hostname [hostname]\nShows the current hostname, or stores a new hostname when provided.");
         api.registerCommand(
             "wifi",
             [this](const char* args) {
@@ -216,13 +212,13 @@ class Wifi : public Task,
         api.registerCommand(
             "wifi_ssid",
             [this](const char* args) {
-                return credentialCommand(args, ssid, ssidKey);
+                return credentialCommand(args, ssid, sizeof(ssid), ssidKey);
             },
             "Usage: wifi_ssid [ssid]\nShows the current WiFi SSID, or stores a new SSID when provided.");
         api.registerCommand(
             "wifi_password",
             [this](const char* args) {
-                return credentialCommand(args, password, passwordKey);
+                return credentialCommand(args, password, sizeof(password), passwordKey);
             },
             "Usage: wifi_password [password]\nShows the current WiFi password, or stores a new password when provided.");
         api.registerCommand(
@@ -233,43 +229,26 @@ class Wifi : public Task,
             "Usage: wifi_ap [on|off|toggle]\nShows the current WiFi AP mode, or sets it when provided.");
     }
 
-    Api::Reply hostnameCommand(const char* args) {
+    Api::Reply credentialCommand(const char* args, char* value, size_t valueSize, const char* key) {
         Api::Reply reply = {};
-        String newValue(args);
-        newValue.trim();
-
-        if (newValue.length() > 0 && hostname != newValue) {
-            if (!preferencesReady || preferences.putString(hostnameKey, newValue) == 0) {
-                ESP_LOGE(taskName(), "Failed to save hostname");
-                reply.code = Api::ReplyCode::EXECUTION_ERROR;
-                snprintf((char*)reply.data, sizeof(reply.data), "%s", hostname.c_str());
-                return reply;
-            }
-            hostname = newValue;
-            if (staEnabled) restartSta();
+        char newValue[64] = {};
+        if (args != nullptr) {
+            strncpy(newValue, args, sizeof(newValue) - 1);
+            trimInPlace(newValue);
         }
 
-        snprintf((char*)reply.data, sizeof(reply.data), "%s", hostname.c_str());
-        return reply;
-    }
-
-    Api::Reply credentialCommand(const char* args, String& value, const char* key) {
-        Api::Reply reply = {};
-        String newValue(args);
-        newValue.trim();
-
-        if (newValue.length() > 0 && value != newValue) {
+        if (newValue[0] != '\0' && strcmp(value, newValue) != 0) {
             if (!preferencesReady || preferences.putString(key, newValue) == 0) {
                 ESP_LOGE(taskName(), "Failed to save %s", key);
                 reply.code = Api::ReplyCode::EXECUTION_ERROR;
-                snprintf((char*)reply.data, sizeof(reply.data), "%s", value.c_str());
+                snprintf((char*)reply.data, sizeof(reply.data), "%s", value);
                 return reply;
             }
-            value = newValue;
+            copyString(value, valueSize, newValue);
             if (staEnabled) restartSta();
         }
 
-        snprintf((char*)reply.data, sizeof(reply.data), "%s", value.c_str());
+        snprintf((char*)reply.data, sizeof(reply.data), "%s", value);
         return reply;
     }
 
@@ -329,12 +308,12 @@ class Wifi : public Task,
 
     void startSta() {
         if (!staEnabled) return;
-        WiFi.setHostname(hostname.c_str());
-        WiFi.begin(ssid.c_str(), password.c_str());
-        ESP_LOGI(taskName(), "Connecting to WiFi SSID: %s", ssid.c_str());
+        WiFi.setHostname(state.hostname());
+        WiFi.begin(ssid, password);
+        ESP_LOGI(taskName(), "Connecting to WiFi SSID: %s", ssid);
         if (!mdnsStarted) {
-            ESP_LOGI(taskName(), "Starting mDNS with hostname: %s", hostname.c_str());
-            if (MDNS.begin(hostname.c_str()))
+            ESP_LOGI(taskName(), "Starting mDNS with hostname: %s", state.hostname());
+            if (MDNS.begin(state.hostname()))
                 mdnsStarted = true;
             else
                 ESP_LOGE(taskName(), "Failed to start mDNS");
@@ -349,6 +328,7 @@ class Wifi : public Task,
         WiFi.disconnect();
     }
 
+   protected:
     void restartSta() {
         if (!staEnabled) return;
         ESP_LOGI(taskName(), "Restarting STA");
@@ -358,19 +338,19 @@ class Wifi : public Task,
 
     void startAp() {
         if (!isApEnabled()) return;
-        // Build SSID from hostname + last 4 hex digits of MAC
-        String mac = WiFi.macAddress();
-        String ssid = hostname + "-" + mac.substring(9, 11) + mac.substring(12, 14);
-        if (!WiFi.softAP(ssid.c_str(), nullptr, 0, WIFI_AP_CHANNEL, WIFI_AP_MAX_CONNECTIONS)) {
+        char apSsid[64] = {};
+        copyString(apSsid, sizeof(apSsid), state.hostname());
+        // TODO: append last 4 hex digits of MAC to apSsid
+        if (!WiFi.softAP(apSsid, nullptr, WIFI_AP_CHANNEL, 0, WIFI_AP_MAX_CONNECTIONS)) {
             ESP_LOGE(taskName(), "Failed to start AP");
             return;
         }
         display.wifiApMode = isApEnabled();
-        display.wifiApSsid = apSsid();
+        copyString(display.wifiApSsid, sizeof(display.wifiApSsid), apSsid);
         display.queueUiEvent(UiEvent::WifiStatusChange);
-        display.menu.onWifiApStatusChange((String("AP: ") + apSsid()).c_str());
+        display.menu.onWifiApStatusChange((String("AP: ") + apSsid).c_str());
         ESP_LOGI(taskName(), "AP started: SSID=%s, IP=%s",
-                 apSsid().c_str(), WiFi.softAPIP().toString().c_str());
+                 apSsid, WiFi.softAPIP().toString().c_str());
     }
 
     void stopAP() {
@@ -435,14 +415,13 @@ class Wifi : public Task,
         switch (event) {
             case SYSTEM_EVENT_STA_GOT_IP:
                 ESP_LOGI(taskName(), "Connected to SSID: %s, IP: %s, Mode: %s",
-                         ssid.c_str(), WiFi.localIP().toString().c_str(), modeToString(WiFi.getMode()));
+                         ssid, WiFi.localIP().toString().c_str(), modeToString(WiFi.getMode()));
                 display.menu.onWifiStatusChange("WiFi Connected");
                 display.queueUiEvent(UiEvent::WifiStatusChange);
-                if (isApEnabled()) stopAP();
                 break;
             case SYSTEM_EVENT_STA_DISCONNECTED:
                 ESP_LOGW(taskName(), "Disconnected from SSID: %s, Mode: %s",
-                         ssid.c_str(), modeToString(WiFi.getMode()));
+                         ssid, modeToString(WiFi.getMode()));
                 display.menu.onWifiStatusChange("WiFi Disconnected");
                 display.queueUiEvent(UiEvent::WifiStatusChange);
                 break;

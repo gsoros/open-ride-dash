@@ -27,6 +27,7 @@ class State : public HasPreferences {
         uint8_t motorTemp = 0;             // °C
         uint8_t controllerTemp = 0;        // °C
         bool controllerAlive = false;      // true if motor controller is reachable
+        char hostname[32] = {};            // Device hostname (shared by WiFi, BLE, OTA)
 
         // Calculates speed in km/h
         float speed() {
@@ -249,6 +250,8 @@ class State : public HasPreferences {
     uint16_t wheelCircumference();
     void controllerAlive(bool v);
     bool controllerAlive();
+    void hostname(const char* v);
+    const char* hostname();
 
     bool acquireMutex();
     void releaseMutex();

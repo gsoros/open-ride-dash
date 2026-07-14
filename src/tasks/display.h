@@ -123,8 +123,8 @@ class Display : public Task, public ApiClient, public HasPreferences {
 
     Menu menu;
 
-    bool wifiApMode = false;  // Set by Wifi task
-    String wifiApSsid;        // Set by Wifi task
+    bool wifiApMode = false;   // Set by Wifi task
+    char wifiApSsid[64] = {};  // Set by Wifi task
 
    protected:
     static constexpr UBaseType_t UI_EVENT_QUEUE_LENGTH = 16;
@@ -241,8 +241,8 @@ class Display : public Task, public ApiClient, public HasPreferences {
 
     void syncApDisplay() {
         if (wifiApMode) {
-            if (!apSsidShown && wifiApSsid.length() > 0) {
-                if (output.showApSsid(wifiApSsid.c_str())) {
+            if (!apSsidShown && wifiApSsid[0] != '\0') {
+                if (output.showApSsid(wifiApSsid)) {
                     apSsidShown = true;
                 }
             }

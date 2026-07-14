@@ -107,9 +107,16 @@ class Api : public Task {
                 return batteryCapacityCommand(args);
             },
             "Usage: battery [capacity]\nGets or sets the battery capacity in Wh.");
+        registerCommand(
+            "hostname",
+            [this](const char* args) {
+                return hostnameCommand(args);
+            },
+            "Usage: hostname [hostname]\nShows the current hostname, or stores a new hostname when provided.");
     }
 
-    bool registerCommand(const char* command, std::function<Reply(const char* args)> handler,
+    bool registerCommand(const char* command,
+                         std::function<Reply(const char* args)> handler,
                          const char* helpText = nullptr) {
         if (numCommands >= MAX_COMMANDS) {
             ESP_LOGE(taskName(), "Command limit reached while registering: %s", command);
@@ -332,6 +339,37 @@ class Api : public Task {
         char* end = nullptr;
         *value = (uint16_t)strtoul(token, &end, 10);
         return end != nullptr && *end == '\0';
+    }
+
+    Api::Reply hostnameCommand(const char* args) {
+        Api::Reply reply = {};
+        if (args == nullptr) args = "";
+        while (*args == ' ' || *args == '\t' || *args == '\r' || *args == '\n') args++;
+
+        // get hostname
+        if (*args == '\0') {
+            snprintf((char*)reply.data, sizeof(reply.data), "%s", state.hostname());
+            return reply;
+        }
+
+        // set hostname — copy and trim
+        char newValue[32] = {};
+        size_t len = 0;
+        while (args[len] != '\0' && len < sizeof(newValue) - 1) {
+            newValue[len] = args[len];
+            ++len;
+        }
+        while (len > 0 && (newValue[len - 1] == ' ' || newValue[len - 1] == '\t' ||
+                           newValue[len - 1] == '\r' || newValue[len - 1] == '\n')) {
+            newValue[--len] = '\0';
+        }
+
+        if (strcmp(newValue, state.hostname()) != 0) {
+            state.hostname(newValue);
+        }
+
+        snprintf((char*)reply.data, sizeof(reply.data), "%s", state.hostname());
+        return reply;
     }
 };
 

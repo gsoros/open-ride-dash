@@ -51,11 +51,10 @@ void setup() {
     display.taskStart(50.0f, 4096);
 
     wifi.setup();
-    wifi.taskStart(1.0f, 4096);
+    wifi.taskStart(1.0f, 8192);  // AP mode does not work with lower stack size
     wifi.waitForReady();
 
     if (wifi.isEnabled()) {
-        ota.setHostname(wifi.getHostname());
         ota.setup();
         ota.taskStart(2.0f, 100.0f, 4096);
     }

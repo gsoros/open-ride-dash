@@ -8,6 +8,7 @@
 #include <WiFi.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
+#include <cstring>
 #include "task.h"
 #include "api.h"
 #include "config.h"
@@ -45,24 +46,31 @@ class WifiSerial : public Task, public ApiClient {
         drainLogQueue();
 
 #ifdef FEATURE_SERIAL
-        static String serialBuf = "";
+        static char serialBuf[128] = {};
+        static size_t serialBufLen = 0;
 
         while (Serial.available()) {
             char c = Serial.read();
             Serial.print(c);
             if (c == '\n' || c == '\r') {
-                if (serialBuf.length() > 0) {
-                    // ESP_LOGD(taskName(), "Received from serial: '%s'", serialBuf.c_str());
-                    if (!apiClientQueueCommand(serialBuf.c_str())) {
-                        ESP_LOGE(taskName(), "API request dropped");
+                if (serialBufLen > 0) {
+                    serialBuf[serialBufLen] = '\0';
+                    trimInPlace(serialBuf);
+                    if (serialBuf[0] != '\0') {
+                        if (!apiClientQueueCommand(serialBuf)) {
+                            ESP_LOGE(taskName(), "API request dropped");
+                        }
                     }
-                    serialBuf = "";
+                    serialBufLen = 0;
+                    serialBuf[0] = '\0';
                 }
             } else {
-                serialBuf += c;
-                if (serialBuf.length() > 63) {
+                if (serialBufLen < sizeof(serialBuf) - 1) {
+                    serialBuf[serialBufLen++] = c;
+                } else {
                     ESP_LOGE(taskName(), "Serial buffer overflow");
-                    serialBuf = "";
+                    serialBufLen = 0;
+                    serialBuf[0] = '\0';
                 }
             }
         }
@@ -84,17 +92,21 @@ class WifiSerial : public Task, public ApiClient {
                 ESP_LOGI(taskName(), "Client disconnected.");
             }
         } else if (wifiClient.available()) {
-            String line = wifiClient.readStringUntil('\n');
-            // Echo back any received data if echo is enabled
-            if (echo) {
-                wifiClient.println(line);
-            }
-            // Send command to API (non-blocking) and ask for a reply on our queue
-            line.trim();
-            if (line.length() > 0) {
-                bool ok = apiClientQueueCommand(line.c_str());
-                if (!ok) {
-                    wifiClient.println("Error: API request dropped");
+            char line[256] = {};
+            int len = wifiClient.readBytesUntil('\n', line, sizeof(line) - 1);
+            if (len > 0) {
+                line[len] = '\0';
+                trimInPlace(line);
+                // Echo back any received data if echo is enabled
+                if (echo) {
+                    wifiClient.println(line);
+                }
+                // Send command to API (non-blocking) and ask for a reply on our queue
+                if (line[0] != '\0') {
+                    bool ok = apiClientQueueCommand(line);
+                    if (!ok) {
+                        wifiClient.println("Error: API request dropped");
+                    }
                 }
             }
         }
@@ -136,6 +148,20 @@ class WifiSerial : public Task, public ApiClient {
 
     void setEcho(bool enable) {
         echo = enable;
+    }
+
+    static void trimInPlace(char* text) {
+        if (text == nullptr) return;
+        char* start = text;
+        while (*start == ' ' || *start == '\t' || *start == '\r' || *start == '\n') ++start;
+        if (start != text) {
+            size_t len = strlen(start) + 1;
+            memmove(text, start, len);
+        }
+        size_t len = strlen(text);
+        while (len > 0 && (text[len - 1] == ' ' || text[len - 1] == '\t' || text[len - 1] == '\r' || text[len - 1] == '\n')) {
+            text[--len] = '\0';
+        }
     }
 
     static int queue_vprintf(const char* fmt, va_list args) {

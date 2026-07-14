@@ -1,5 +1,6 @@
 #include "state.h"
 #include "tasks/api.h"
+#include "config.h"
 
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
@@ -29,6 +30,11 @@ bool State::restoreFromPreferences() {
         capacity = DEFAULT_BATTERY_CAPACITY;
     }
     batteryCapacity(capacity, false);
+
+    String storedHostname = preferences.getString("hostname", DEFAULT_HOSTNAME);
+    hostname(storedHostname.c_str());
+    ESP_LOGD(tag, "restoreFromPreferences() hostname: %s", _latest.hostname);
+
     return true;
 }
 
@@ -173,6 +179,23 @@ void State::controllerAlive(bool v) {
 }
 bool State::controllerAlive() {
     return getBool(&_latest.controllerAlive);
+}
+
+void State::hostname(const char* v) {
+    if (v == nullptr) return;
+    if (acquireMutex()) {
+        strncpy(_latest.hostname, v, sizeof(_latest.hostname) - 1);
+        _latest.hostname[sizeof(_latest.hostname) - 1] = '\0';
+        releaseMutex();
+    }
+    if (!preferencesReady) {
+        ESP_LOGE(tag, "hostname() prefs not ready");
+        return;
+    }
+    preferences.putString("hostname", v);
+}
+const char* State::hostname() {
+    return _latest.hostname;
 }
 
 bool State::acquireMutex() {
