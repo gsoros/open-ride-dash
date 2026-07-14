@@ -2,15 +2,21 @@
 #define WIFI_H
 
 /*
- * TODOs in order of priority:
- *
- *
+ *  TODOs in order of priority:
  *
  *  Find out why the system sometimes becomes bogged down (barely responsive)
- *  when moving out of WiFi range.
+ *  near the edge of WiFi range. Not a huge problem as WiFi is off during
+ *  normal operation, but it's annoying while debugging.
  *
- *  Manage dependent tasks (OTA, WifiSerial) based on WiFi mode,
- *  instead of rebooting on mode change?
+ *  Serial output is extremely laggy during OTA updates. OTA being prioritized
+ *  over serial output is good, but let's research how the priority can be
+ *  manipulated. It has to do with task priority and task loop frequency.
+ *
+ *  Manage dependent tasks (OTA, WifiSerial) based on WiFi mode instead of
+ *  rebooting on mode change? Likely too complex and error-prone for little
+ *  benefit. WiFi is used only for OTA updates and WifiSerial debugging, so
+ *  restarting the system is not a big deal.
+ *
  */
 
 #include <WiFi.h>
