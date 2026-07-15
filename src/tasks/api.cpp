@@ -273,8 +273,17 @@ void Api::handleSerialInput() {
 
     while (Serial.available()) {
         char c = Serial.read();
-        Serial.print(c);
+        // Echo printable characters only.  We MUST NOT echo \r because the
+        // command is now handled *synchronously* inside this same call —
+        // echoing \r would move the cursor back to column 0, and then
+        // formatReplyToSerial() would overwrite the user's input line.
+        if (c >= ' ') {
+            Serial.print(c);
+        }
         if (c == '\n' || c == '\r') {
+            // Move to a fresh line before printing the reply (the \r echo
+            // was already suppressed above).
+            Serial.println();
             if (serialBufLen > 0) {
                 serialBuf[serialBufLen] = '\0';
                 Util::trimInPlace(serialBuf);
@@ -309,7 +318,7 @@ void Api::formatReplyToSerial(const Reply& reply) {
                  reply.command,
                  (char*)reply.data);
     }
-    Serial.println(line);
+    Serial.print(line);
 }
 #endif
 
