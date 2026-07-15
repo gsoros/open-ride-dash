@@ -88,11 +88,9 @@ class WifiSerial : public Task, public ApiClient {
 
         char line[300];
         if (reply.code != Api::ReplyCode::SUCCESS) {
-            char errorText[32];
-            api.replyCodeToString(reply.code, errorText, sizeof(errorText));
             snprintf(line, sizeof(line), "API [%s] Error (%s): %s",
                      reply.command,
-                     errorText,
+                     Api::replyCodeToString(reply.code),
                      (char*)reply.data);
         } else {
             snprintf(line, sizeof(line), "API [%s] Reply: %s",

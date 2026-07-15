@@ -116,13 +116,13 @@ class Display : public Task, public ApiClient, public HasPreferences {
     }
 
     void receiveReply(const Api::Reply& reply) override {
-        char rtext[32];
-        api.replyCodeToString(reply.code, rtext, sizeof(rtext));
-        ESP_LOGD(taskName(), "Received API reply: %s: %s", reply.command, rtext);
+        ESP_LOGD(taskName(), "Received API reply: %s: %s", reply.command, Api::replyCodeToString(reply.code));
     }
 
     Menu menu;
 
+    // TOOD: Query Wifi task for current AP status and SSID
+    // instead of storing them in the display task.
     bool wifiApMode = false;   // Set by Wifi task
     char wifiApSsid[64] = {};  // Set by Wifi task
 

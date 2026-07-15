@@ -1,5 +1,5 @@
 #include "task.h"
-#include "pins.h"
+#include "config.h"
 
 // Blink the onboard LED for testing
 class Blink : public Task {

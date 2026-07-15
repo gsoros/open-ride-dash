@@ -41,29 +41,23 @@ class Api : public Task {
         EXECUTION_ERROR = 3,
     };
 
-    void replyCodeToString(uint8_t code, char* buffer, size_t bufferSize) {
-        const char* str = "Unknown";
+    static const char* replyCodeToString(ReplyCode code) {
         switch (code) {
             case SUCCESS:
-                str = "Success";
-                break;
+                return "Success";
             case UNKNOWN_COMMAND:
-                str = "Unknown Command";
-                break;
+                return "Unknown Command";
             case INVALID_ARGS:
-                str = "Invalid Arguments";
-                break;
+                return "Invalid Arguments";
             case EXECUTION_ERROR:
-                str = "Execution Error";
-                break;
+                return "Execution Error";
         }
-        strncpy(buffer, str, bufferSize - 1);
-        buffer[bufferSize - 1] = '\0';
+        return "Unknown";
     }
 
     struct Reply {
         char command[COMMAND_NAME_SIZE];
-        uint8_t code = ReplyCode::SUCCESS;
+        ReplyCode code = ReplyCode::SUCCESS;
         uint8_t data[REPLY_DATA_SIZE];
         size_t length = 0;
     };
@@ -411,11 +405,9 @@ class Api : public Task {
     void formatReplyToSerial(const Reply& reply) {
         char line[300];
         if (reply.code != ReplyCode::SUCCESS) {
-            char errorText[32];
-            replyCodeToString(reply.code, errorText, sizeof(errorText));
             snprintf(line, sizeof(line), "API [%s] Error (%s): %s",
                      reply.command,
-                     errorText,
+                     replyCodeToString(reply.code),
                      (char*)reply.data);
         } else {
             snprintf(line, sizeof(line), "API [%s] Reply: %s",
