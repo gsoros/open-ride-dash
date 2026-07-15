@@ -5,6 +5,7 @@
 #include <Arduino.h>
 
 #include "config.h"
+#include "util.h"
 
 extern State state;
 
@@ -633,8 +634,7 @@ void ST7789_240x240::drawMetricValue(uint8_t slotIndex, MetricID id, State::Snap
     drawSlotText(slot, value, font, textSize, verticalOffset);
 
     if (!remember) return;
-    strncpy(rendered.value, value, sizeof(rendered.value) - 1);
-    rendered.value[sizeof(rendered.value) - 1] = '\0';
+    Util::copyString(rendered.value, sizeof(rendered.value), value);
     rendered.valid = true;
 }
 

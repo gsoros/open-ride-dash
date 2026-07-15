@@ -96,18 +96,8 @@ bool Wifi::hasApClient() const {
 }
 
 void Wifi::setDefaults() {
-    copyString(ssid, sizeof(ssid), DEFAULT_WIFI_SSID);
-    copyString(password, sizeof(password), DEFAULT_WIFI_PASSWORD);
-}
-
-void Wifi::copyString(char* dst, size_t dstSize, const char* src) {
-    if (dst == nullptr || dstSize == 0) return;
-    if (src == nullptr) {
-        dst[0] = '\0';
-        return;
-    }
-    strncpy(dst, src, dstSize - 1);
-    dst[dstSize - 1] = '\0';
+    Util::copyString(ssid, sizeof(ssid), DEFAULT_WIFI_SSID);
+    Util::copyString(password, sizeof(password), DEFAULT_WIFI_PASSWORD);
 }
 
 bool Wifi::loadPreferences() {
@@ -122,8 +112,8 @@ bool Wifi::loadPreferences() {
     if (preferences.isKey(ssidKey) && preferences.isKey(passwordKey)) {
         String storedSsid = preferences.getString(ssidKey, DEFAULT_WIFI_SSID);
         String storedPassword = preferences.getString(passwordKey, DEFAULT_WIFI_PASSWORD);
-        copyString(ssid, sizeof(ssid), storedSsid.c_str());
-        copyString(password, sizeof(password), storedPassword.c_str());
+        Util::copyString(ssid, sizeof(ssid), storedSsid.c_str());
+        Util::copyString(password, sizeof(password), storedPassword.c_str());
     } else {
         ESP_LOGI(taskName(), "Credentials not found in preferences, using defaults (%s:%s)",
                  DEFAULT_WIFI_SSID, DEFAULT_WIFI_PASSWORD);
@@ -149,7 +139,7 @@ Api::Reply Wifi::credentialCommand(const char* args, char* value, size_t valueSi
     Api::Reply reply = {};
     char newValue[64] = {};
     if (args != nullptr) {
-        strncpy(newValue, args, sizeof(newValue) - 1);
+        Util::copyString(newValue, sizeof(newValue), args);
         Util::trimInPlace(newValue);
     }
 
@@ -160,7 +150,7 @@ Api::Reply Wifi::credentialCommand(const char* args, char* value, size_t valueSi
             snprintf((char*)reply.data, sizeof(reply.data), "%s", value);
             return reply;
         }
-        copyString(value, valueSize, newValue);
+        Util::copyString(value, valueSize, newValue);
         if (staEnabled) restartSta();
     }
 
@@ -171,8 +161,7 @@ Api::Reply Wifi::credentialCommand(const char* args, char* value, size_t valueSi
 Api::Reply Wifi::wifiCommand(const char* args) {
     Api::Reply reply = {};
 
-    // Skip leading whitespace
-    while (*args == ' ' || *args == '\t') args++;
+    args = Util::skipWhitespace(args);
 
     if (*args == '\0') {
         // Bare "wifi" — return current settings summary
@@ -186,12 +175,7 @@ Api::Reply Wifi::wifiCommand(const char* args) {
 
     // Extract the subcommand
     char sub[16] = {};
-    size_t i = 0;
-    while (*args && *args != ' ' && *args != '\t' && i < sizeof(sub) - 1) {
-        sub[i++] = *args++;
-    }
-    sub[i] = '\0';
-    while (*args == ' ' || *args == '\t') args++;
+    Util::nextToken(args, sub, sizeof(sub));
 
     if (strcmp(sub, "on") == 0) {
         enableSta();
@@ -210,7 +194,7 @@ Api::Reply Wifi::wifiCommand(const char* args) {
     } else if (strcmp(sub, "password") == 0) {
         return credentialCommand(args, password, sizeof(password), passwordKey);
     } else if (strcmp(sub, "ap") == 0) {
-        while (*args == ' ' || *args == '\t') args++;
+        args = Util::skipWhitespace(args);
         if (*args == '\0') {
             snprintf((char*)reply.data, sizeof(reply.data), "%s", apEnabled ? "enabled" : "disabled");
         } else if (strcmp(args, "on") == 0) {
@@ -280,14 +264,14 @@ void Wifi::restartSta() {
 void Wifi::startAp() {
     if (!isApEnabled()) return;
     char apSsid[64] = {};
-    copyString(apSsid, sizeof(apSsid), state.hostname());
+    Util::copyString(apSsid, sizeof(apSsid), state.hostname());
     // TODO: append last 4 hex digits of MAC to apSsid
     if (!WiFi.softAP(apSsid, nullptr, WIFI_AP_CHANNEL, 0, WIFI_AP_MAX_CONNECTIONS)) {
         ESP_LOGE(taskName(), "Failed to start AP");
         return;
     }
     display.wifiApMode = isApEnabled();
-    copyString(display.wifiApSsid, sizeof(display.wifiApSsid), apSsid);
+    Util::copyString(display.wifiApSsid, sizeof(display.wifiApSsid), apSsid);
     display.queueUiEvent(UiEvent::WifiStatusChange);
     display.menu.onWifiApStatusChange((String("AP: ") + apSsid).c_str());
     ESP_LOGI(taskName(), "AP started: SSID=%s, IP=%s",

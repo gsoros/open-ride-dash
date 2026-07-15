@@ -68,7 +68,7 @@ void CAN::taskRun() {
             duplicateCount++;
             if (duplicateCount % 10 == 0) {
                 char hexbuf[32] = {};
-                hexToStr(hexbuf, sizeof(hexbuf), frame.data, frame.len);
+                Util::hexToStr(hexbuf, sizeof(hexbuf), frame.data, frame.len);
                 ESP_LOGD(taskName(), "Received duplicate frame ID 0x%X, data: [%s], count: %u", frame.id, hexbuf, duplicateCount);
             }
             continue;

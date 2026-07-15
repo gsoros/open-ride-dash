@@ -68,8 +68,9 @@ class Api : public Task {
     Reply restartCommand(const char* args);
     Reply nullpointerCommand(const char* args);
     Reply batteryCapacityCommand(const char* args);
-    bool parseUInt16(const char* token, uint16_t* value);
     Api::Reply hostnameCommand(const char* args);
+
+    bool parseUInt16(const char* token, uint16_t* value);
 
 #ifdef FEATURE_SERIAL
     void handleSerialInput();

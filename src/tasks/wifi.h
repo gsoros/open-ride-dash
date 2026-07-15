@@ -69,7 +69,6 @@ class Wifi : public Task,
     bool mdnsStarted = false;
 
     void setDefaults();
-    static void copyString(char* dst, size_t dstSize, const char* src);
     bool loadPreferences();
     void registerApiCommands();
     Api::Reply credentialCommand(const char* args, char* value, size_t valueSize, const char* key);

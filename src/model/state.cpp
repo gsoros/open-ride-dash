@@ -1,6 +1,7 @@
 #include "state.h"
 #include "tasks/api.h"
 #include "config.h"
+#include "util.h"
 
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
@@ -184,8 +185,7 @@ bool State::controllerAlive() {
 void State::hostname(const char* v) {
     if (v == nullptr) return;
     if (acquireMutex()) {
-        strncpy(_latest.hostname, v, sizeof(_latest.hostname) - 1);
-        _latest.hostname[sizeof(_latest.hostname) - 1] = '\0';
+        Util::copyString(_latest.hostname, sizeof(_latest.hostname), v);
         releaseMutex();
     }
     if (!preferencesReady) {

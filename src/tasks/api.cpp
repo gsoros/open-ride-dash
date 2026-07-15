@@ -11,7 +11,6 @@ const char* Api::taskName() const {
 }
 
 void Api::setup() {
-    // Create request queue
     requestQueue = xQueueCreate(REQUEST_QUEUE_LENGTH, sizeof(Request));
     if (requestQueue == nullptr) {
         ESP_LOGE(taskName(), "Failed to create request queue");
@@ -61,8 +60,7 @@ bool Api::registerCommand(const char* command,
         ESP_LOGE(taskName(), "Command limit reached while registering: %s", command);
         return false;
     }
-    strncpy(commands[numCommands].command, command, sizeof(commands[numCommands].command) - 1);
-    commands[numCommands].command[sizeof(commands[numCommands].command) - 1] = '\0';
+    Util::copyString(commands[numCommands].command, sizeof(commands[numCommands].command), command);
     commands[numCommands].helpText = helpText;
     commands[numCommands].handler = handler;
     numCommands++;
@@ -76,8 +74,7 @@ bool Api::queueCommand(const char* commandLine, QueueHandle_t replyQueue) {
         return false;
     }
     Request req = {};
-    strncpy(req.commandLine, commandLine, sizeof(req.commandLine) - 1);
-    req.commandLine[sizeof(req.commandLine) - 1] = '\0';
+    Util::copyString(req.commandLine, sizeof(req.commandLine), commandLine);
     size_t length = strlen(req.commandLine);
     while (length > 0 && (req.commandLine[length - 1] == '\r' || req.commandLine[length - 1] == '\n')) {
         req.commandLine[--length] = '\0';
@@ -117,45 +114,29 @@ Api::Reply Api::handleCommand(const char* input) {
     Reply reply = {};
     if (input == nullptr) input = "";
 
-    while (*input == ' ' || *input == '\t' || *input == '\r' || *input == '\n') input++;
-
     char cmd[COMMAND_NAME_SIZE] = {};
-    size_t length = 0;
-    while (input[length] != '\0' && input[length] != ' ' && input[length] != '\t' && input[length] != '\r' &&
-           input[length] != '\n') {
-        if (length >= sizeof(cmd) - 1) {
-            reply.code = ReplyCode::INVALID_ARGS;
-            snprintf((char*)reply.data, sizeof(reply.data), "Command name too long");
-            reply.length = strlen((char*)reply.data);
-            return reply;
-        }
-        cmd[length] = input[length];
-        ++length;
-    }
-    if (length == 0) {
+    if (!Util::nextToken(input, cmd, sizeof(cmd))) {
         reply.code = ReplyCode::INVALID_ARGS;
-        snprintf((char*)reply.data, sizeof(reply.data), "Empty command");
+        snprintf((char*)reply.data, sizeof(reply.data),
+                 *input != '\0' ? "Command name too long" : "Empty command");
         reply.length = strlen((char*)reply.data);
         return reply;
     }
 
-    const char* args = input + length;
-    while (*args == ' ' || *args == '\t') args++;  // Skip leading argument whitespace
+    const char* args = Util::skipWhitespace(input);
     for (size_t i = 0; i < numCommands; ++i) {
         if (strcmp(cmd, commands[i].command) == 0) {
             // Call handler to produce a reply
             reply = commands[i].handler(args);
             // Ensure reply.command contains the command name (handler may not set it)
-            strncpy(reply.command, commands[i].command, sizeof(reply.command) - 1);
-            reply.command[sizeof(reply.command) - 1] = '\0';
+            Util::copyString(reply.command, sizeof(reply.command), commands[i].command);
             reply.length = strlen((char*)reply.data);
             // ESP_LOGD(taskName(), "Handled command: %s, args: %s, reply length: %d", cmd, args, reply.length);
             return reply;
         }
     }
     reply.code = ReplyCode::UNKNOWN_COMMAND;
-    strncpy(reply.command, cmd, sizeof(reply.command) - 1);
-    reply.command[sizeof(reply.command) - 1] = '\0';
+    Util::copyString(reply.command, sizeof(reply.command), cmd);
     snprintf((char*)reply.data, sizeof(reply.data), "Unknown command: %s", cmd);
     reply.length = strlen((char*)reply.data);
     return reply;
@@ -170,8 +151,7 @@ Api::Reply Api::versionCommand(const char* args) {
 
 Api::Reply Api::helpCommand(const char* args) {
     Reply reply = {};
-    if (args == nullptr) args = "";
-    while (*args == ' ' || *args == '\t' || *args == '\r' || *args == '\n') args++;
+    args = Util::skipWhitespace(args);
 
     if (*args == '\0') {
         size_t used = snprintf((char*)reply.data, sizeof(reply.data), "Commands:");
@@ -186,20 +166,13 @@ Api::Reply Api::helpCommand(const char* args) {
     }
 
     char command[COMMAND_NAME_SIZE] = {};
-    size_t length = 0;
-    while (args[length] != '\0' && args[length] != ' ' && args[length] != '\t' && args[length] != '\r' &&
-           args[length] != '\n') {
-        if (length >= sizeof(command) - 1) {
-            reply.code = ReplyCode::INVALID_ARGS;
-            snprintf((char*)reply.data, sizeof(reply.data), "Command name too long");
-            return reply;
-        }
-        command[length] = args[length];
-        ++length;
+    if (!Util::nextToken(args, command, sizeof(command))) {
+        reply.code = ReplyCode::INVALID_ARGS;
+        snprintf((char*)reply.data, sizeof(reply.data), "Command name too long");
+        return reply;
     }
 
-    const char* rest = args + length;
-    while (*rest == ' ' || *rest == '\t' || *rest == '\r' || *rest == '\n') rest++;
+    const char* rest = Util::skipWhitespace(args);
     if (*rest != '\0') {
         reply.code = ReplyCode::INVALID_ARGS;
         snprintf((char*)reply.data, sizeof(reply.data), "Usage: help [command]");
@@ -241,8 +214,7 @@ Api::Reply Api::nullpointerCommand(const char* args) {
 
 Api::Reply Api::batteryCapacityCommand(const char* args) {
     Reply reply = {};
-    if (args == nullptr) args = "";
-    while (*args == ' ' || *args == '\t' || *args == '\r' || *args == '\n') args++;
+    args = Util::skipWhitespace(args);
 
     // get batteryCapacity
     if (*args == '\0') {
@@ -252,16 +224,9 @@ Api::Reply Api::batteryCapacityCommand(const char* args) {
 
     // set batteryCapacity
     char token[6] = {};
-    size_t length = 0;
-    while (args[length] != '\0' && args[length] != ' ' && args[length] != '\t' && args[length] != '\r' &&
-           args[length] != '\n') {
-        if (length >= sizeof(token) - 1) return reply;
-        token[length] = args[length];
-        ++length;
-    }
+    if (!Util::nextToken(args, token, sizeof(token))) return reply;
 
-    const char* rest = args + length;
-    while (*rest == ' ' || *rest == '\t' || *rest == '\r' || *rest == '\n') ++rest;
+    const char* rest = Util::skipWhitespace(args);
     if (*rest != '\0') return reply;
 
     uint16_t value = 0;
@@ -280,8 +245,7 @@ bool Api::parseUInt16(const char* token, uint16_t* value) {
 
 Api::Reply Api::hostnameCommand(const char* args) {
     Api::Reply reply = {};
-    if (args == nullptr) args = "";
-    while (*args == ' ' || *args == '\t' || *args == '\r' || *args == '\n') args++;
+    args = Util::skipWhitespace(args);
 
     // get hostname
     if (*args == '\0') {
@@ -291,15 +255,8 @@ Api::Reply Api::hostnameCommand(const char* args) {
 
     // set hostname — copy and trim
     char newValue[32] = {};
-    size_t len = 0;
-    while (args[len] != '\0' && len < sizeof(newValue) - 1) {
-        newValue[len] = args[len];
-        ++len;
-    }
-    while (len > 0 && (newValue[len - 1] == ' ' || newValue[len - 1] == '\t' ||
-                       newValue[len - 1] == '\r' || newValue[len - 1] == '\n')) {
-        newValue[--len] = '\0';
-    }
+    Util::copyString(newValue, sizeof(newValue), args);
+    Util::trimInPlace(newValue);
 
     if (strcmp(newValue, state.hostname()) != 0) {
         state.hostname(newValue);

@@ -5,6 +5,8 @@
 #include <Preferences.h>
 #include <nvs.h>
 
+#include "util.h"
+
 class HasPreferences {
    protected:
     char preferencesNamespace[NVS_KEY_NAME_MAX_SIZE] = {0};
@@ -21,7 +23,7 @@ class HasPreferences {
             ESP_LOGE(preferencesTag, "Namespace too long");
             return false;
         }
-        strncpy(preferencesNamespace, ns, sizeof(preferencesNamespace));
+        Util::copyString(preferencesNamespace, sizeof(preferencesNamespace), ns);
         if (!preferences.begin(preferencesNamespace, readOnly)) {
             ESP_LOGE(preferencesTag, "preferences.begin(\"%s\", %s) failed",
                      preferencesNamespace, readOnly ? "true" : "false");

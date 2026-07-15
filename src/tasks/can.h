@@ -16,10 +16,6 @@ class CAN : public Task {
     virtual const char* taskName() const override;
     virtual void setup();
     virtual void taskRun() override;
-
-   protected:
-    void hexToStr(char* buf, size_t bufSize,
-                  const uint8_t* data, size_t dataSize);
 };
 
 #endif  // CAN_H

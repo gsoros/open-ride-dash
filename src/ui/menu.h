@@ -4,6 +4,8 @@
 #include <Arduino.h>
 #include <array>
 
+#include "util.h"
+
 class Display;
 
 class Menu {
@@ -18,8 +20,7 @@ class Menu {
                 buffer[0] = '\0';
                 return *this;
             }
-            strncpy(buffer, str, MAX_LABEL_LEN - 1);
-            buffer[MAX_LABEL_LEN - 1] = '\0';
+            Util::copyString(buffer, sizeof(buffer), str);
             return *this;
         }
 

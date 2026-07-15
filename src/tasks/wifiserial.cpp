@@ -144,18 +144,12 @@ void WifiSerial::disconnectWithNotice(const char* message) {
 }
 
 bool WifiSerial::parseEchoValue(const char* args, bool* value) {
-    while (*args == ' ' || *args == '\t') ++args;
+    args = Util::skipWhitespace(args);
 
     char token[6] = {};
-    size_t length = 0;
-    while (args[length] != '\0' && args[length] != ' ' && args[length] != '\t' && args[length] != '\r' && args[length] != '\n') {
-        if (length >= sizeof(token) - 1) return false;
-        token[length] = args[length];
-        ++length;
-    }
+    if (!Util::nextToken(args, token, sizeof(token))) return false;
 
-    const char* rest = args + length;
-    while (*rest == ' ' || *rest == '\t' || *rest == '\r' || *rest == '\n') ++rest;
+    const char* rest = Util::skipWhitespace(args);
     if (*rest != '\0') return false;
 
     if (strcmp(token, "1") == 0 || strcmp(token, "True") == 0 || strcmp(token, "true") == 0 ||
