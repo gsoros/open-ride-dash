@@ -1,12 +1,13 @@
 # OpenRideDash
 
-OpenRideDash is open-source firmware for an ESP32-C3 based e-bike dashboard. It provides a compact ride display, CAN data integration, Wi-Fi connectivity, OTA updates, Shell diagnostics, and keypad-driven menus on a 240x240 ST7789 display. Currently the Bafang M560 mid-drive controller is supported.
+OpenRideDash is open-source firmware for an ESP32-C3 based e-bike dashboard. It provides a compact ride display, CAN data integration, BLE and Wi-Fi connectivity, OTA updates, Shell diagnostics, and keypad-driven menus on a 240x240 ST7789 display. Currently the Bafang M560 mid-drive controller is supported.
 
 ## Features
 
 - ESP32-C3 Super Mini support
 - ST7789 240x240 color display driver
 - CAN bus data integration for e-bike metrics
+- BLE cycling services, API bridge for the mobile app
 - Wi-Fi connectivity and OTA firmware updates
 - Serial over WiFi access for diagnostics and command handling
 - Custom keypad/menu navigation
@@ -18,7 +19,7 @@ OpenRideDash is open-source firmware for an ESP32-C3 based e-bike dashboard. It 
 - ESP32-C3 development board (`esp32-c3-devkitm-1`)
 - ST7789 240x240 display
 - CAN bus interface
-- Keypad support
+- Keypad 
 
 ## Software Stack
 
@@ -36,7 +37,7 @@ OpenRideDash is open-source firmware for an ESP32-C3 based e-bike dashboard. It 
   - main.cpp — system initialization and task startup
   - `drivers/` — display and hardware drivers
   - `model/` — shared state model
-  - `tasks/` — modular runtime components (Wi-Fi, OTA, Telnet, CAN, display, keypad, alarm)
+  - `tasks/` — modular runtime components (Wi-Fi, OTA, WifiSerial, CAN, display, keypad, alarm)
 - include — shared headers, config, and font assets
 - bootloader — bootloader binary, compiled from `esp-idf/components/esptool_py/bootloader`
 - ota_nofs_4MB.csv — partition table for rollback-enabled OTA
@@ -60,7 +61,6 @@ OpenRideDash is open-source firmware for an ESP32-C3 based e-bike dashboard. It 
 
 ## Planned Features
 
-- BLE support
 - Mobile app for recording and sharing ride data
 
 
