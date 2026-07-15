@@ -18,6 +18,26 @@ class Util {
             text[--len] = '\0';
         }
     }
+
+    static void hexToStr(char* buf, size_t bufSize,
+                         const uint8_t* data, size_t dataSize) {
+        if (bufSize == 0) return;
+        if (dataSize > 0 && bufSize < dataSize * 3) return;
+
+        static const char hex[] = "0123456789ABCDEF";
+
+        char* p = buf;
+
+        for (size_t i = 0; i < dataSize; ++i) {
+            *p++ = hex[data[i] >> 4];
+            *p++ = hex[data[i] & 0x0F];
+
+            if (i + 1 < dataSize)
+                *p++ = ' ';
+        }
+
+        *p = '\0';
+    }
 };
 
 #endif  // UTIL_H

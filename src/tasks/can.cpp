@@ -1,6 +1,7 @@
 #include "tasks/can.h"
 
 #include "model/state.h"
+#include "util.h"
 
 extern State state;
 
@@ -250,7 +251,7 @@ void CAN::taskRun() {
                 if (handled) break;
                 static char lastHexbuf[32] = {};
                 char hexbuf[32] = {};
-                hexToStr(hexbuf, sizeof(hexbuf), frame.data, frame.len);
+                Util::hexToStr(hexbuf, sizeof(hexbuf), frame.data, frame.len);
                 if (strcmp(hexbuf, lastHexbuf) == 0) break;
                 ESP_LOGD(taskName(), "UnParsed ID 0x02F83204, len: %d, data: [%s]",
                          frame.len, hexbuf);
@@ -308,7 +309,7 @@ void CAN::taskRun() {
                 uint16_t tick = ((uint16_t)frame.data[1] << 8) | (uint16_t)frame.data[0];
                 char hexbuf[32] = {};
                 static char lastHexbuf[32] = {};
-                hexToStr(hexbuf, sizeof(hexbuf), frame.data, frame.len);
+                Util::hexToStr(hexbuf, sizeof(hexbuf), frame.data, frame.len);
                 if (strcmp(hexbuf, lastHexbuf) == 0) {
                     static uint32_t lastLog = 0;
                     static uint16_t numDuplicates = 0;
@@ -341,7 +342,7 @@ void CAN::taskRun() {
             case 0x02F8320E: {  // [8] Odo and trip distance
                 if (frame.len != 8) {
                     char hexbuf[32] = {};
-                    hexToStr(hexbuf, sizeof(hexbuf), frame.data, frame.len);
+                    Util::hexToStr(hexbuf, sizeof(hexbuf), frame.data, frame.len);
                     ESP_LOGD(taskName(), "ODO wrong len: %d, data: [%s]", frame.len, hexbuf);
                     break;
                 }
@@ -369,7 +370,7 @@ void CAN::taskRun() {
                 if (frame.data[0] == 0 && frame.data[1] == 0 && frame.data[2] == 0 && frame.data[3] == 0) break;  // Ignore empty frames
 
                 char hexbuf[32] = {};
-                hexToStr(hexbuf, sizeof(hexbuf), frame.data, frame.len);
+                Util::hexToStr(hexbuf, sizeof(hexbuf), frame.data, frame.len);
                 static char lastHexbuf[32] = {};
                 static uint16_t repeatedCount = 0;
                 static uint32_t lastRepeatLog = 0;
@@ -458,24 +459,4 @@ kepalive: {
         }
     }
 }
-}
-
-void CAN::hexToStr(char* buf, size_t bufSize,
-                   const uint8_t* data, size_t dataSize) {
-    if (bufSize == 0) return;
-    if (dataSize > 0 && bufSize < dataSize * 3) return;
-
-    static const char hex[] = "0123456789ABCDEF";
-
-    char* p = buf;
-
-    for (size_t i = 0; i < dataSize; ++i) {
-        *p++ = hex[data[i] >> 4];
-        *p++ = hex[data[i] & 0x0F];
-
-        if (i + 1 < dataSize)
-            *p++ = ' ';
-    }
-
-    *p = '\0';
 }
