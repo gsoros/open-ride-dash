@@ -7,12 +7,6 @@
 
 #include "task.h"
 #include "config.h"
-#include "util.h"
-
-#include "model/state.h"
-extern State state;
-
-#include "build_info.h"  // whoami
 
 class Api : public Task {
    public:
@@ -41,19 +35,7 @@ class Api : public Task {
         EXECUTION_ERROR = 3,
     };
 
-    static const char* replyCodeToString(ReplyCode code) {
-        switch (code) {
-            case SUCCESS:
-                return "Success";
-            case UNKNOWN_COMMAND:
-                return "Unknown Command";
-            case INVALID_ARGS:
-                return "Invalid Arguments";
-            case EXECUTION_ERROR:
-                return "Execution Error";
-        }
-        return "Unknown";
-    }
+    static const char* replyCodeToString(ReplyCode code);
 
     struct Reply {
         char command[COMMAND_NAME_SIZE];
@@ -62,360 +44,36 @@ class Api : public Task {
         size_t length = 0;
     };
 
-    virtual const char* taskName() const override {
-        return "API";
-    }
+    virtual const char* taskName() const override;
 
-    virtual void setup() {
-        // Create request queue
-        requestQueue = xQueueCreate(REQUEST_QUEUE_LENGTH, sizeof(Request));
-        if (requestQueue == nullptr) {
-            ESP_LOGE(taskName(), "Failed to create request queue");
-        }
-        registerCommand(
-            "v",
-            [this](const char* args) {
-                return versionCommand(args);
-            },
-            "Usage: v\nReturns the version information.");
-        registerCommand(
-            "help",
-            [this](const char* args) {
-                return helpCommand(args);
-            },
-            "Usage: help [command]\nLists commands or shows detailed help for one command.");
-        registerCommand(
-            "restart",
-            [this](const char* args) {
-                return restartCommand(args);
-            },
-            "Usage: restart\nRestarts the system.");
-        registerCommand(
-            "nullpointer",
-            [this](const char* args) {
-                return nullpointerCommand(args);
-            },
-            "Usage: nullpointer\nSimulates a null pointer dereference for testing.");
-        registerCommand(
-            "battery",
-            [this](const char* args) {
-                return batteryCapacityCommand(args);
-            },
-            "Usage: battery [capacity]\nGets or sets the battery capacity in Wh.");
-        registerCommand(
-            "hostname",
-            [this](const char* args) {
-                return hostnameCommand(args);
-            },
-            "Usage: hostname [hostname]\nShows the current hostname, or stores a new hostname when provided.");
-    }
+    virtual void setup();
 
     bool registerCommand(const char* command,
                          std::function<Reply(const char* args)> handler,
-                         const char* helpText = nullptr) {
-        if (numCommands >= MAX_COMMANDS) {
-            ESP_LOGE(taskName(), "Command limit reached while registering: %s", command);
-            return false;
-        }
-        strncpy(commands[numCommands].command, command, sizeof(commands[numCommands].command) - 1);
-        commands[numCommands].command[sizeof(commands[numCommands].command) - 1] = '\0';
-        commands[numCommands].helpText = helpText;
-        commands[numCommands].handler = handler;
-        numCommands++;
-        ESP_LOGI(taskName(), "Registered command: %s", command);
-        return true;
-    }
+                         const char* helpText = nullptr);
 
     // Non-blocking enqueue of a command request. Returns true on success.
-    bool queueCommand(const char* commandLine, QueueHandle_t replyQueue = nullptr) {
-        if (requestQueue == nullptr) {
-            ESP_LOGE(taskName(), "Request queue is null");
-            return false;
-        }
-        Request req = {};
-        strncpy(req.commandLine, commandLine, sizeof(req.commandLine) - 1);
-        req.commandLine[sizeof(req.commandLine) - 1] = '\0';
-        size_t length = strlen(req.commandLine);
-        while (length > 0 && (req.commandLine[length - 1] == '\r' || req.commandLine[length - 1] == '\n')) {
-            req.commandLine[--length] = '\0';
-        }
-        req.replyQueue = replyQueue;
-        BaseType_t res = xQueueSend(requestQueue, &req, 0);
-        if (res != pdTRUE) {
-            ESP_LOGW(taskName(), "Request queue full, dropping command: %s", commandLine);
-            return false;
-        }
-        return true;
-    }
+    bool queueCommand(const char* commandLine, QueueHandle_t replyQueue = nullptr);
 
-    virtual void taskRun() override {
-        if (requestQueue == nullptr) return;
-        // Drain any pending requests without blocking
-        Request req;
-        while (xQueueReceive(requestQueue, &req, 0) == pdTRUE) {
-            // ESP_LOGD(taskName(), "Received request: %s", req.commandLine);
-            Reply reply = handleCommand(req.commandLine);
-            // If caller requested a reply, send it back (non-blocking)
-            if (req.replyQueue != nullptr) {
-                // ESP_LOGD(taskName(), "Sending reply: (%d) %s", reply.code, reply.data);
-                BaseType_t sent = xQueueSend(req.replyQueue, &reply, 0);
-                if (sent != pdTRUE) {
-                    ESP_LOGW(taskName(), "Failed to enqueue reply for command %s", reply.command);
-                }
-            }
-        }
-
-#ifdef FEATURE_SERIAL
-        handleSerialInput();
-#endif
-    }
+    virtual void taskRun() override;
 
    protected:
     size_t numCommands = 0;
     Command commands[MAX_COMMANDS];
     QueueHandle_t requestQueue = nullptr;
 
-    Reply handleCommand(const char* input) {
-        Reply reply = {};
-        if (input == nullptr) input = "";
-
-        while (*input == ' ' || *input == '\t' || *input == '\r' || *input == '\n') input++;
-
-        char cmd[COMMAND_NAME_SIZE] = {};
-        size_t length = 0;
-        while (input[length] != '\0' && input[length] != ' ' && input[length] != '\t' && input[length] != '\r' &&
-               input[length] != '\n') {
-            if (length >= sizeof(cmd) - 1) {
-                reply.code = ReplyCode::INVALID_ARGS;
-                snprintf((char*)reply.data, sizeof(reply.data), "Command name too long");
-                reply.length = strlen((char*)reply.data);
-                return reply;
-            }
-            cmd[length] = input[length];
-            ++length;
-        }
-        if (length == 0) {
-            reply.code = ReplyCode::INVALID_ARGS;
-            snprintf((char*)reply.data, sizeof(reply.data), "Empty command");
-            reply.length = strlen((char*)reply.data);
-            return reply;
-        }
-
-        const char* args = input + length;
-        while (*args == ' ' || *args == '\t') args++;  // Skip leading argument whitespace
-        for (size_t i = 0; i < numCommands; ++i) {
-            if (strcmp(cmd, commands[i].command) == 0) {
-                // Call handler to produce a reply
-                reply = commands[i].handler(args);
-                // Ensure reply.command contains the command name (handler may not set it)
-                strncpy(reply.command, commands[i].command, sizeof(reply.command) - 1);
-                reply.command[sizeof(reply.command) - 1] = '\0';
-                reply.length = strlen((char*)reply.data);
-                // ESP_LOGD(taskName(), "Handled command: %s, args: %s, reply length: %d", cmd, args, reply.length);
-                return reply;
-            }
-        }
-        reply.code = ReplyCode::UNKNOWN_COMMAND;
-        strncpy(reply.command, cmd, sizeof(reply.command) - 1);
-        reply.command[sizeof(reply.command) - 1] = '\0';
-        snprintf((char*)reply.data, sizeof(reply.data), "Unknown command: %s", cmd);
-        reply.length = strlen((char*)reply.data);
-        return reply;
-    }
-
-    Reply versionCommand(const char* args) {
-        Reply reply = {};
-        snprintf((char*)reply.data, sizeof(reply.data), "%s", whoami);
-        reply.length = strlen((char*)reply.data);
-        return reply;
-    }
-
-    Reply helpCommand(const char* args) {
-        Reply reply = {};
-        if (args == nullptr) args = "";
-        while (*args == ' ' || *args == '\t' || *args == '\r' || *args == '\n') args++;
-
-        if (*args == '\0') {
-            size_t used = snprintf((char*)reply.data, sizeof(reply.data), "Commands:");
-            for (size_t i = 0; i < numCommands && used < sizeof(reply.data); ++i) {
-                int written = snprintf((char*)reply.data + used, sizeof(reply.data) - used, "%s%s", i == 0 ? " " : ", ",
-                                       commands[i].command);
-                if (written < 0) break;
-                used += (size_t)written;
-            }
-            reply.data[sizeof(reply.data) - 1] = '\0';
-            return reply;
-        }
-
-        char command[COMMAND_NAME_SIZE] = {};
-        size_t length = 0;
-        while (args[length] != '\0' && args[length] != ' ' && args[length] != '\t' && args[length] != '\r' &&
-               args[length] != '\n') {
-            if (length >= sizeof(command) - 1) {
-                reply.code = ReplyCode::INVALID_ARGS;
-                snprintf((char*)reply.data, sizeof(reply.data), "Command name too long");
-                return reply;
-            }
-            command[length] = args[length];
-            ++length;
-        }
-
-        const char* rest = args + length;
-        while (*rest == ' ' || *rest == '\t' || *rest == '\r' || *rest == '\n') rest++;
-        if (*rest != '\0') {
-            reply.code = ReplyCode::INVALID_ARGS;
-            snprintf((char*)reply.data, sizeof(reply.data), "Usage: help [command]");
-            return reply;
-        }
-
-        for (size_t i = 0; i < numCommands; ++i) {
-            if (strcmp(command, commands[i].command) == 0) {
-                snprintf((char*)reply.data, sizeof(reply.data), "%s: %s", commands[i].command,
-                         commands[i].helpText != nullptr ? commands[i].helpText : "No detailed help available.");
-                return reply;
-            }
-        }
-
-        reply.code = ReplyCode::UNKNOWN_COMMAND;
-        snprintf((char*)reply.data, sizeof(reply.data), "%s", command);
-        return reply;
-    }
-
-    Reply restartCommand(const char* args) {
-        ESP_LOGI(taskName(), "Restarting system...");
-        esp_restart();
-        // We should never reach this point, but if we do, return an error reply
-        Reply reply = {};
-        reply.code = ReplyCode::EXECUTION_ERROR;
-        snprintf((char*)reply.data, sizeof(reply.data), "Failed to restart system");
-        return reply;
-    }
-
-    Reply nullpointerCommand(const char* args) {
-        ESP_LOGI(taskName(), "Simulating null pointer dereference for testing...");
-        int* p = nullptr;
-        ESP_LOGI(taskName(), "Dereferencing null pointer, this should cause a crash: %d", *p);
-        Reply reply = {};
-        reply.code = ReplyCode::EXECUTION_ERROR;
-        snprintf((char*)reply.data, sizeof(reply.data), "Dereferenced null pointer (this should not happen)");
-        return reply;
-    }
-
-    Reply batteryCapacityCommand(const char* args) {
-        Reply reply = {};
-        if (args == nullptr) args = "";
-        while (*args == ' ' || *args == '\t' || *args == '\r' || *args == '\n') args++;
-
-        // get batteryCapacity
-        if (*args == '\0') {
-            snprintf((char*)reply.data, sizeof(reply.data), "%u", state.batteryCapacity());
-            return reply;
-        }
-
-        // set batteryCapacity
-        char token[6] = {};
-        size_t length = 0;
-        while (args[length] != '\0' && args[length] != ' ' && args[length] != '\t' && args[length] != '\r' &&
-               args[length] != '\n') {
-            if (length >= sizeof(token) - 1) return reply;
-            token[length] = args[length];
-            ++length;
-        }
-
-        const char* rest = args + length;
-        while (*rest == ' ' || *rest == '\t' || *rest == '\r' || *rest == '\n') ++rest;
-        if (*rest != '\0') return reply;
-
-        uint16_t value = 0;
-        if (!parseUInt16(token, &value)) return reply;
-        state.batteryCapacity(value);
-        snprintf((char*)reply.data, sizeof(reply.data), "Battery capacity set to %u Wh", value);
-        return reply;
-    }
-
-    bool parseUInt16(const char* token, uint16_t* value) {
-        if (token == nullptr || value == nullptr) return false;
-        char* end = nullptr;
-        *value = (uint16_t)strtoul(token, &end, 10);
-        return end != nullptr && *end == '\0';
-    }
-
-    Api::Reply hostnameCommand(const char* args) {
-        Api::Reply reply = {};
-        if (args == nullptr) args = "";
-        while (*args == ' ' || *args == '\t' || *args == '\r' || *args == '\n') args++;
-
-        // get hostname
-        if (*args == '\0') {
-            snprintf((char*)reply.data, sizeof(reply.data), "%s", state.hostname());
-            return reply;
-        }
-
-        // set hostname — copy and trim
-        char newValue[32] = {};
-        size_t len = 0;
-        while (args[len] != '\0' && len < sizeof(newValue) - 1) {
-            newValue[len] = args[len];
-            ++len;
-        }
-        while (len > 0 && (newValue[len - 1] == ' ' || newValue[len - 1] == '\t' ||
-                           newValue[len - 1] == '\r' || newValue[len - 1] == '\n')) {
-            newValue[--len] = '\0';
-        }
-
-        if (strcmp(newValue, state.hostname()) != 0) {
-            state.hostname(newValue);
-        }
-
-        snprintf((char*)reply.data, sizeof(reply.data), "%s", state.hostname());
-        return reply;
-    }
+    Reply handleCommand(const char* input);
+    Reply versionCommand(const char* args);
+    Reply helpCommand(const char* args);
+    Reply restartCommand(const char* args);
+    Reply nullpointerCommand(const char* args);
+    Reply batteryCapacityCommand(const char* args);
+    bool parseUInt16(const char* token, uint16_t* value);
+    Api::Reply hostnameCommand(const char* args);
 
 #ifdef FEATURE_SERIAL
-    void handleSerialInput() {
-        static char serialBuf[128] = {};
-        static size_t serialBufLen = 0;
-
-        while (Serial.available()) {
-            char c = Serial.read();
-            Serial.print(c);
-            if (c == '\n' || c == '\r') {
-                if (serialBufLen > 0) {
-                    serialBuf[serialBufLen] = '\0';
-                    Util::trimInPlace(serialBuf);
-                    if (serialBuf[0] != '\0') {
-                        Reply reply = handleCommand(serialBuf);
-                        formatReplyToSerial(reply);
-                    }
-                    serialBufLen = 0;
-                    serialBuf[0] = '\0';
-                }
-            } else {
-                if (serialBufLen < sizeof(serialBuf) - 1) {
-                    serialBuf[serialBufLen++] = c;
-                } else {
-                    ESP_LOGE(taskName(), "Serial buffer overflow");
-                    serialBufLen = 0;
-                    serialBuf[0] = '\0';
-                }
-            }
-        }
-    }
-
-    void formatReplyToSerial(const Reply& reply) {
-        char line[300];
-        if (reply.code != ReplyCode::SUCCESS) {
-            snprintf(line, sizeof(line), "API [%s] Error (%s): %s",
-                     reply.command,
-                     replyCodeToString(reply.code),
-                     (char*)reply.data);
-        } else {
-            snprintf(line, sizeof(line), "API [%s] Reply: %s",
-                     reply.command,
-                     (char*)reply.data);
-        }
-        Serial.println(line);
-    }
+    void handleSerialInput();
+    void formatReplyToSerial(const Reply& reply);
 #endif
 };
 

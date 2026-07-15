@@ -5,7 +5,6 @@
 #include <freertos/queue.h>
 
 #include "task.h"
-#include "model/state.h"
 #include "config.h"
 #include "api.h"
 #include "has_preferences.h"
@@ -13,111 +12,29 @@
 #include "ui/events.h"
 // #include "tasks/wifi.h"
 
+class State;
+
 #if ORD_DISPLAY == st7789_240x240
 #include "drivers/st7789_240x240.h"
 #else
 #error "Unsupported display. Please define ORD_DISPLAY in platformio.ini"
 #endif
 
-extern State state;
-// extern Wifi wifi;
-
 class Display : public Task, public ApiClient, public HasPreferences {
    public:
-    virtual const char* taskName() const override {
-        return "Display";
-    }
+    virtual const char* taskName() const override;
+    virtual void setup();
+    virtual void taskRun() override;
 
-    virtual void setup() {
-        uiEventQueue = xQueueCreate(UI_EVENT_QUEUE_LENGTH, sizeof(UiEvent));
-        if (uiEventQueue == nullptr) {
-            ESP_LOGE(taskName(), "Failed to create UI event queue");
-        }
-        output.setup();
-        loadPreferences();
-        output.setBrightnessPercent(brightnessPercent);
-        output.splash();
-        // Initialize menu label based on saved brightness
-        menu.onBrightnessChange(savedBrightnessPercent == brightnessPercent);
-        apiClientSetup(taskName());
-        api.registerCommand(
-            "nextpage",
-            [this](const char* args) {
-                return nextPageCommand(args);
-            },
-            "Usage: nextpage\nSwitches to the next page.");
-    }
+    bool queueUiEvent(UiEvent event);
 
-    virtual void taskRun() override {
-        processUiEvents();
-        syncPasskeyDisplay();
-        syncApDisplay();
-        syncMenuDisplay();
-        output.update();
-    }
+    bool increaseBrightness();
+    bool decreaseBrightness();
+    bool saveBrightness();
 
-    bool queueUiEvent(UiEvent event) {
-        if (uiEventQueue == nullptr) {
-            ESP_LOGE(taskName(), "UI event queue is null");
-            return false;
-        }
-        BaseType_t res = xQueueSend(uiEventQueue, &event, 0);
-        if (res != pdTRUE) {
-            ESP_LOGW(taskName(), "UI event queue full, dropping event %u", (uint8_t)event);
-            return false;
-        }
-        return true;
-    }
+    Api::Reply nextPageCommand(const char* args);
 
-    bool increaseBrightness() {
-        static constexpr uint8_t step = 2;
-        brightnessPercent += brightnessPercent <= 100 - step ? step : 1;
-        if (brightnessPercent > 100) {
-            brightnessPercent = 100;
-            return false;
-        }
-        output.setBrightnessPercent(brightnessPercent);
-        return true;
-    }
-
-    bool decreaseBrightness() {
-        static constexpr uint8_t step = 2;
-        brightnessPercent -= brightnessPercent >= step ? step : 1;
-        if (brightnessPercent < 2) {
-            brightnessPercent = 1;
-            return false;
-        }
-        output.setBrightnessPercent(brightnessPercent);
-        return true;
-    }
-
-    bool saveBrightness() {
-        if (!preferencesReady) {
-            ESP_LOGW(taskName(), "Preferences not ready, cannot save brightness");
-            return false;
-        }
-        if (preferences.putUChar(brightnessPrefKey, brightnessPercent)) {
-            savedBrightnessPercent = brightnessPercent;
-            menu.onBrightnessChange(true);
-            ESP_LOGD(taskName(), "Saved brightness: %d%%", brightnessPercent);
-            return true;
-        }
-        ESP_LOGE(taskName(), "Failed to save brightness");
-        return false;
-    }
-
-    Api::Reply nextPageCommand(const char* args) {
-        ESP_LOGI(taskName(), "Switching to next page");
-        output.nextPage();
-        Api::Reply reply = {};
-        reply.code = Api::ReplyCode::SUCCESS;
-        snprintf((char*)reply.data, sizeof(reply.data), "Page %d", output.currentPage());
-        return reply;
-    }
-
-    void receiveReply(const Api::Reply& reply) override {
-        ESP_LOGD(taskName(), "Received API reply: %s: %s", reply.command, Api::replyCodeToString(reply.code));
-    }
+    void receiveReply(const Api::Reply& reply) override;
 
     Menu menu;
 
@@ -150,169 +67,16 @@ class Display : public Task, public ApiClient, public HasPreferences {
     bool passkeyShown = false;
     bool apSsidShown = false;
 
-    bool loadPreferences() {
-        if (preferencesSetup("display", false)) {
-            savedBrightnessPercent = preferences.getUChar(brightnessPrefKey, savedBrightnessPercent);
-            brightnessPercent = savedBrightnessPercent;
-            ESP_LOGD(taskName(), "Loaded brightness from preferences: %d%%", brightnessPercent);
-            return true;
-        }
-        ESP_LOGW(taskName(), "Failed to setup preferences for display");
-        return false;
-    }
-
-    void processUiEvents() {
-        if (uiEventQueue == nullptr) return;
-
-        UiEvent event;
-        while (xQueueReceive(uiEventQueue, &event, 0) == pdTRUE) {
-            handleUiEvent(event);
-        }
-    }
-
-    void handleUiEvent(UiEvent event) {
-        switch (event) {
-            case UiEvent::UpClick:
-                if (menu.previousItem()) return;
-                adjustPasLevel(1);
-                return;
-            case UiEvent::DownClick:
-                if (menu.nextItem()) return;
-                adjustPasLevel(-1);
-                return;
-            case UiEvent::SelectClick:
-                if (menu.active()) {
-                    menu.selectItem();
-                    return;
-                }
-                output.nextPage();
-                return;
-            case UiEvent::UpLongPress:
-                handleUpLongPress();
-                return;
-            case UiEvent::DownLongPress:
-                handleDownLongPress();
-                return;
-            case UiEvent::PowerLongPress:
-                // ESP_LOGD(taskName(), "Key power long press");
-                return;
-            case UiEvent::MenuChord:
-                if (menu.active())
-                    menu.exit();
-                else
-                    menu.enter();
-                return;
-            case UiEvent::Sleep:
-                ESP_LOGD(taskName(), "Sleep");
-                output.onSleep();
-                return;
-            case UiEvent::PasskeyStart:
-                ESP_LOGD(taskName(), "PasskeyStart: %06u", state.blePassKey());
-                passkeyActive = true;
-                return;
-            case UiEvent::PasskeyEnd:
-                ESP_LOGD(taskName(), "PasskeyEnd");
-                passkeyActive = false;
-                return;
-            case UiEvent::OtaChange:
-                ESP_LOGD(taskName(), "OtaChange: %d", state.ota());
-                return;
-            case UiEvent::WifiStatusChange:
-                ESP_LOGD(taskName(), "WifiStatusChange");
-                return;
-            default:
-                ESP_LOGW(taskName(), "Unhandled UI event: %u", (uint8_t)event);
-                return;
-        }
-    }
-
-    void syncPasskeyDisplay() {
-        if (passkeyActive) {
-            if (!passkeyShown && output.showPasskey(state.blePassKey())) {
-                passkeyShown = true;
-            }
-            return;
-        }
-        if (passkeyShown) {
-            output.exitPasskey();
-            passkeyShown = false;
-        }
-    }
-
-    void syncApDisplay() {
-        if (wifiApMode) {
-            if (!apSsidShown && wifiApSsid[0] != '\0') {
-                if (output.showApSsid(wifiApSsid)) {
-                    apSsidShown = true;
-                }
-            }
-            return;
-        }
-        if (apSsidShown) {
-            output.exitApSsid();
-            apSsidShown = false;
-        }
-    }
-
-    void syncMenuDisplay() {
-        if (menu.active()) {
-            Menu::Snapshot snapshot = menu.snapshot();
-            if (output.showMenu(snapshot)) {
-                menu.markRendered();
-            }
-            menuShown = true;
-            return;
-        }
-
-        if (!menuShown) return;
-        output.exitMenu();
-        menu.markRendered();
-        menuShown = false;
-    }
-
-    void adjustPasLevel(int8_t delta) {
-        if (delta != -1 && delta != 1) {
-            ESP_LOGW(taskName(), "Invalid delta: %d", delta);
-            return;
-        }
-        State::Snapshot s = state.getSnapshot();
-        int8_t next = s.pasLevelRequested + delta;
-        if (next < -1 || next > 5) return;
-        if (!s.controllerAlive) {
-            ESP_LOGW(taskName(), "Controller not alive, ignoring PAS level adjustment");
-            return;
-        }
-        state.pasLevelRequested(next);
-    }
-
-    void handleUpLongPress() {
-        if (lastBrightnessChange + brightnessChangeDelay > millis()) return;
-        if (shouldLogLongPress())
-            ESP_LOGD(taskName(), "Key up long press (increase brightness)");
-        if (!increaseBrightness()) return;
-        lastBrightnessChange = millis();
-        menu.onBrightnessChange(brightnessPercent == savedBrightnessPercent);
-    }
-
-    void handleDownLongPress() {
-        if (lastBrightnessChange + brightnessChangeDelay > millis()) return;
-        bool isWalkAssist = state.pasLevel() == State::PAS_WALK_ASSIST;
-        if (shouldLogLongPress())
-            ESP_LOGW(taskName(), "Key down long press (%s)",
-                     isWalkAssist ? "walk assist" : "decrease brightness");
-        if (isWalkAssist) return;
-        if (!decreaseBrightness()) return;
-        lastBrightnessChange = millis();
-        menu.onBrightnessChange(brightnessPercent == savedBrightnessPercent);
-    }
-
-    bool shouldLogLongPress() {
-        static uint32_t lastLongPressLog = 0;
-        uint32_t now = millis();
-        if (now - lastLongPressLog <= 500) return false;
-        lastLongPressLog = now;
-        return true;
-    }
+    bool loadPreferences();
+    void processUiEvents();
+    void handleUiEvent(UiEvent event);
+    void syncPasskeyDisplay();
+    void syncApDisplay();
+    void syncMenuDisplay();
+    void adjustPasLevel(int8_t delta);
+    void handleUpLongPress();
+    void handleDownLongPress();
+    bool shouldLogLongPress();
 };
 
 #endif  // DISPLAY_H
