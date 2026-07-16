@@ -36,16 +36,17 @@
        - Send updates at a low rate, typically 1-2 Hz max, and only when values change.
        - Keep the rolling counter logic simple and deterministic.
 
-    3. CTS [Status: In progress]
+    3. CTS [Status: DONE]
        - DONE: Add a compact custom telemetry service for the mobile app.
        - DONE: Use a fixed-size payload derived from the bike state snapshot.
        - DONE: Apply the same change-based rate limiting as the standard services.
-       - TODO: Heart rate char (write) so the phone can push HR data to the display
+       - DONE: Heart rate char (write) so the phone can push HR data to the display.
 
-    4. NUS [Status: Planned]
-       - Add this last, once the mobile app is in active development.
-       - Keep a hardcoded payload limit, for example 250 bytes.
-       - Keep the initial protocol simple and best-effort; fragmentation can be deferred.
+    4. NUS [Status: DONE]
+       - DONE: Nordic UART service (RX write / TX notify).
+       - DONE: RX bridged to the existing Api command queue (hostname, battery,
+         ble, wifi, restart, v, help, ...). TX carries formatted Api replies.
+       - DONE: Hardcoded 250-byte RX cap; best-effort, no fragmentation yet.
 
     GATT profile:
     - DIS: 0x180A, read-only device information.
@@ -54,6 +55,7 @@
     - BAS: 0x180F, level characteristic 0x2A19, read/notify.
     - CTS: custom 128-bit service with a telemetry characteristic (notify) and a HR char (write).
     - NUS: Nordic UART service with RX/TX characteristics, write for RX and read/notify for TX.
+      RX lines are bridged to the existing Api command queue; TX carries Api replies.
 
     Implementation notes:
     - The BLE task owns the BLE state machine, connection lifecycle, and outgoing notifications.
@@ -83,6 +85,8 @@ class Ble : public Task,
     void handleConnect(NimBLEConnInfo& connInfo);
     void handleDisconnect(NimBLEConnInfo& connInfo, int reason);
     void handleAuthenticationComplete(NimBLEConnInfo& connInfo);
+    void onCtsHrWrite(uint8_t bpm);
+    void onNusRx(const char* line);
 
     uint32_t generatePassKey();
 
@@ -101,6 +105,8 @@ class Ble : public Task,
     void publishCpsMeasurement();
     void initializeCtsService();
     void publishCtsMeasurement();
+    void initializeNusService();
+    void sendNusReply(const Api::Reply& reply);
     void initializeStack();
     void registerApiCommands();
     Api::Reply bleCommand(const char* args);
@@ -110,10 +116,14 @@ class Ble : public Task,
     BLECharacteristic* _cscCharacteristic = nullptr;
     BLECharacteristic* _cpsCharacteristic = nullptr;
     BLECharacteristic* _ctsCharacteristic = nullptr;
+    BLECharacteristic* _ctsHrCharacteristic = nullptr;
+    BLECharacteristic* _nusRxCharacteristic = nullptr;
+    BLECharacteristic* _nusTxCharacteristic = nullptr;
 
     bool _enabled = false;  // BLE disabled by default
     bool _initialized = false;
     bool _connected = false;
+    QueueHandle_t _nusReplyQueue = nullptr;  // Api replies for NUS TX
     uint8_t _batteryLevel = 0;
     uint32_t _lastBatteryPublishMs = 0;
     uint32_t _lastCyclingPublishMs = 0;

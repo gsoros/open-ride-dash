@@ -27,6 +27,7 @@ class State : public HasPreferences {
         uint8_t motorTemp = 0;             // °C
         uint8_t controllerTemp = 0;        // °C
         bool controllerAlive = false;      // true if motor controller is reachable
+        uint8_t heartRate = 0;             // BPM, pushed from phone via CTS HR char (0 = none)
         char hostname[32] = {};            // Device hostname (shared by WiFi, BLE, OTA)
 
         // Calculates speed in km/h
@@ -250,6 +251,8 @@ class State : public HasPreferences {
     uint16_t wheelCircumference();
     void controllerAlive(bool v);
     bool controllerAlive();
+    void heartRate(uint8_t v);
+    uint8_t heartRate();
     void hostname(const char* v);
     const char* hostname();
 

@@ -65,12 +65,61 @@ class BleServerCallbacks : public BLEServerCallbacks {
     Ble* _ble;
     const char* tag = "BleSC";
 };
+
+// Hardcoded NUS RX payload cap (matches firmware note in ble.h).
+constexpr size_t kNusRxMaxLen = 250;
+
+// CTS HR write callback: phone pushes heart rate (uint8 BPM) from a HRM.
+class CtsHrCallbacks : public BLECharacteristicCallbacks {
+   public:
+    explicit CtsHrCallbacks(Ble* ble) : _ble(ble) {}
+
+    void onWrite(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override {
+        (void)connInfo;
+        if (_ble == nullptr) return;
+        const std::string& v = pCharacteristic->getValue();
+        if (v.size() >= 1) {
+            _ble->onCtsHrWrite(static_cast<uint8_t>(v[0]));
+        }
+    }
+
+   private:
+    Ble* _ble;
+};
+
+// NUS RX write callback: phone -> device command line, bridged to Api.
+class NusRxCallbacks : public BLECharacteristicCallbacks {
+   public:
+    explicit NusRxCallbacks(Ble* ble) : _ble(ble) {}
+
+    void onWrite(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override {
+        (void)connInfo;
+        if (_ble == nullptr) return;
+        const std::string& v = pCharacteristic->getValue();
+        if (v.empty()) return;
+        char line[kNusRxMaxLen + 1] = {};
+        size_t n = std::min(v.size(), kNusRxMaxLen);
+        std::memcpy(line, v.data(), n);
+        line[n] = '\0';
+        _ble->onNusRx(line);
+    }
+
+   private:
+    Ble* _ble;
+};
 }  // namespace
 
 namespace {
 // CTS: custom telemetry service (128-bit UUIDs)
 const BLEUUID kCtsServiceUuid("f6333d96-74c0-462d-b92d-5750a2283429");
 const BLEUUID kCtsTelemetryCharUuid("5ee460d2-75a3-41ac-9034-2b2d435bb549");
+const BLEUUID kCtsHrCharUuid("a2c4f7b1-0e3d-4a8c-9b6e-1f2c3d4e5f60");
+
+// NUS: Nordic UART service (well-known 128-bit UUIDs)
+const BLEUUID kNusServiceUuid("6e400001-b5a3-f393-e0a9-e50e24dcca9e");
+const BLEUUID kNusRxCharUuid("6e400002-b5a3-f393-e0a9-e50e24dcca9e");  // phone -> device (write)
+const BLEUUID kNusTxCharUuid("6e400003-b5a3-f393-e0a9-e50e24dcca9e");  // device -> phone (notify)
+}  // namespace
 
 // Fixed-size telemetry payload (little-endian), version 1.
 //   byte  0    : version/flags (0x01)
@@ -83,7 +132,6 @@ const BLEUUID kCtsTelemetryCharUuid("5ee460d2-75a3-41ac-9034-2b2d435bb549");
 //   bytes 11-12: human power, W * 10 (uint16)
 //   byte  13   : cadence, RPM (uint8)
 constexpr size_t kCtsPayloadSize = Ble::kCtsPayloadSize;
-}  // namespace
 
 void Ble::setup() {
     if (!preferencesSetup(taskName()))
@@ -92,6 +140,12 @@ void Ble::setup() {
         _enabled = preferences.getBool("enabled", _enabled);
 
     registerApiCommands();
+
+    // Reply queue for NUS-bridged Api commands (TX out to the phone).
+    _nusReplyQueue = xQueueCreate(8, sizeof(Api::Reply));
+    if (_nusReplyQueue == nullptr) {
+        ESP_LOGE(taskName(), "Failed to create NUS reply queue");
+    }
 
     if (!_enabled) {
         ESP_LOGI(taskName(), "BLE is disabled");
@@ -139,6 +193,7 @@ void Ble::initializeStack() {
 
     initializeCyclingServices();
     initializeCtsService();
+    initializeNusService();
 
     BLEAdvertising* advertising = BLEDevice::getAdvertising();
     BLEAdvertisementData advData;
@@ -175,6 +230,13 @@ void Ble::taskRun() {
     if (_connected) {
         updateBatteryLevel();
         updateCyclingServices();
+    }
+    // Drain any pending NUS Api replies and forward them out the TX char.
+    if (_nusReplyQueue != nullptr) {
+        Api::Reply reply;
+        while (xQueueReceive(_nusReplyQueue, &reply, 0) == pdTRUE) {
+            sendNusReply(reply);
+        }
     }
 }
 
@@ -335,6 +397,47 @@ void Ble::initializeCtsService() {
     BLEService* ctsService = _server->createService(kCtsServiceUuid);
     _ctsCharacteristic = ctsService->createCharacteristic(
         kCtsTelemetryCharUuid, NIMBLE_PROPERTY::NOTIFY);
+    // HR write char: phone pushes heart rate (uint8 BPM) from a connected HRM.
+    _ctsHrCharacteristic = ctsService->createCharacteristic(
+        kCtsHrCharUuid, NIMBLE_PROPERTY::WRITE_NR);
+    _ctsHrCharacteristic->setCallbacks(new CtsHrCallbacks(this));
+}
+
+void Ble::onCtsHrWrite(uint8_t bpm) {
+    state.heartRate(bpm);
+    ESP_LOGI(taskName(), "CTS HR write: %u BPM", bpm);
+    display.queueUiEvent(UiEvent::BleChange);
+}
+
+void Ble::initializeNusService() {
+    BLEService* nusService = _server->createService(kNusServiceUuid);
+
+    // TX: device -> phone. Notify, no read (Nordic UART convention).
+    _nusTxCharacteristic = nusService->createCharacteristic(
+        kNusTxCharUuid, NIMBLE_PROPERTY::NOTIFY);
+
+    // RX: phone -> device. Write (with response) so the phone knows we got it.
+    _nusRxCharacteristic = nusService->createCharacteristic(
+        kNusRxCharUuid, NIMBLE_PROPERTY::WRITE);
+    _nusRxCharacteristic->setCallbacks(new NusRxCallbacks(this));
+}
+
+void Ble::onNusRx(const char* line) {
+    if (line == nullptr || *line == '\0') return;
+    ESP_LOGI(taskName(), "NUS RX: '%s'", line);
+    // Bridge the line to the existing Api command queue. The Api task
+    // processes it and enqueues a reply on our reply queue.
+    if (!api.queueCommand(line, _nusReplyQueue)) {
+        ESP_LOGW(taskName(), "NUS RX dropped (queue full)");
+    }
+}
+
+void Ble::sendNusReply(const Api::Reply& reply) {
+    if (_server == nullptr || _nusTxCharacteristic == nullptr || !_connected) return;
+    char buf[Api::REPLY_SERIAL_LINE_SIZE] = {};
+    Api::formatReply(reply, buf, sizeof(buf));
+    _nusTxCharacteristic->setValue((uint8_t*)buf, strlen(buf));
+    _nusTxCharacteristic->notify();
 }
 
 void Ble::publishCtsMeasurement() {

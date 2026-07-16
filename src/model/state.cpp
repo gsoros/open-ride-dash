@@ -181,6 +181,12 @@ void State::controllerAlive(bool v) {
 bool State::controllerAlive() {
     return getBool(&_latest.controllerAlive);
 }
+void State::heartRate(uint8_t v) {
+    setUInt8(&_latest.heartRate, v);
+}
+uint8_t State::heartRate() {
+    return getUInt8(&_latest.heartRate);
+}
 
 void State::hostname(const char* v) {
     if (v == nullptr) return;
