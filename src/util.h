@@ -94,6 +94,42 @@ class Util {
 
         *p = '\0';
     }
+
+    // Parse a boolean value from the command line.
+    // - returns true if a token was extracted
+    // - returns false if empty, too long, or not a boolean value
+    // - valid values are "on" and "off"
+    static bool parseBoolValue(const char* args, bool* value) {
+        args = skipWhitespace(args);
+
+        char token[6] = {};
+        if (!nextToken(args, token, sizeof(token))) return false;
+
+        const char* rest = skipWhitespace(args);
+        if (*rest != '\0') return false;
+
+        if (isStrBoolOn(token)) {
+            *value = true;
+            return true;
+        }
+        if (isStrBoolOff(token)) {
+            *value = false;
+            return true;
+        }
+        return false;
+    }
+
+    static bool isStrBoolOn(const char* str) {
+        return strcmp(str, "on") == 0;
+    }
+
+    static bool isStrBoolOff(const char* str) {
+        return strcmp(str, "off") == 0;
+    }
+
+    static const char* boolToString(bool value) {
+        return value ? "on" : "off";
+    }
 };
 
 #endif  // UTIL_H

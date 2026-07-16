@@ -15,7 +15,7 @@ const char* WifiSerial::taskName() const {
 
 void WifiSerial::setup(bool withWifi) {
     instance = this;
-    logQueue = xQueueCreate(8, sizeof(LogLine));
+    logQueue = xQueueCreate(NUM_LOG_LINES, sizeof(LogLine));
 
     esp_log_set_vprintf(&queue_vprintf);
     if (withWifi) {
@@ -28,7 +28,7 @@ void WifiSerial::setup(bool withWifi) {
         [this](const char* args) {
             return setEchoCommand(args);
         },
-        "Usage: echo 0|1|True|true|False|false|On|on|Off|off\nEnables or disables WifiSerial input echo.");
+        "Usage: echo on|off\nEnables or disables WifiSerial input echo.");
 }
 
 void WifiSerial::taskRun() {
@@ -78,17 +78,8 @@ void WifiSerial::receiveReply(const Api::Reply& reply) {
         return;
     }
 
-    char line[300];
-    if (reply.code != Api::ReplyCode::SUCCESS) {
-        snprintf(line, sizeof(line), "API [%s] Error (%s): %s",
-                 reply.command,
-                 Api::replyCodeToString(reply.code),
-                 (char*)reply.data);
-    } else {
-        snprintf(line, sizeof(line), "API [%s] Reply: %s",
-                 reply.command,
-                 (char*)reply.data);
-    }
+    char line[LINE_SIZE] = {};
+    Api::formatReply(reply, line, sizeof(line));
 
     if (client)
         instance->wifiClient.println(line);
@@ -143,38 +134,16 @@ void WifiSerial::disconnectWithNotice(const char* message) {
     }
 }
 
-bool WifiSerial::parseEchoValue(const char* args, bool* value) {
-    args = Util::skipWhitespace(args);
-
-    char token[6] = {};
-    if (!Util::nextToken(args, token, sizeof(token))) return false;
-
-    const char* rest = Util::skipWhitespace(args);
-    if (*rest != '\0') return false;
-
-    if (strcmp(token, "1") == 0 || strcmp(token, "True") == 0 || strcmp(token, "true") == 0 ||
-        strcmp(token, "On") == 0 || strcmp(token, "on") == 0) {
-        *value = true;
-        return true;
-    }
-    if (strcmp(token, "0") == 0 || strcmp(token, "False") == 0 || strcmp(token, "false") == 0 ||
-        strcmp(token, "Off") == 0 || strcmp(token, "off") == 0) {
-        *value = false;
-        return true;
-    }
-    return false;
-}
-
 Api::Reply WifiSerial::setEchoCommand(const char* args) {
     Api::Reply reply = {};
     bool enable = false;
-    if (!parseEchoValue(args, &enable)) {
+    if (!Util::parseBoolValue(args, &enable)) {
         reply.code = Api::ReplyCode::INVALID_ARGS;
-        snprintf((char*)reply.data, sizeof(reply.data), "Usage: echo 0|1|True|true|False|false|On|on|Off|off");
+        snprintf((char*)reply.data, sizeof(reply.data), "Usage: echo on|off");
         return reply;
     }
 
     setEcho(enable);
-    snprintf((char*)reply.data, sizeof(reply.data), "WifiSerial echo %s", enable ? "enabled" : "disabled");
+    snprintf((char*)reply.data, sizeof(reply.data), "WifiSerial echo %s", enable ? "on" : "off");
     return reply;
 }

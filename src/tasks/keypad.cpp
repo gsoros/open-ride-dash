@@ -28,7 +28,7 @@ void Keypad::setup() {
         [this](const char* args) {
             return keyCommand(args);
         },
-        "Usage: key <up|down|upLong|downLong|power|menu>\nSimulate a key press.");
+        "Usage: key up|down|upLong|downLong|power|menu\nSimulate a key press.");
 }
 
 void Keypad::taskRun() {
@@ -38,8 +38,8 @@ void Keypad::taskRun() {
     keyDown.tick();
     keyPower.tick();
 
-    if (!pageMenuChordInProgress()) {
-        pageMenuChordHandled = false;
+    if (!menuChordInProgress()) {
+        menuChordHandled = false;
     }
 }
 
@@ -59,12 +59,12 @@ void Keypad::keyPowerClick() {
 }
 
 void Keypad::keyUpLongPress() {
-    if (handlePageMenuChord()) return;
+    if (handleMenuChord()) return;
     display.queueUiEvent(UiEvent::UpLongPress);
 }
 
 void Keypad::keyDownLongPress() {
-    if (handlePageMenuChord()) return;
+    if (handleMenuChord()) return;
     display.queueUiEvent(UiEvent::DownLongPress);
 }
 
@@ -76,20 +76,20 @@ void Keypad::keyPowerLongPress() {
     display.queueUiEvent(UiEvent::PowerLongPress);
 }
 
-bool Keypad::pageMenuChordPressed() {
+bool Keypad::menuChordPressed() {
     return keyUp.isLongPressed() && keyDown.isLongPressed();
 }
 
-bool Keypad::pageMenuChordInProgress() {
+bool Keypad::menuChordInProgress() {
     return !keyUp.isIdle() && !keyDown.isIdle();
 }
 
-bool Keypad::handlePageMenuChord() {
-    if (!pageMenuChordPressed()) return pageMenuChordInProgress();
-    if (!pageMenuChordHandled) {
+bool Keypad::handleMenuChord() {
+    if (!menuChordPressed()) return menuChordInProgress();
+    if (!menuChordHandled) {
         ESP_LOGD(taskName(), "Key up/down long press (menu)");
         display.queueUiEvent(UiEvent::MenuChord);
-        pageMenuChordHandled = true;
+        menuChordHandled = true;
     }
     return true;
 }
@@ -110,7 +110,7 @@ Api::Reply Keypad::keyCommand(const char* args) {
     } else {
         Api::Reply reply = {};
         reply.code = Api::ReplyCode::INVALID_ARGS;
-        snprintf((char*)reply.data, sizeof(reply.data), "Invalid argument: %s", args);
+        snprintf((char*)reply.data, sizeof(reply.data), "Usage: key up|down|upLong|downLong|power|menu");
         return reply;
     }
     Api::Reply reply = {};

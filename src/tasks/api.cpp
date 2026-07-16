@@ -20,13 +20,13 @@ void Api::setup() {
         [this](const char* args) {
             return versionCommand(args);
         },
-        "Usage: v\nReturns the version information.");
+        "Usage: v\nShows the version information.");
     registerCommand(
         "help",
         [this](const char* args) {
             return helpCommand(args);
         },
-        "Usage: help [command]\nLists commands or shows detailed help for one command.");
+        "Usage: help[ command]\nLists commands or shows detailed help for one command.");
     registerCommand(
         "restart",
         [this](const char* args) {
@@ -44,20 +44,20 @@ void Api::setup() {
         [this](const char* args) {
             return batteryCapacityCommand(args);
         },
-        "Usage: battery [capacity]\nGets or sets the battery capacity in Wh.");
+        "Usage: battery[ capacity]\nShows or sets the battery capacity in Wh.");
     registerCommand(
         "hostname",
         [this](const char* args) {
             return hostnameCommand(args);
         },
-        "Usage: hostname [hostname]\nShows the current hostname, or stores a new hostname when provided.");
+        "Usage: hostname[ hostname]\nShows or stores the hostname.");
 }
 
 bool Api::registerCommand(const char* command,
                           std::function<Reply(const char* args)> handler,
                           const char* helpText) {
     if (numCommands >= MAX_COMMANDS) {
-        ESP_LOGE(taskName(), "Command limit reached while registering: %s", command);
+        ESP_LOGE(taskName(), "Command limit reached: %s", command);
         return false;
     }
     Util::copyString(commands[numCommands].command, sizeof(commands[numCommands].command), command);
@@ -82,7 +82,7 @@ bool Api::queueCommand(const char* commandLine, QueueHandle_t replyQueue) {
     req.replyQueue = replyQueue;
     BaseType_t res = xQueueSend(requestQueue, &req, 0);
     if (res != pdTRUE) {
-        ESP_LOGW(taskName(), "Request queue full, dropping command: %s", commandLine);
+        ESP_LOGW(taskName(), "Request queue full, dropping: %s", commandLine);
         return false;
     }
     return true;
@@ -100,7 +100,7 @@ void Api::taskRun() {
             // ESP_LOGD(taskName(), "Sending reply: (%d) %s", reply.code, reply.data);
             BaseType_t sent = xQueueSend(req.replyQueue, &reply, 0);
             if (sent != pdTRUE) {
-                ESP_LOGW(taskName(), "Failed to enqueue reply for command %s", reply.command);
+                ESP_LOGW(taskName(), "Failed to enqueue reply for: %s", reply.command);
             }
         }
     }
@@ -116,7 +116,8 @@ Api::Reply Api::handleCommand(const char* input) {
 
     char cmd[COMMAND_NAME_SIZE] = {};
     if (!Util::nextToken(input, cmd, sizeof(cmd))) {
-        reply.code = ReplyCode::INVALID_ARGS;
+        reply.code = ReplyCode::UNKNOWN_COMMAND;
+        Util::copyString(reply.args, sizeof(reply.args), input);
         snprintf((char*)reply.data, sizeof(reply.data),
                  *input != '\0' ? "Command name too long" : "Empty command");
         reply.length = strlen((char*)reply.data);
@@ -128,8 +129,9 @@ Api::Reply Api::handleCommand(const char* input) {
         if (strcmp(cmd, commands[i].command) == 0) {
             // Call handler to produce a reply
             reply = commands[i].handler(args);
-            // Ensure reply.command contains the command name (handler may not set it)
+            // Ensure reply.command contains the command name, args, and length (handler may not set it)
             Util::copyString(reply.command, sizeof(reply.command), commands[i].command);
+            Util::copyString(reply.args, sizeof(reply.args), args);
             reply.length = strlen((char*)reply.data);
             // ESP_LOGD(taskName(), "Handled command: %s, args: %s, reply length: %d", cmd, args, reply.length);
             return reply;
@@ -137,7 +139,8 @@ Api::Reply Api::handleCommand(const char* input) {
     }
     reply.code = ReplyCode::UNKNOWN_COMMAND;
     Util::copyString(reply.command, sizeof(reply.command), cmd);
-    snprintf((char*)reply.data, sizeof(reply.data), "Unknown command: %s", cmd);
+    Util::copyString(reply.args, sizeof(reply.args), args);
+    snprintf((char*)reply.data, sizeof(reply.data), "'%s' is a mystery", cmd);
     reply.length = strlen((char*)reply.data);
     return reply;
 }
@@ -175,7 +178,7 @@ Api::Reply Api::helpCommand(const char* args) {
     const char* rest = Util::skipWhitespace(args);
     if (*rest != '\0') {
         reply.code = ReplyCode::INVALID_ARGS;
-        snprintf((char*)reply.data, sizeof(reply.data), "Usage: help [command]");
+        snprintf((char*)reply.data, sizeof(reply.data), "Usage: help[ command]");
         return reply;
     }
 
@@ -266,6 +269,15 @@ Api::Reply Api::hostnameCommand(const char* args) {
     return reply;
 }
 
+void Api::formatReply(const Reply& reply, char* buf, size_t bufSize) {
+    snprintf(buf, bufSize, "API [%s%s%s] (%s) %s",
+             reply.command,
+             reply.args[0] != '\0' ? " " : "",
+             reply.args,
+             replyCodeToString(reply.code),
+             (char*)reply.data);
+}
+
 #ifdef FEATURE_SERIAL
 void Api::handleSerialInput() {
     static char serialBuf[128] = {};
@@ -307,17 +319,8 @@ void Api::handleSerialInput() {
 }
 
 void Api::formatReplyToSerial(const Reply& reply) {
-    char line[300];
-    if (reply.code != ReplyCode::SUCCESS) {
-        snprintf(line, sizeof(line), "API [%s] Error (%s): %s",
-                 reply.command,
-                 replyCodeToString(reply.code),
-                 (char*)reply.data);
-    } else {
-        snprintf(line, sizeof(line), "API [%s] Reply: %s",
-                 reply.command,
-                 (char*)reply.data);
-    }
+    char line[REPLY_SERIAL_LINE_SIZE] = {};
+    formatReply(reply, line, sizeof(line));
     Serial.print(line);
 }
 #endif

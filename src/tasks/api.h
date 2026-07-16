@@ -12,9 +12,11 @@ class Api : public Task {
    public:
     static constexpr size_t COMMAND_NAME_SIZE = 32;
     static constexpr size_t REQUEST_COMMAND_LINE_SIZE = 128;
+    static constexpr size_t REPLY_ARGS_SIZE = REQUEST_COMMAND_LINE_SIZE;
     static constexpr size_t REPLY_DATA_SIZE = 256;
     static constexpr size_t MAX_COMMANDS = 256;
     static constexpr UBaseType_t REQUEST_QUEUE_LENGTH = 8;
+    static constexpr size_t REPLY_SERIAL_LINE_SIZE = 300;
 
     struct Reply;
     struct Command {
@@ -39,6 +41,7 @@ class Api : public Task {
 
     struct Reply {
         char command[COMMAND_NAME_SIZE];
+        char args[REPLY_ARGS_SIZE];
         ReplyCode code = ReplyCode::SUCCESS;
         uint8_t data[REPLY_DATA_SIZE];
         size_t length = 0;
@@ -56,6 +59,8 @@ class Api : public Task {
     bool queueCommand(const char* commandLine, QueueHandle_t replyQueue = nullptr);
 
     virtual void taskRun() override;
+
+    static void formatReply(const Reply& reply, char* buf, size_t bufSize);
 
    protected:
     size_t numCommands = 0;

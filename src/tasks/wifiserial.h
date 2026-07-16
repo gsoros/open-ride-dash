@@ -11,6 +11,9 @@
 
 class WifiSerial : public Task, public ApiClient {
    public:
+    static constexpr size_t LINE_SIZE = 300;
+    static constexpr size_t NUM_LOG_LINES = 8;
+
     WifiSerial(uint16_t port = 23);
 
     virtual const char* taskName() const override;
@@ -30,7 +33,6 @@ class WifiSerial : public Task, public ApiClient {
     void disconnectWithNotice(const char* message);
 
    protected:
-    static bool parseEchoValue(const char* args, bool* value);
     Api::Reply setEchoCommand(const char* args);
 
     // std=GNU++17 allows inline static member variables
@@ -42,9 +44,7 @@ class WifiSerial : public Task, public ApiClient {
     bool logClientActive = false;
 
     struct LogLine {
-        // 200 chars covers the usual app log lines with room to
-        // spare; bump if something legitimately gets truncated.
-        char text[200];
+        char text[LINE_SIZE];
     };
     QueueHandle_t logQueue = nullptr;
 };

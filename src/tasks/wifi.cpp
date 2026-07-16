@@ -131,8 +131,8 @@ void Wifi::registerApiCommands() {
         [this](const char* args) {
             return wifiCommand(args);
         },
-        "Usage: wifi [on|off|toggle|ssid|password|ap|status]\n"
-        "  Shows or sets WiFi settings.");
+        "Usage: wifi[ on|off|toggle|ssid[ ssid]|password[ password]|ap[ on|off|toggle]|status]\n"
+        "Shows or sets WiFi settings.");
 }
 
 Api::Reply Wifi::credentialCommand(const char* args, char* value, size_t valueSize, const char* key) {
@@ -167,8 +167,8 @@ Api::Reply Wifi::wifiCommand(const char* args) {
         // Bare "wifi" — return current settings summary
         snprintf((char*)reply.data, sizeof(reply.data),
                  "sta: %s, ap: %s, ssid: %s, password: %s",
-                 staEnabled ? "on" : "off",
-                 apEnabled ? "on" : "off",
+                 Util::boolToString(staEnabled),
+                 Util::boolToString(apEnabled),
                  ssid, password);
         return reply;
     }
@@ -177,18 +177,18 @@ Api::Reply Wifi::wifiCommand(const char* args) {
     char sub[16] = {};
     Util::nextToken(args, sub, sizeof(sub));
 
-    if (strcmp(sub, "on") == 0) {
+    if (Util::isStrBoolOn(sub)) {
         enableSta();
-        snprintf((char*)reply.data, sizeof(reply.data), "%s", staEnabled ? "enabled" : "disabled");
-    } else if (strcmp(sub, "off") == 0) {
+        snprintf((char*)reply.data, sizeof(reply.data), "%s", Util::boolToString(staEnabled));
+    } else if (Util::isStrBoolOff(sub)) {
         disableSta();
-        snprintf((char*)reply.data, sizeof(reply.data), "%s", staEnabled ? "enabled" : "disabled");
+        snprintf((char*)reply.data, sizeof(reply.data), "%s", Util::boolToString(staEnabled));
     } else if (strcmp(sub, "toggle") == 0) {
         if (staEnabled)
             disableSta();
         else
             enableSta();
-        snprintf((char*)reply.data, sizeof(reply.data), "%s", staEnabled ? "enabled" : "disabled");
+        snprintf((char*)reply.data, sizeof(reply.data), "%s", Util::boolToString(staEnabled));
     } else if (strcmp(sub, "ssid") == 0) {
         return credentialCommand(args, ssid, sizeof(ssid), ssidKey);
     } else if (strcmp(sub, "password") == 0) {
@@ -196,27 +196,27 @@ Api::Reply Wifi::wifiCommand(const char* args) {
     } else if (strcmp(sub, "ap") == 0) {
         args = Util::skipWhitespace(args);
         if (*args == '\0') {
-            snprintf((char*)reply.data, sizeof(reply.data), "%s", apEnabled ? "enabled" : "disabled");
-        } else if (strcmp(args, "on") == 0) {
+            snprintf((char*)reply.data, sizeof(reply.data), "%s", Util::boolToString(apEnabled));
+        } else if (Util::isStrBoolOn(args)) {
             enableAP();
-            snprintf((char*)reply.data, sizeof(reply.data), "%s", apEnabled ? "enabled" : "disabled");
-        } else if (strcmp(args, "off") == 0) {
+            snprintf((char*)reply.data, sizeof(reply.data), "%s", Util::boolToString(apEnabled));
+        } else if (Util::isStrBoolOff(args)) {
             disableAP();
-            snprintf((char*)reply.data, sizeof(reply.data), "%s", apEnabled ? "enabled" : "disabled");
+            snprintf((char*)reply.data, sizeof(reply.data), "%s", Util::boolToString(apEnabled));
         } else if (strcmp(args, "toggle") == 0) {
             if (apEnabled)
                 disableAP();
             else
                 enableAP();
-            snprintf((char*)reply.data, sizeof(reply.data), "%s", apEnabled ? "enabled" : "disabled");
+            snprintf((char*)reply.data, sizeof(reply.data), "%s", Util::boolToString(apEnabled));
         } else {
             reply.code = Api::ReplyCode::INVALID_ARGS;
-            snprintf((char*)reply.data, sizeof(reply.data), "Usage: wifi ap [on|off|toggle]");
+            snprintf((char*)reply.data, sizeof(reply.data), "Usage: wifi ap[ on|off|toggle]");
         }
     } else if (strcmp(sub, "status") == 0) {
         if (*args != '\0') {
             reply.code = Api::ReplyCode::INVALID_ARGS;
-            snprintf((char*)reply.data, sizeof(reply.data), "Usage: wifi status (no arguments)");
+            snprintf((char*)reply.data, sizeof(reply.data), "Usage: wifi status");
         } else {
             snprintf((char*)reply.data, sizeof(reply.data),
                      "sta: %s, ap_clients: %d",
@@ -226,7 +226,7 @@ Api::Reply Wifi::wifiCommand(const char* args) {
     } else {
         reply.code = Api::ReplyCode::INVALID_ARGS;
         snprintf((char*)reply.data, sizeof(reply.data),
-                 "Usage: wifi [on|off|toggle|ssid|password|ap|status]");
+                 "Usage: wifi[ on|off|toggle|ssid[ ssid]|password[ password]|ap[ on|off|toggle]|status]");
     }
 
     return reply;

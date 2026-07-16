@@ -29,13 +29,13 @@ class Keypad : public Task {
     OneButton keyUp;
     OneButton keyDown;
     OneButton keyPower;
-    bool pageMenuChordHandled = false;
+    bool menuChordHandled = false;
     uint32_t lastLongpressLog = 0;
     static constexpr uint16_t longpressLogInterval = 500;
 
-    bool pageMenuChordPressed();
-    bool pageMenuChordInProgress();
-    bool handlePageMenuChord();
+    bool menuChordPressed();
+    bool menuChordInProgress();
+    bool handleMenuChord();
     Api::Reply keyCommand(const char* args);
 };
 
