@@ -67,6 +67,24 @@ class BleServerCallbacks : public BLEServerCallbacks {
 };
 }  // namespace
 
+namespace {
+// CTS: custom telemetry service (128-bit UUIDs)
+const BLEUUID kCtsServiceUuid("f6333d96-74c0-462d-b92d-5750a2283429");
+const BLEUUID kCtsTelemetryCharUuid("5ee460d2-75a3-41ac-9034-2b2d435bb549");
+
+// Fixed-size telemetry payload (little-endian), version 1.
+//   byte  0    : version/flags (0x01)
+//   bytes 1-2  : speed, km/h * 100 (uint16)
+//   bytes 3-4  : battery voltage, V * 100 (uint16)
+//   bytes 5-6  : battery current, A * 100 (uint16)
+//   byte  7    : state of charge, % (uint8)
+//   bytes 8-9  : range, km * 100 (uint16)
+//   byte  10   : PAS level (int8: -1 walk, 0 off, 1-5)
+//   bytes 11-12: human power, W * 10 (uint16)
+//   byte  13   : cadence, RPM (uint8)
+constexpr size_t kCtsPayloadSize = Ble::kCtsPayloadSize;
+}  // namespace
+
 void Ble::setup() {
     if (!preferencesSetup(taskName()))
         ESP_LOGE(taskName(), "Failed to open preferences, using defaults");
@@ -120,6 +138,7 @@ void Ble::initializeStack() {
     _batteryCharacteristic->setValue(&initialLevel, 1);
 
     initializeCyclingServices();
+    initializeCtsService();
 
     BLEAdvertising* advertising = BLEDevice::getAdvertising();
     BLEAdvertisementData advData;
@@ -232,6 +251,7 @@ void Ble::updateCyclingServices() {
     _lastCyclingPublishMs = now;
     publishCscMeasurement();
     publishCpsMeasurement();
+    publishCtsMeasurement();
 }
 
 void Ble::publishCscMeasurement() {
@@ -309,6 +329,52 @@ void Ble::publishCpsMeasurement() {
 
     _cpsCharacteristic->setValue(payload, sizeof(payload));
     _cpsCharacteristic->notify();
+}
+
+void Ble::initializeCtsService() {
+    BLEService* ctsService = _server->createService(kCtsServiceUuid);
+    _ctsCharacteristic = ctsService->createCharacteristic(
+        kCtsTelemetryCharUuid, NIMBLE_PROPERTY::NOTIFY);
+}
+
+void Ble::publishCtsMeasurement() {
+    if (_server == nullptr || _ctsCharacteristic == nullptr) return;
+
+    State::Snapshot snapshot = state.getSnapshot(true);
+
+    const uint16_t speed = snapshot.speed_x100;
+    const uint16_t voltage = snapshot.batteryVoltage_x100;
+    const uint16_t current = snapshot.batteryCurrent_x100;
+    const uint8_t soc = static_cast<uint8_t>(std::clamp(snapshot.soc(), 0.0f, 100.0f));
+    const uint16_t range = static_cast<uint16_t>(
+        std::clamp(snapshot.range(), 0.0f, (float)UINT16_MAX / 100.0f) * 100.0f);
+    const int8_t pasLevel = snapshot.pasLevel;
+    const uint16_t humanPower = static_cast<uint16_t>(
+        std::clamp(snapshot.humanPower(), 0.0f, (float)UINT16_MAX / 10.0f) * 10.0f);
+    const uint8_t cadence = snapshot.cadence;
+
+    uint8_t payload[kCtsPayloadSize] = {0};
+    payload[0] = 0x01;  // version
+    payload[1] = static_cast<uint8_t>((speed >> 8) & 0xFF);
+    payload[2] = static_cast<uint8_t>(speed & 0xFF);
+    payload[3] = static_cast<uint8_t>((voltage >> 8) & 0xFF);
+    payload[4] = static_cast<uint8_t>(voltage & 0xFF);
+    payload[5] = static_cast<uint8_t>((current >> 8) & 0xFF);
+    payload[6] = static_cast<uint8_t>(current & 0xFF);
+    payload[7] = soc;
+    payload[8] = static_cast<uint8_t>((range >> 8) & 0xFF);
+    payload[9] = static_cast<uint8_t>(range & 0xFF);
+    payload[10] = static_cast<uint8_t>(pasLevel);  // int8 reinterpreted as raw byte
+    payload[11] = static_cast<uint8_t>((humanPower >> 8) & 0xFF);
+    payload[12] = static_cast<uint8_t>(humanPower & 0xFF);
+    payload[13] = cadence;
+
+    // Change-based rate limiting: skip notification when nothing changed.
+    if (std::memcmp(payload, _lastCtsPayload, kCtsPayloadSize) == 0) return;
+    std::memcpy(_lastCtsPayload, payload, kCtsPayloadSize);
+
+    _ctsCharacteristic->setValue(payload, kCtsPayloadSize);
+    _ctsCharacteristic->notify();
 }
 
 void Ble::initializeSecurity() {

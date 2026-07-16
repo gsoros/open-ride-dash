@@ -7,9 +7,9 @@
     IMPLEMENTATION PLAN:
 
     Goals:
-    - Provide basic telemetry to mobile fitness apps using standard services.
-    - Provide richer telemetry to the custom mobile app.
-    - Provide an API bridge to the custom mobile app via NUS once the app is ready.
+    - Provide basic telemetry to mobile fitness apps using standard services. (CSC, CPS)
+    - Provide richer telemetry to the custom mobile app. (CTS)
+    - Provide an API bridge to the custom mobile app via NUS once the app is ready. (NUS)
 
     Constraints and policies:
     - Stack: NimBLE (h2zero/NimBLE-Arduino), not the bundled Bluedroid BLE lib.
@@ -26,17 +26,17 @@
     - Avoid race conditions.
 
     Service plan:
-    1. DIS + BAS
+    1. DIS + BAS [Status: Done]
        - Implement Device Information Service and Battery Service first.
        - Add basic advertising and connection handling.
        - Validate pairing behavior and the initial security model early.
 
-    2. CSC + CPS
+    2. CSC + CPS [Status: Done, not yet tested]
        - Add Cycling Speed & Cadence and Cycling Power services.
        - Send updates at a low rate, typically 1-2 Hz max, and only when values change.
        - Keep the rolling counter logic simple and deterministic.
 
-    3. CTS
+    3. CTS [Status: Done, not yet tested]
        - Add a compact custom telemetry service for the mobile app.
        - Use a fixed-size payload derived from the bike state snapshot.
        - Apply the same change-based rate limiting as the standard services.
@@ -98,6 +98,8 @@ class Ble : public Task,
     void initializeCyclingServices();
     void publishCscMeasurement();
     void publishCpsMeasurement();
+    void initializeCtsService();
+    void publishCtsMeasurement();
     void initializeStack();
     void registerApiCommands();
     Api::Reply bleCommand(const char* args);
@@ -106,6 +108,7 @@ class Ble : public Task,
     BLECharacteristic* _batteryCharacteristic = nullptr;
     BLECharacteristic* _cscCharacteristic = nullptr;
     BLECharacteristic* _cpsCharacteristic = nullptr;
+    BLECharacteristic* _ctsCharacteristic = nullptr;
 
     bool _enabled = false;  // BLE disabled by default
     bool _initialized = false;
@@ -120,6 +123,12 @@ class Ble : public Task,
     uint32_t _lastCscWheelMs = 0;
     uint32_t _lastCscCrankMs = 0;
     uint16_t _lastCpsPower = 0;
+
+   public:
+    static constexpr size_t kCtsPayloadSize = 14;
+
+   private:
+    uint8_t _lastCtsPayload[kCtsPayloadSize] = {};
 };
 
 #endif  // BLE_H
