@@ -26,22 +26,23 @@
     - Avoid race conditions.
 
     Service plan:
-    1. DIS + BAS [Status: Done]
+    1. DIS + BAS [Status: DONE]
        - Implement Device Information Service and Battery Service first.
        - Add basic advertising and connection handling.
        - Validate pairing behavior and the initial security model early.
 
-    2. CSC + CPS [Status: Done, not yet tested]
+    2. CSC + CPS [Status: DONE, not yet tested]
        - Add Cycling Speed & Cadence and Cycling Power services.
        - Send updates at a low rate, typically 1-2 Hz max, and only when values change.
        - Keep the rolling counter logic simple and deterministic.
 
-    3. CTS [Status: Done, not yet tested]
-       - Add a compact custom telemetry service for the mobile app.
-       - Use a fixed-size payload derived from the bike state snapshot.
-       - Apply the same change-based rate limiting as the standard services.
+    3. CTS [Status: In progress]
+       - DONE: Add a compact custom telemetry service for the mobile app.
+       - DONE: Use a fixed-size payload derived from the bike state snapshot.
+       - DONE: Apply the same change-based rate limiting as the standard services.
+       - TODO: Heart rate char (write) so the phone can push HR data to the display
 
-    4. NUS
+    4. NUS [Status: Planned]
        - Add this last, once the mobile app is in active development.
        - Keep a hardcoded payload limit, for example 250 bytes.
        - Keep the initial protocol simple and best-effort; fragmentation can be deferred.
@@ -51,7 +52,7 @@
     - CSC: 0x1816, measurement characteristic 0x2A5B, notify.
     - CPS: 0x1818, measurement characteristic 0x2A63, notify.
     - BAS: 0x180F, level characteristic 0x2A19, read/notify.
-    - CTS: custom 128-bit service with a telemetry characteristic, notify.
+    - CTS: custom 128-bit service with a telemetry characteristic (notify) and a HR char (write).
     - NUS: Nordic UART service with RX/TX characteristics, write for RX and read/notify for TX.
 
     Implementation notes:
