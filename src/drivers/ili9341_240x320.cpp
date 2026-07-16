@@ -69,6 +69,10 @@ void ILI9341_240x320::onWifiChange() {
     // TODO: refresh any Wi-Fi status shown on screen.
 }
 
+void ILI9341_240x320::onBleChange() {
+    // TODO: refresh any BLE status shown on screen.
+}
+
 bool ILI9341_240x320::showPasskey(uint32_t passkey) {
     // TODO: render the BLE passkey. Return true once shown.
     return false;

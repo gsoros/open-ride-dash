@@ -285,6 +285,10 @@ void ST7789_240x240::onWifiChange() {
         ESP_LOGE(tag, "Failed to show AP SSID");
 }
 
+void ST7789_240x240::onBleChange() {
+    ESP_LOGD(tag, "onBleChange()");
+}
+
 bool ST7789_240x240::showPasskey(uint32_t passkey) {
     if (passkey == 0) {
         ESP_LOGE(tag, "Invalid passkey");

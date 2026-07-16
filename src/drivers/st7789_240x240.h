@@ -86,6 +86,7 @@ class ST7789_240x240 : public DisplayDriver {
     void onSleep() override;
     void onRestart() override;
     void onWifiChange() override;
+    void onBleChange() override;
     bool showPasskey(uint32_t passkey) override;  // returns true if passkey was shown
     void exitPasskey() override;
 

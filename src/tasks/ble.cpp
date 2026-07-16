@@ -9,22 +9,22 @@
 #include "build_info.h"
 #include "model/state.h"
 #include "tasks/display.h"
+#include "tasks/api.h"
 
 extern State state;
 extern Display display;
+extern Api api;
 
 /*
-     TODO: ESP_LOG* calls are not consistently resulting in output.
+    TODO: ESP_LOG* calls are not consistently resulting in output.
 
-     Levels seem OK.
+    Levels seem OK.
 
-     Increasing stack using
-     -DCONFIG_BT_NIMBLE_HOST_TASK_STACK_SIZE=8192
-       or
-     ble.taskStart(1.0f, 8192);
-     do not help.
+    Increasing NimBLE host stack using -DCONFIG_BT_NIMBLE_HOST_TASK_STACK_SIZE=8192
+    or our task with ble.taskStart(1.0f, 8192);
+    did not help.
 
-*** first connection sometimes has output: ***
+*** first connection _sometimes_ has output: ***
 I (7369) BLE: startSecurity
 I (7371) BLE: Connected
 I (7371) BleSC: onConnect
@@ -68,7 +68,24 @@ class BleServerCallbacks : public BLEServerCallbacks {
 }  // namespace
 
 void Ble::setup() {
-    if (_connected) return;
+    if (!preferencesSetup(taskName()))
+        ESP_LOGE(taskName(), "Failed to open preferences, using defaults");
+    else
+        _enabled = preferences.getBool("enabled", _enabled);
+
+    registerApiCommands();
+
+    if (!_enabled) {
+        ESP_LOGI(taskName(), "BLE is disabled");
+        return;
+    }
+
+    initializeStack();
+    display.queueUiEvent(UiEvent::BleChange);  // Notify display of initial state
+}
+
+void Ble::initializeStack() {
+    if (_initialized) return;
 
     BLEDevice::init(state.hostname());
 
@@ -114,13 +131,86 @@ void Ble::setup() {
     advertising->enableScanResponse(true);
     advertising->start();
     server->start();
+
+    _initialized = true;
+}
+
+void Ble::setEnabled(bool enabled) {
+    if (enabled == _enabled) return;
+    _enabled = enabled;
+    if (!preferencesReady || preferences.putBool("enabled", _enabled) == 0) {
+        ESP_LOGE(taskName(), "Failed to save enabled state");
+        return;
+    }
+    // The BLE stack cannot be safely started/stopped at runtime without a
+    // full re-init, so reboot to apply the change. This mirrors the WiFi
+    // task's restartAfterModeChange() behavior.
+    ESP_LOGI(taskName(), "BLE %s, restarting to apply", enabled ? "enabled" : "disabled");
+    display.queueUiEvent(UiEvent::BleChange);
+    delay(100);
+    api.queueCommand("restart");
 }
 
 void Ble::taskRun() {
+    if (!_enabled || !_initialized) return;
     if (_connected) {
         updateBatteryLevel();
         updateCyclingServices();
     }
+}
+
+void Ble::registerApiCommands() {
+    api.registerCommand(
+        "ble",
+        [this](const char* args) {
+            return bleCommand(args);
+        },
+        "Usage: ble[ on|off|toggle|status]\nShows or sets the BLE enabled state.");
+}
+
+Api::Reply Ble::bleCommand(const char* args) {
+    Api::Reply reply = {};
+
+    args = Util::skipWhitespace(args);
+
+    if (*args == '\0') {
+        // Bare "ble" — return current status summary
+        snprintf((char*)reply.data, sizeof(reply.data),
+                 "enabled: %s, connected: %s",
+                 Util::boolToString(_enabled),
+                 Util::boolToString(_connected));
+        return reply;
+    }
+
+    char sub[16] = {};
+    Util::nextToken(args, sub, sizeof(sub));
+
+    if (Util::isStrBoolOn(sub)) {
+        setEnabled(true);
+        snprintf((char*)reply.data, sizeof(reply.data), "%s", Util::boolToString(_enabled));
+    } else if (Util::isStrBoolOff(sub)) {
+        setEnabled(false);
+        snprintf((char*)reply.data, sizeof(reply.data), "%s", Util::boolToString(_enabled));
+    } else if (strcmp(sub, "toggle") == 0) {
+        setEnabled(!_enabled);
+        snprintf((char*)reply.data, sizeof(reply.data), "%s", Util::boolToString(_enabled));
+    } else if (strcmp(sub, "status") == 0) {
+        if (*args != '\0') {
+            reply.code = Api::Reply::Code::InvalidArgs;
+            snprintf((char*)reply.data, sizeof(reply.data), "Usage: ble status");
+        } else {
+            snprintf((char*)reply.data, sizeof(reply.data),
+                     "enabled: %s, connected: %s",
+                     Util::boolToString(_enabled),
+                     Util::boolToString(_connected));
+        }
+    } else {
+        reply.code = Api::Reply::Code::InvalidArgs;
+        snprintf((char*)reply.data, sizeof(reply.data),
+                 "Usage: ble[ on|off|toggle|status]");
+    }
+
+    return reply;
 }
 
 void Ble::initializeCyclingServices() {
@@ -253,12 +343,14 @@ void Ble::handleConnect(NimBLEConnInfo& connInfo) {
     NimBLEDevice::startSecurity(connInfo.getConnHandle());
     updateBatteryLevel();
     ESP_LOGI(taskName(), "Connected");
+    display.queueUiEvent(UiEvent::BleChange);
 }
 
 void Ble::handleDisconnect(NimBLEConnInfo& connInfo, int reason) {
     _connected = false;
     NimBLEDevice::startAdvertising();
     ESP_LOGI(taskName(), "Disconnected");
+    display.queueUiEvent(UiEvent::BleChange);
 }
 
 void Ble::updateBatteryLevel() {

@@ -22,6 +22,7 @@ class DisplayDriver {
     virtual void onSleep() {};
     virtual void onRestart() {};
     virtual void onWifiChange() {};
+    virtual void onBleChange() {};
     virtual bool showPasskey(uint32_t passkey) { return false; };  // returns true if passkey was shown
     virtual void exitPasskey() {};
 

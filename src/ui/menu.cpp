@@ -3,10 +3,12 @@
 #include "tasks/api.h"
 #include "tasks/display.h"
 #include "tasks/wifi.h"
+#include "tasks/ble.h"
 
 extern Api api;
 extern Display display;
 extern Wifi wifi;
+extern Ble ble;
 
 Menu::Menu() {
     _items[idx(Key::Wifi)].label = "WiFi";
@@ -14,6 +16,9 @@ Menu::Menu() {
 
     _items[idx(Key::AP)].label = "WiFi AP";
     _items[idx(Key::AP)].action = &Menu::onApSelect;
+
+    _items[idx(Key::BLE)].label = "BLE Disabled";
+    _items[idx(Key::BLE)].action = &Menu::onBleSelect;
 
     _items[idx(Key::Brightness)].label = "Brightness";
     _items[idx(Key::Brightness)].action = &Menu::onBrightnessSelect;
@@ -109,6 +114,14 @@ void Menu::onWifiChange() {
     setDirty();
 }
 
+void Menu::onBleChange() {
+    char label[32] = "BLE Disabled";
+    if (ble.isEnabled())
+        snprintf(label, sizeof(label), "BLE %s", ble.isConnected() ? "Connected" : "Ready");
+    _items[idx(Key::BLE)].label = label;
+    setDirty();
+}
+
 void Menu::onWifiSelect() {
     if (!api.queueCommand("wifi toggle")) {
         ESP_LOGE(tag, "Failed to queue WiFi toggle command");
@@ -118,6 +131,12 @@ void Menu::onWifiSelect() {
 void Menu::onApSelect() {
     if (!api.queueCommand("wifi ap toggle")) {
         ESP_LOGE(tag, "Failed to queue WiFi AP toggle command");
+    }
+}
+
+void Menu::onBleSelect() {
+    if (!api.queueCommand("ble toggle")) {
+        ESP_LOGE(tag, "Failed to queue BLE toggle command");
     }
 }
 

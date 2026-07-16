@@ -43,6 +43,7 @@ class Menu {
     enum class Key : uint8_t {
         Wifi = 0,
         AP,
+        BLE,
         Brightness,
         Restart,
         Exit,
@@ -76,6 +77,7 @@ class Menu {
     void markRendered();
 
     void onWifiChange();
+    void onBleChange();
     void onBrightnessChange(bool saved);
 
     auto begin() { return _items.begin(); }
@@ -92,6 +94,7 @@ class Menu {
 
     void onWifiSelect();
     void onApSelect();
+    void onBleSelect();
     void onBrightnessSelect();
     void onRestartSelect();
     void onNoopSelect();

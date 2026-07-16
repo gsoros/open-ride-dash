@@ -66,8 +66,11 @@
 #include <NimBLEDevice.h>
 
 #include "task.h"
+#include "has_preferences.h"
+#include "api.h"
 
-class Ble : public Task {
+class Ble : public Task,
+            public HasPreferences {
    public:
     virtual const char* taskName() const override {
         return "BLE";
@@ -82,6 +85,12 @@ class Ble : public Task {
 
     uint32_t generatePassKey();
 
+    // BLE enabled state. When false, the BLE stack is not initialized and
+    // must not be accessed. Persisted via preferences.
+    bool isEnabled() const { return _enabled; }
+    void setEnabled(bool enabled);
+    bool isConnected() const { return _connected; }
+
    private:
     void updateBatteryLevel();
     void updateCyclingServices();
@@ -89,12 +98,17 @@ class Ble : public Task {
     void initializeCyclingServices();
     void publishCscMeasurement();
     void publishCpsMeasurement();
+    void initializeStack();
+    void registerApiCommands();
+    Api::Reply bleCommand(const char* args);
 
     BLEServer* _server = nullptr;
     BLECharacteristic* _batteryCharacteristic = nullptr;
     BLECharacteristic* _cscCharacteristic = nullptr;
     BLECharacteristic* _cpsCharacteristic = nullptr;
 
+    bool _enabled = false;  // BLE disabled by default
+    bool _initialized = false;
     bool _connected = false;
     uint8_t _batteryLevel = 0;
     uint32_t _lastBatteryPublishMs = 0;

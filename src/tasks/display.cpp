@@ -54,6 +54,10 @@ void Display::setup() {
             return nextPageCommand(args);
         },
         "Usage: nextpage\nSwitches to the next page.");
+    // Update WiFi and BLE menu items based on current state,
+    // in case those setup() calls ran before the menu was created.
+    menu.onWifiChange();
+    menu.onBleChange();
 }
 
 void Display::taskRun() {
@@ -218,6 +222,11 @@ void Display::handleUiEvent(UiEvent event) {
             apActive = wifi.isApEnabled();
             menu.onWifiChange();
             output->onWifiChange();
+            return;
+        case UiEvent::BleChange:
+            ESP_LOGD(taskName(), "BleChange");
+            menu.onBleChange();
+            output->onBleChange();
             return;
         default:
             ESP_LOGW(taskName(), "Unhandled UI event: %u", (uint8_t)event);
