@@ -15,7 +15,7 @@ Menu::Menu() {
     _items[idx(Key::AP)].label = "WiFi AP";
     _items[idx(Key::AP)].action = &Menu::onApSelect;
 
-    _items[idx(Key::Brightness)].label = "Save Brightness";
+    _items[idx(Key::Brightness)].label = "Brightness";
     _items[idx(Key::Brightness)].action = &Menu::onBrightnessSelect;
 
     _items[idx(Key::Restart)].label = "Restart";

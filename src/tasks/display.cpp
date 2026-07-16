@@ -6,6 +6,32 @@ extern State state;
 #include "tasks/wifi.h"
 extern Wifi wifi;
 
+std::unique_ptr<DisplayDriver> makeDisplayDriver() {
+#if ORD_DISPLAY == st7789_240x240
+    return std::make_unique<ST7789_240x240>(
+        PIN_TFT_CS,
+        PIN_TFT_DC,
+        PIN_SPI_MOSI,
+        PIN_SPI_SCK,
+        PIN_TFT_RST,
+        PIN_TFT_BL,
+        SPI2_HOST,
+        TFT_ROTATION);
+#elif ORD_DISPLAY == ili9341_240x320
+    return std::make_unique<ILI9341_240x320>(
+        PIN_TFT_CS,
+        PIN_TFT_DC,
+        PIN_SPI_MOSI,
+        PIN_SPI_SCK,
+        PIN_TFT_RST,
+        PIN_TFT_BL,
+        SPI2_HOST,
+        TFT_ROTATION);
+#else
+#error "Unsupported display. Please define ORD_DISPLAY in platformio.ini"
+#endif
+}
+
 const char* Display::taskName() const {
     return "Display";
 }
@@ -15,10 +41,10 @@ void Display::setup() {
     if (uiEventQueue == nullptr) {
         ESP_LOGE(taskName(), "Failed to create UI event queue");
     }
-    output.setup();
+    output->setup();
     loadPreferences();
-    output.setBrightnessPercent(brightnessPercent);
-    output.splash();
+    output->setBrightnessPercent(brightnessPercent);
+    output->splash();
     // Initialize menu label based on saved brightness
     menu.onBrightnessChange(savedBrightnessPercent == brightnessPercent);
     apiClientSetup(taskName());
@@ -33,43 +59,24 @@ void Display::setup() {
 void Display::taskRun() {
     processUiEvents();
 
-    // Present the current screen in order of priority:
-    // 1. Menu
-    // 2. BLE Passkey
-    // 3. AP SSID
-    // 4. Metrics Page
-
-    static enum DebugLogType { DBGL_NORMAL,
-                               DBGL_MENU,
-                               DBGL_PASSKEY,
-                               DBGL_AP } lastLogType = DBGL_NORMAL;
-    if (syncMenuDisplay()) {
-        if (lastLogType != DBGL_MENU) {
-            ESP_LOGD(taskName(), "Menu mode active, skipping updates");
-            lastLogType = DBGL_MENU;
-        }
-        return;
-    }
-    if (syncPasskeyDisplay()) {
-        if (lastLogType != DBGL_PASSKEY) {
-            ESP_LOGD(taskName(), "Passkey mode active, skipping updates");
-            lastLogType = DBGL_PASSKEY;
-        }
-        return;
-    }
-    if (syncApDisplay()) {
-        if (lastLogType != DBGL_AP) {
-            ESP_LOGD(taskName(), "AP mode active, skipping updates");
-            lastLogType = DBGL_AP;
-        }
-        return;
+    // Resolve the desired screen from logical inputs (priority order):
+    // 1. Menu  2. BLE Passkey  3. AP SSID  4. Metrics Page
+    Screen desired = resolveScreen();
+    if (desired != currentScreen) {
+        exitScreen(currentScreen);
+        currentScreen = desired;
+        screenEntered = false;
     }
 
-    if (lastLogType != DBGL_NORMAL) {
-        ESP_LOGD(taskName(), "No active mode, resuming normal updates");
-        lastLogType = DBGL_NORMAL;
+    if (!screenEntered) {
+        screenEntered = enterScreen(currentScreen);
+        if (!screenEntered) {
+            // enter can fail (e.g. showPasskey/showApSsid returned false); retry next frame.
+            return;
+        }
     }
-    output.update();
+
+    runScreen(currentScreen);
 }
 
 bool Display::queueUiEvent(UiEvent event) {
@@ -92,7 +99,7 @@ bool Display::increaseBrightness() {
         brightnessPercent = 100;
         return false;
     }
-    output.setBrightnessPercent(brightnessPercent);
+    output->setBrightnessPercent(brightnessPercent);
     return true;
 }
 
@@ -103,7 +110,7 @@ bool Display::decreaseBrightness() {
         brightnessPercent = 1;
         return false;
     }
-    output.setBrightnessPercent(brightnessPercent);
+    output->setBrightnessPercent(brightnessPercent);
     return true;
 }
 
@@ -124,10 +131,10 @@ bool Display::saveBrightness() {
 
 Api::Reply Display::nextPageCommand(const char* args) {
     ESP_LOGI(taskName(), "Switching to next page");
-    output.nextPage();
+    output->nextPage();
     Api::Reply reply = {};
     reply.code = Api::Reply::Code::Success;
-    snprintf((char*)reply.data, sizeof(reply.data), "Page %d", output.currentPage());
+    snprintf((char*)reply.data, sizeof(reply.data), "Page %d", output->currentPage());
     return reply;
 }
 
@@ -170,7 +177,7 @@ void Display::handleUiEvent(UiEvent event) {
                 menu.selectItem();
                 return;
             }
-            output.nextPage();
+            output->nextPage();
             return;
         case UiEvent::UpLong:
             handleUpLongPress();
@@ -189,11 +196,11 @@ void Display::handleUiEvent(UiEvent event) {
             return;
         case UiEvent::Sleep:
             ESP_LOGD(taskName(), "Sleep");
-            output.onSleep();
+            output->onSleep();
             return;
         case UiEvent::Restart:
             ESP_LOGD(taskName(), "Restart");
-            output.onRestart();
+            output->onRestart();
             return;
         case UiEvent::PasskeyStart:
             ESP_LOGD(taskName(), "PasskeyStart: %06u", state.blePassKey());
@@ -210,7 +217,7 @@ void Display::handleUiEvent(UiEvent event) {
             ESP_LOGD(taskName(), "WifiChange");
             apActive = wifi.isApEnabled();
             menu.onWifiChange();
-            output.onWifiChange();
+            output->onWifiChange();
             return;
         default:
             ESP_LOGW(taskName(), "Unhandled UI event: %u", (uint8_t)event);
@@ -218,57 +225,61 @@ void Display::handleUiEvent(UiEvent event) {
     }
 }
 
-bool Display::syncPasskeyDisplay() {
-    if (passkeyActive) {
-        if (!passkeyShown && output.showPasskey(state.blePassKey())) {
-            passkeyShown = true;
-            menuShown = false;
-            apSsidShown = false;
-        }
-        return true;
-    }
-    if (passkeyShown) {
-        output.exitPasskey();
-        passkeyShown = false;
-    }
-    return false;
+Display::Screen Display::resolveScreen() const {
+    if (menu.active()) return Screen::Menu;
+    if (passkeyActive) return Screen::Passkey;
+    if (apActive) return Screen::ApSsid;
+    return Screen::Metrics;
 }
 
-bool Display::syncApDisplay() {
-    if (passkeyActive) return false;  // don't show AP while a passkey is active
-    if (apActive) {
-        const char* apSsid = wifi.getApSsid();
-        if (!apSsidShown && output.showApSsid(apSsid)) {
-            apSsidShown = true;
-            menuShown = false;
-            passkeyShown = false;
-        }
-        return true;
+bool Display::enterScreen(Screen s) {
+    switch (s) {
+        case Screen::Menu:
+            // Menu is redrawn every frame, so enter always succeeds.
+            return true;
+        case Screen::Passkey:
+            return output->showPasskey(state.blePassKey());
+        case Screen::ApSsid:
+            return output->showApSsid(wifi.getApSsid());
+        case Screen::Metrics:
+            return true;
     }
-    if (apSsidShown) {
-        output.exitApSsid();
-        apSsidShown = false;
-    }
-    return false;
+    return true;
 }
 
-bool Display::syncMenuDisplay() {
-    if (menu.active()) {
-        Menu::Snapshot snapshot = menu.snapshot();
-        if (output.showMenu(snapshot)) {
+void Display::exitScreen(Screen s) {
+    switch (s) {
+        case Screen::Menu:
+            output->exitMenu();
             menu.markRendered();
-        }
-        menuShown = true;
-        passkeyShown = false;
-        apSsidShown = false;
-        return true;
+            break;
+        case Screen::Passkey:
+            output->exitPasskey();
+            break;
+        case Screen::ApSsid:
+            output->exitApSsid();
+            break;
+        case Screen::Metrics:
+            break;
     }
+}
 
-    if (!menuShown) return false;
-    output.exitMenu();
-    menu.markRendered();
-    menuShown = false;
-    return false;
+void Display::runScreen(Screen s) {
+    switch (s) {
+        case Screen::Menu:
+            // Redraw every frame so selection/dirty changes are reflected.
+            if (output->showMenu(menu.snapshot())) {
+                menu.markRendered();
+            }
+            break;
+        case Screen::Passkey:
+        case Screen::ApSsid:
+            // Static screens: drawn once on enter, nothing per-frame.
+            break;
+        case Screen::Metrics:
+            output->update();
+            break;
+    }
 }
 
 void Display::adjustPasLevel(int8_t delta) {

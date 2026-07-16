@@ -156,7 +156,7 @@ void ST7789_240x240::update() {
     static DisplayMode lastDisplayMode = _displayMode;
     if (lastDisplayMode != _displayMode) {
         lastDisplayMode = _displayMode;
-        ESP_LOGD(tag, "Display mode: %s", displayModeToStr(_displayMode).c_str());
+        ESP_LOGD(tag, "Display mode: %s", displayModeToStr(_displayMode));
     }
 
     if (_displayMode == MODE_SPLASH) {

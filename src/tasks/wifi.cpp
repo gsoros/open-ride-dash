@@ -31,6 +31,8 @@ void Wifi::setup() {
     if (isStaEnabled()) startSta();
     if (isApEnabled()) startAp();
 
+    display.queueUiEvent(UiEvent::WifiChange);  // Notify display of initial state
+
     setupDone = true;
 }
 

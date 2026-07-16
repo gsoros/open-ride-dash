@@ -5,6 +5,8 @@
 
 #include <Arduino.h>
 
+#include "ui/menu.h"
+
 class DisplayDriver {
    public:
     virtual void setup() = 0;
@@ -22,6 +24,12 @@ class DisplayDriver {
     virtual void onWifiChange() {};
     virtual bool showPasskey(uint32_t passkey) { return false; };  // returns true if passkey was shown
     virtual void exitPasskey() {};
+
+    virtual bool showApSsid(const char* ssid) { return false; };  // returns true if AP SSID was shown
+    virtual void exitApSsid() {};
+
+    virtual bool showMenu(const Menu::Snapshot& menu) { return false; };  // returns true if menu was shown
+    virtual void exitMenu() {};
 
     virtual void nextPage() {};
     virtual uint8_t currentPage() { return 0; };

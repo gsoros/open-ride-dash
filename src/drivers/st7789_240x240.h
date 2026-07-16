@@ -89,7 +89,7 @@ class ST7789_240x240 : public DisplayDriver {
     bool showPasskey(uint32_t passkey) override;  // returns true if passkey was shown
     void exitPasskey() override;
 
-    bool showApSsid(const char* ssid);
+    bool showApSsid(const char* ssid);  // returns true if AP SSID was shown
     void exitApSsid();
 
     void nextPage() override;
@@ -149,7 +149,7 @@ class ST7789_240x240 : public DisplayDriver {
         MODE_WIFI_AP,
     };
 
-    inline String displayModeToStr(DisplayMode m) {
+    inline const char* displayModeToStr(DisplayMode m) {
         switch (m) {
             case MODE_SPLASH:
                 return "splash";
@@ -165,9 +165,8 @@ class ST7789_240x240 : public DisplayDriver {
                 return "passkey";
             case MODE_WIFI_AP:
                 return "wifi_ap";
-            default:
-                return "unknown";
         }
+        return "unknown";
     }
 
     enum SlotIndex {
@@ -214,7 +213,6 @@ class ST7789_240x240 : public DisplayDriver {
     };
 
     DisplayMode _displayMode = MODE_SPLASH;
-    DisplayMode _displayModeBeforeMenuXXXDELETEXXX = MODE_PAGE;
     uint8_t _currentPage = 0;  // default to page 0 (first page)
     uint32_t _lastPageUpdate = 0;
     uint32_t _transitionStart = 0;
