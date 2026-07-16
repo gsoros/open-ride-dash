@@ -146,7 +146,7 @@ Api::Reply Wifi::credentialCommand(const char* args, char* value, size_t valueSi
     if (newValue[0] != '\0' && strcmp(value, newValue) != 0) {
         if (!preferencesReady || preferences.putString(key, newValue) == 0) {
             ESP_LOGE(taskName(), "Failed to save %s", key);
-            reply.code = Api::ReplyCode::EXECUTION_ERROR;
+            reply.code = Api::Reply::Code::ExecutionError;
             snprintf((char*)reply.data, sizeof(reply.data), "%s", value);
             return reply;
         }
@@ -210,12 +210,12 @@ Api::Reply Wifi::wifiCommand(const char* args) {
                 enableAP();
             snprintf((char*)reply.data, sizeof(reply.data), "%s", Util::boolToString(apEnabled));
         } else {
-            reply.code = Api::ReplyCode::INVALID_ARGS;
+            reply.code = Api::Reply::Code::InvalidArgs;
             snprintf((char*)reply.data, sizeof(reply.data), "Usage: wifi ap[ on|off|toggle]");
         }
     } else if (strcmp(sub, "status") == 0) {
         if (*args != '\0') {
-            reply.code = Api::ReplyCode::INVALID_ARGS;
+            reply.code = Api::Reply::Code::InvalidArgs;
             snprintf((char*)reply.data, sizeof(reply.data), "Usage: wifi status");
         } else {
             snprintf((char*)reply.data, sizeof(reply.data),
@@ -224,7 +224,7 @@ Api::Reply Wifi::wifiCommand(const char* args) {
                      apClientCount());
         }
     } else {
-        reply.code = Api::ReplyCode::INVALID_ARGS;
+        reply.code = Api::Reply::Code::InvalidArgs;
         snprintf((char*)reply.data, sizeof(reply.data),
                  "Usage: wifi[ on|off|toggle|ssid[ ssid]|password[ password]|ap[ on|off|toggle]|status]");
     }

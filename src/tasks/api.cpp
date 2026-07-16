@@ -116,7 +116,7 @@ Api::Reply Api::handleCommand(const char* input) {
 
     char cmd[COMMAND_NAME_SIZE] = {};
     if (!Util::nextToken(input, cmd, sizeof(cmd))) {
-        reply.code = ReplyCode::UNKNOWN_COMMAND;
+        reply.code = Reply::Code::UnknownCommand;
         Util::copyString(reply.args, sizeof(reply.args), input);
         snprintf((char*)reply.data, sizeof(reply.data),
                  *input != '\0' ? "Command name too long" : "Empty command");
@@ -137,7 +137,7 @@ Api::Reply Api::handleCommand(const char* input) {
             return reply;
         }
     }
-    reply.code = ReplyCode::UNKNOWN_COMMAND;
+    reply.code = Reply::Code::UnknownCommand;
     Util::copyString(reply.command, sizeof(reply.command), cmd);
     Util::copyString(reply.args, sizeof(reply.args), args);
     snprintf((char*)reply.data, sizeof(reply.data), "'%s' is a mystery", cmd);
@@ -170,14 +170,14 @@ Api::Reply Api::helpCommand(const char* args) {
 
     char command[COMMAND_NAME_SIZE] = {};
     if (!Util::nextToken(args, command, sizeof(command))) {
-        reply.code = ReplyCode::INVALID_ARGS;
+        reply.code = Reply::Code::InvalidArgs;
         snprintf((char*)reply.data, sizeof(reply.data), "Command name too long");
         return reply;
     }
 
     const char* rest = Util::skipWhitespace(args);
     if (*rest != '\0') {
-        reply.code = ReplyCode::INVALID_ARGS;
+        reply.code = Reply::Code::InvalidArgs;
         snprintf((char*)reply.data, sizeof(reply.data), "Usage: help[ command]");
         return reply;
     }
@@ -190,7 +190,7 @@ Api::Reply Api::helpCommand(const char* args) {
         }
     }
 
-    reply.code = ReplyCode::UNKNOWN_COMMAND;
+    reply.code = Reply::Code::UnknownCommand;
     snprintf((char*)reply.data, sizeof(reply.data), "%s", command);
     return reply;
 }
@@ -200,7 +200,7 @@ Api::Reply Api::restartCommand(const char* args) {
     esp_restart();
     // We should never reach this point, but if we do, return an error reply
     Reply reply = {};
-    reply.code = ReplyCode::EXECUTION_ERROR;
+    reply.code = Reply::Code::ExecutionError;
     snprintf((char*)reply.data, sizeof(reply.data), "Failed to restart system");
     return reply;
 }
@@ -210,7 +210,7 @@ Api::Reply Api::nullpointerCommand(const char* args) {
     int* p = nullptr;
     ESP_LOGI(taskName(), "Dereferencing null pointer, this should cause a crash: %d", *p);
     Reply reply = {};
-    reply.code = ReplyCode::EXECUTION_ERROR;
+    reply.code = Reply::Code::ExecutionError;
     snprintf((char*)reply.data, sizeof(reply.data), "Dereferenced null pointer (this should not happen)");
     return reply;
 }
@@ -274,7 +274,7 @@ void Api::formatReply(const Reply& reply, char* buf, size_t bufSize) {
              reply.command,
              reply.args[0] != '\0' ? " " : "",
              reply.args,
-             replyCodeToString(reply.code),
+             Reply::codeToString(reply.code),
              (char*)reply.data);
 }
 
@@ -325,15 +325,15 @@ void Api::formatReplyToSerial(const Reply& reply) {
 }
 #endif
 
-const char* Api::replyCodeToString(ReplyCode code) {
+const char* Api::Reply::codeToString(Code code) {
     switch (code) {
-        case SUCCESS:
+        case Code::Success:
             return "Success";
-        case UNKNOWN_COMMAND:
+        case Code::UnknownCommand:
             return "Unknown Command";
-        case INVALID_ARGS:
+        case Code::InvalidArgs:
             return "Invalid Arguments";
-        case EXECUTION_ERROR:
+        case Code::ExecutionError:
             return "Execution Error";
     }
     return "Unknown";

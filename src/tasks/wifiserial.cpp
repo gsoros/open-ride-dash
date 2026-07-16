@@ -138,7 +138,7 @@ Api::Reply WifiSerial::setEchoCommand(const char* args) {
     Api::Reply reply = {};
     bool enable = false;
     if (!Util::parseBoolValue(args, &enable)) {
-        reply.code = Api::ReplyCode::INVALID_ARGS;
+        reply.code = Api::Reply::Code::InvalidArgs;
         snprintf((char*)reply.data, sizeof(reply.data), "Usage: echo on|off");
         return reply;
     }

@@ -109,12 +109,12 @@ Api::Reply Keypad::keyCommand(const char* args) {
         display.queueUiEvent(UiEvent::MenuChord);
     } else {
         Api::Reply reply = {};
-        reply.code = Api::ReplyCode::INVALID_ARGS;
+        reply.code = Api::Reply::Code::InvalidArgs;
         snprintf((char*)reply.data, sizeof(reply.data), "Usage: key up|down|upLong|downLong|power|menu");
         return reply;
     }
     Api::Reply reply = {};
-    reply.code = Api::ReplyCode::SUCCESS;
+    reply.code = Api::Reply::Code::Success;
     snprintf((char*)reply.data, sizeof(reply.data), "Key event simulated: %s", args);
     return reply;
 }

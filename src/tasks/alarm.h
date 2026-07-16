@@ -31,11 +31,11 @@ class Alarm : public Task {
 
    protected:
     MPU9250 _mpu;
-    enum State { ALARM_DISARMED,
-                 ALARM_ARMED_IDLE,
-                 ALARM_WARNING,
-                 ALARM_LATCHED };
-    std::atomic<State> _state = ALARM_DISARMED;
+    enum State { DISARMED,
+                 ARMED_IDLE,
+                 WARNING,
+                 LATCHED };
+    std::atomic<State> _state = DISARMED;
     std::atomic<uint32_t> _stateChangeTimestamp{0};
 
     // Motion within this timeframe triggers a warning
@@ -65,19 +65,18 @@ class Alarm : public Task {
     static std::atomic<TaskHandle_t> _mpuInterruptTargetTaskHandle;
     static void IRAM_ATTR _mpuInterruptHandler();
 
-    inline String _stateToString(State s) {
+    inline const char* _stateToString(State s) {
         switch (s) {
-            case ALARM_DISARMED:
+            case DISARMED:
                 return "disarmed";
-            case ALARM_ARMED_IDLE:
-                return "armed idle";
-            case ALARM_WARNING:
+            case ARMED_IDLE:
+                return "armed_idle";
+            case WARNING:
                 return "warning";
-            case ALARM_LATCHED:
+            case LATCHED:
                 return "latched";
-            default:
-                return "invalid";
         }
+        return "invalid";
     }
 };
 

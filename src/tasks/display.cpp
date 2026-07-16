@@ -90,13 +90,13 @@ Api::Reply Display::nextPageCommand(const char* args) {
     ESP_LOGI(taskName(), "Switching to next page");
     output.nextPage();
     Api::Reply reply = {};
-    reply.code = Api::ReplyCode::SUCCESS;
+    reply.code = Api::Reply::Code::Success;
     snprintf((char*)reply.data, sizeof(reply.data), "Page %d", output.currentPage());
     return reply;
 }
 
 void Display::receiveReply(const Api::Reply& reply) {
-    ESP_LOGD(taskName(), "Received API reply: %s: %s", reply.command, Api::replyCodeToString(reply.code));
+    ESP_LOGD(taskName(), "Received API reply: %s: %s", reply.command, Api::Reply::codeToString(reply.code));
 }
 
 bool Display::loadPreferences() {

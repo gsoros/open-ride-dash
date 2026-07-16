@@ -30,19 +30,19 @@ class Api : public Task {
         QueueHandle_t replyQueue = nullptr;
     };
 
-    enum ReplyCode {
-        SUCCESS = 0,
-        UNKNOWN_COMMAND = 1,
-        INVALID_ARGS = 2,
-        EXECUTION_ERROR = 3,
-    };
-
-    static const char* replyCodeToString(ReplyCode code);
-
     struct Reply {
+        enum class Code : uint8_t {
+            Success,
+            UnknownCommand,
+            InvalidArgs,
+            ExecutionError,
+        };
+
+        static const char* codeToString(Code code);
+
         char command[COMMAND_NAME_SIZE];
         char args[REPLY_ARGS_SIZE];
-        ReplyCode code = ReplyCode::SUCCESS;
+        Code code = Code::Success;
         uint8_t data[REPLY_DATA_SIZE];
         size_t length = 0;
     };

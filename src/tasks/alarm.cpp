@@ -78,20 +78,20 @@ void Alarm::taskRun() {
 
     // If we are disarmed, check whether we need to go to sleep,
     // if not, decrease task frequency and do nothing
-    if (s == ALARM_DISARMED) {
+    if (s == DISARMED) {
         _sleepIfNeeded();
         vTaskDelay(pdMS_TO_TICKS(500));
         return;
     }
 
     // If we are armed idle, block indefinitely until the ISR sends a notification
-    if (s == ALARM_ARMED_IDLE) {
+    if (s == ARMED_IDLE) {
         ESP_LOGD(taskName(), "Armed, blocking indefinitely");
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
         // Motion detected! Clear the interrupt register immediately
         _clearMPUInterrupt();
-        s = ALARM_WARNING;
+        s = WARNING;
         _state.store(s, std::memory_order_relaxed);
         _stateChangeTimestamp.store(millis(), std::memory_order_release);
 
@@ -100,7 +100,7 @@ void Alarm::taskRun() {
 
     _clearMPUInterrupt();
 
-    if (s == ALARM_WARNING) {
+    if (s == WARNING) {
         uint32_t lastInterrupt = _mpuInterruptTimestamp.load(std::memory_order_acquire);
         uint32_t timeSinceLastInterrupt = t - lastInterrupt;
         uint32_t timeSinceWarningStart = t - _stateChangeTimestamp.load(std::memory_order_acquire);
@@ -110,52 +110,52 @@ void Alarm::taskRun() {
             }
             _mpuInterruptTimestamp.store(0, std::memory_order_release);
         } else if (timeSinceLastInterrupt <= LATCH_DELAY_MS) {  // Latch within window
-            _state.store(ALARM_LATCHED, std::memory_order_relaxed);
+            _state.store(LATCHED, std::memory_order_relaxed);
             _stateChangeTimestamp.store(t, std::memory_order_release);
         } else if (timeSinceWarningStart >= LATCH_DELAY_MS) {  // Warning timed out with no further motion
-            _state.store(ALARM_ARMED_IDLE, std::memory_order_relaxed);
+            _state.store(ARMED_IDLE, std::memory_order_relaxed);
             _stateChangeTimestamp.store(t, std::memory_order_release);
         }
     }
 
-    static State lastState = s;
+    static State lastState = DISARMED;
     if (s != lastState) {
         lastState = s;
-        ESP_LOGD(taskName(), "State: %s", _stateToString(s).c_str());
+        ESP_LOGD(taskName(), "State: %s", _stateToString(s));
     }
 }
 
 bool Alarm::arm() {
-    _state.store(ALARM_ARMED_IDLE, std::memory_order_relaxed);
+    _state.store(ARMED_IDLE, std::memory_order_relaxed);
     _stateChangeTimestamp.store(millis(), std::memory_order_release);
     ESP_LOGD(taskName(), "Armed idle");
     return true;
 }
 
 bool Alarm::disarm() {
-    _state.store(ALARM_DISARMED, std::memory_order_relaxed);
+    _state.store(DISARMED, std::memory_order_relaxed);
     _stateChangeTimestamp.store(millis(), std::memory_order_release);
     ESP_LOGD(taskName(), "Disarmed");
     return true;
 }
 
 bool Alarm::isArmed() const {
-    return _state.load(std::memory_order_relaxed) != ALARM_DISARMED;
+    return _state.load(std::memory_order_relaxed) != DISARMED;
 }
 
 bool Alarm::isLatched() const {
-    return _state.load(std::memory_order_relaxed) == ALARM_LATCHED;
+    return _state.load(std::memory_order_relaxed) == LATCHED;
 }
 
 bool Alarm::isWarning() const {
-    return _state.load(std::memory_order_relaxed) == ALARM_WARNING;
+    return _state.load(std::memory_order_relaxed) == WARNING;
 }
 
 Api::Reply Alarm::_armCommand(const char* args) {
     ESP_LOGI(taskName(), "Arming");
     bool success = arm();
     Api::Reply reply = {};
-    reply.code = success ? Api::ReplyCode::SUCCESS : Api::ReplyCode::EXECUTION_ERROR;
+    reply.code = success ? Api::Reply::Code::Success : Api::Reply::Code::ExecutionError;
     snprintf((char*)reply.data, sizeof(reply.data), success ? "Alarm armed" : "Failed to arm alarm");
     return reply;
 }
@@ -164,7 +164,7 @@ Api::Reply Alarm::_disarmCommand(const char* args) {
     ESP_LOGI(taskName(), "Disarming");
     bool success = disarm();
     Api::Reply reply = {};
-    reply.code = success ? Api::ReplyCode::SUCCESS : Api::ReplyCode::EXECUTION_ERROR;
+    reply.code = success ? Api::Reply::Code::Success : Api::Reply::Code::ExecutionError;
     snprintf((char*)reply.data, sizeof(reply.data), success ? "Alarm disarmed" : "Failed to disarm alarm");
     return reply;
 }
