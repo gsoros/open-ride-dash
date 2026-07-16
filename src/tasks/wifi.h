@@ -50,6 +50,7 @@ class Wifi : public Task,
     bool isConnected() const;
 
     const char* getHostname();
+    const char* getApSsid();
     bool isStaEnabled() const;
     bool isApEnabled() const;
     bool isEnabled() const;
@@ -66,6 +67,7 @@ class Wifi : public Task,
     bool setupDone = false;
     bool staEnabled = false;  // STA    disabled by default
     bool apEnabled = true;    // AP      enabled by default
+    char apSsid[64] = {};
     bool mdnsStarted = false;
 
     void setDefaults();

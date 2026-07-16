@@ -97,13 +97,15 @@ void Menu::onBrightnessChange(bool saved) {
     setDirty();
 }
 
-void Menu::onWifiStatusChange(const char* status) {
-    _items[idx(Key::Wifi)].label = status;
-    setDirty();
-}
-
-void Menu::onWifiApStatusChange(const char* status) {
-    _items[idx(Key::AP)].label = status;
+void Menu::onWifiChange() {
+    char label[32] = "WiFi Disabled";
+    if (wifi.isStaEnabled())
+        snprintf(label, sizeof(label), "WiFi %s", wifi.isStaConnected() ? "Connected" : "Disconnected");
+    _items[idx(Key::Wifi)].label = label;
+    snprintf(label, sizeof(label), "AP Disabled");
+    if (wifi.isApEnabled())
+        snprintf(label, sizeof(label), "AP Clients: %d", wifi.apClientCount());
+    _items[idx(Key::AP)].label = label;
     setDirty();
 }
 

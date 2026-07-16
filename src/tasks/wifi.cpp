@@ -28,9 +28,6 @@ void Wifi::setup() {
         ESP_LOGI(taskName(), "AP and STA are disabled");
     }
 
-    display.menu.onWifiStatusChange(isStaEnabled() ? "WiFi Searching" : "WiFi Disabled");
-    display.menu.onWifiApStatusChange(isApEnabled() ? "AP Enabled" : "AP Disabled");
-
     if (isStaEnabled()) startSta();
     if (isApEnabled()) startAp();
 
@@ -75,6 +72,10 @@ const char* Wifi::getHostname() {
     return state.hostname();
 }
 
+const char* Wifi::getApSsid() {
+    return const_cast<char*>(apSsid);
+}
+
 bool Wifi::isStaEnabled() const {
     return staEnabled;
 }
@@ -98,6 +99,7 @@ bool Wifi::hasApClient() const {
 void Wifi::setDefaults() {
     Util::copyString(ssid, sizeof(ssid), DEFAULT_WIFI_SSID);
     Util::copyString(password, sizeof(password), DEFAULT_WIFI_PASSWORD);
+    Util::copyString(apSsid, sizeof(apSsid), DEFAULT_WIFI_AP_SSID);
 }
 
 bool Wifi::loadPreferences() {
@@ -244,6 +246,7 @@ void Wifi::startSta() {
         else
             ESP_LOGE(taskName(), "Failed to start mDNS");
     }
+    display.queueUiEvent(UiEvent::WifiChange);
 }
 
 void Wifi::stopSta() {
@@ -252,6 +255,7 @@ void Wifi::stopSta() {
         mdnsStarted = false;
     }
     WiFi.disconnect();
+    display.queueUiEvent(UiEvent::WifiChange);
 }
 
 void Wifi::restartSta() {
@@ -263,17 +267,13 @@ void Wifi::restartSta() {
 
 void Wifi::startAp() {
     if (!isApEnabled()) return;
-    char apSsid[64] = {};
     Util::copyString(apSsid, sizeof(apSsid), state.hostname());
     // TODO: append last 4 hex digits of MAC to apSsid
     if (!WiFi.softAP(apSsid, nullptr, WIFI_AP_CHANNEL, 0, WIFI_AP_MAX_CONNECTIONS)) {
         ESP_LOGE(taskName(), "Failed to start AP");
         return;
     }
-    display.wifiApMode = isApEnabled();
-    Util::copyString(display.wifiApSsid, sizeof(display.wifiApSsid), apSsid);
-    display.queueUiEvent(UiEvent::WifiStatusChange);
-    display.menu.onWifiApStatusChange((String("AP: ") + apSsid).c_str());
+    display.queueUiEvent(UiEvent::WifiChange);
     ESP_LOGI(taskName(), "AP started: SSID=%s, IP=%s",
              apSsid, WiFi.softAPIP().toString().c_str());
 }
@@ -281,9 +281,7 @@ void Wifi::startAp() {
 void Wifi::stopAP() {
     if (!isApEnabled()) return;
     WiFi.softAPdisconnect(true);
-    display.wifiApMode = isApEnabled();
-    display.menu.onWifiApStatusChange("AP Stopped");
-    display.queueUiEvent(UiEvent::WifiStatusChange);
+    display.queueUiEvent(UiEvent::WifiChange);
     ESP_LOGI(taskName(), "AP stopped");
 }
 
@@ -330,8 +328,6 @@ void Wifi::disableAP() {
 void Wifi::restartAfterModeChange() {
     ESP_LOGI(taskName(), "Restarting after mode change...");
     wifiSerial.disconnectWithNotice("WiFi mode change: disconnecting wifiSerial session.");
-    display.menu.onWifiStatusChange("Restarting...");
-    display.menu.onWifiApStatusChange("Restarting...");
     delay(100);
     api.queueCommand("restart");
 }
@@ -341,35 +337,31 @@ void Wifi::handleWiFiEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
         case SYSTEM_EVENT_STA_GOT_IP:
             ESP_LOGI(taskName(), "Connected to SSID: %s, IP: %s, Mode: %s",
                      ssid, WiFi.localIP().toString().c_str(), modeToString(WiFi.getMode()));
-            display.menu.onWifiStatusChange("WiFi Connected");
-            display.queueUiEvent(UiEvent::WifiStatusChange);
+            goto notifyDisplay;
             break;
         case SYSTEM_EVENT_STA_DISCONNECTED:
             ESP_LOGW(taskName(), "Disconnected from SSID: %s, Mode: %s",
                      ssid, modeToString(WiFi.getMode()));
-            display.menu.onWifiStatusChange("WiFi Disconnected");
-            display.queueUiEvent(UiEvent::WifiStatusChange);
+            goto notifyDisplay;
             break;
         case SYSTEM_EVENT_AP_STACONNECTED: {
             ESP_LOGI(taskName(), "AP client connected");
-            char buf[32] = {};
-            snprintf(buf, sizeof(buf), "AP Clients: %d", WiFi.softAPgetStationNum());
-            display.menu.onWifiApStatusChange(buf);
-            display.queueUiEvent(UiEvent::WifiStatusChange);
+            goto notifyDisplay;
             break;
         }
         case SYSTEM_EVENT_AP_STADISCONNECTED: {
             ESP_LOGI(taskName(), "AP client disconnected");
-            char buf[32] = {};
-            snprintf(buf, sizeof(buf), "AP Clients: %d", WiFi.softAPgetStationNum());
-            display.menu.onWifiApStatusChange(buf);
-            display.queueUiEvent(UiEvent::WifiStatusChange);
+            goto notifyDisplay;
             break;
         }
         default:
             ESP_LOGD(taskName(), "WiFi event: %s", WiFi.eventName(event));
             break;
     }
+    return;
+notifyDisplay: {
+    display.queueUiEvent(UiEvent::WifiChange);
+}
 }
 
 const char* Wifi::modeToString(WiFiMode_t mode) {

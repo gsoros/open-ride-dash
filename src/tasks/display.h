@@ -38,11 +38,6 @@ class Display : public Task, public ApiClient, public HasPreferences {
 
     Menu menu;
 
-    // TOOD: Query Wifi task for current AP status and SSID
-    // instead of storing them in the display task.
-    bool wifiApMode = false;   // Set by Wifi task
-    char wifiApSsid[64] = {};  // Set by Wifi task
-
    protected:
     static constexpr UBaseType_t UI_EVENT_QUEUE_LENGTH = 16;
 
@@ -65,14 +60,15 @@ class Display : public Task, public ApiClient, public HasPreferences {
     bool menuShown = false;
     bool passkeyActive = false;
     bool passkeyShown = false;
+    bool apActive = false;
     bool apSsidShown = false;
 
     bool loadPreferences();
     void processUiEvents();
     void handleUiEvent(UiEvent event);
-    void syncPasskeyDisplay();
-    void syncApDisplay();
-    void syncMenuDisplay();
+    bool syncPasskeyDisplay();  // returns true if passkey mode is active
+    bool syncApDisplay();       // returns true if AP mode is active
+    bool syncMenuDisplay();     // returns true if menu mode is active
     void adjustPasLevel(int8_t delta);
     void handleUpLongPress();
     void handleDownLongPress();

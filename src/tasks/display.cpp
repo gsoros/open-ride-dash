@@ -1,8 +1,10 @@
 #include "tasks/display.h"
 
 #include "model/state.h"
-
 extern State state;
+
+#include "tasks/wifi.h"
+extern Wifi wifi;
 
 const char* Display::taskName() const {
     return "Display";
@@ -30,9 +32,43 @@ void Display::setup() {
 
 void Display::taskRun() {
     processUiEvents();
-    syncPasskeyDisplay();
-    syncApDisplay();
-    syncMenuDisplay();
+
+    // Present the current screen in order of priority:
+    // 1. Menu
+    // 2. BLE Passkey
+    // 3. AP SSID
+    // 4. Metrics Page
+
+    static enum DebugLogType { DBGL_NORMAL,
+                               DBGL_MENU,
+                               DBGL_PASSKEY,
+                               DBGL_AP } lastLogType = DBGL_NORMAL;
+    if (syncMenuDisplay()) {
+        if (lastLogType != DBGL_MENU) {
+            ESP_LOGD(taskName(), "Menu mode active, skipping updates");
+            lastLogType = DBGL_MENU;
+        }
+        return;
+    }
+    if (syncPasskeyDisplay()) {
+        if (lastLogType != DBGL_PASSKEY) {
+            ESP_LOGD(taskName(), "Passkey mode active, skipping updates");
+            lastLogType = DBGL_PASSKEY;
+        }
+        return;
+    }
+    if (syncApDisplay()) {
+        if (lastLogType != DBGL_AP) {
+            ESP_LOGD(taskName(), "AP mode active, skipping updates");
+            lastLogType = DBGL_AP;
+        }
+        return;
+    }
+
+    if (lastLogType != DBGL_NORMAL) {
+        ESP_LOGD(taskName(), "No active mode, resuming normal updates");
+        lastLogType = DBGL_NORMAL;
+    }
     output.update();
 }
 
@@ -129,20 +165,20 @@ void Display::handleUiEvent(UiEvent event) {
             if (menu.nextItem()) return;
             adjustPasLevel(-1);
             return;
-        case UiEvent::SelectClick:
+        case UiEvent::PowerClick:
             if (menu.active()) {
                 menu.selectItem();
                 return;
             }
             output.nextPage();
             return;
-        case UiEvent::UpLongPress:
+        case UiEvent::UpLong:
             handleUpLongPress();
             return;
-        case UiEvent::DownLongPress:
+        case UiEvent::DownLong:
             handleDownLongPress();
             return;
-        case UiEvent::PowerLongPress:
+        case UiEvent::PowerLong:
             // ESP_LOGD(taskName(), "Key power long press");
             return;
         case UiEvent::MenuChord:
@@ -155,6 +191,10 @@ void Display::handleUiEvent(UiEvent event) {
             ESP_LOGD(taskName(), "Sleep");
             output.onSleep();
             return;
+        case UiEvent::Restart:
+            ESP_LOGD(taskName(), "Restart");
+            output.onRestart();
+            return;
         case UiEvent::PasskeyStart:
             ESP_LOGD(taskName(), "PasskeyStart: %06u", state.blePassKey());
             passkeyActive = true;
@@ -166,8 +206,11 @@ void Display::handleUiEvent(UiEvent event) {
         case UiEvent::OtaChange:
             ESP_LOGD(taskName(), "OtaChange: %d", state.ota());
             return;
-        case UiEvent::WifiStatusChange:
-            ESP_LOGD(taskName(), "WifiStatusChange");
+        case UiEvent::WifiChange:
+            ESP_LOGD(taskName(), "WifiChange");
+            apActive = wifi.isApEnabled();
+            menu.onWifiChange();
+            output.onWifiChange();
             return;
         default:
             ESP_LOGW(taskName(), "Unhandled UI event: %u", (uint8_t)event);
@@ -175,48 +218,57 @@ void Display::handleUiEvent(UiEvent event) {
     }
 }
 
-void Display::syncPasskeyDisplay() {
+bool Display::syncPasskeyDisplay() {
     if (passkeyActive) {
         if (!passkeyShown && output.showPasskey(state.blePassKey())) {
             passkeyShown = true;
+            menuShown = false;
+            apSsidShown = false;
         }
-        return;
+        return true;
     }
     if (passkeyShown) {
         output.exitPasskey();
         passkeyShown = false;
     }
+    return false;
 }
 
-void Display::syncApDisplay() {
-    if (wifiApMode) {
-        if (!apSsidShown && wifiApSsid[0] != '\0') {
-            if (output.showApSsid(wifiApSsid)) {
-                apSsidShown = true;
-            }
+bool Display::syncApDisplay() {
+    if (passkeyActive) return false;  // don't show AP while a passkey is active
+    if (apActive) {
+        const char* apSsid = wifi.getApSsid();
+        if (!apSsidShown && output.showApSsid(apSsid)) {
+            apSsidShown = true;
+            menuShown = false;
+            passkeyShown = false;
         }
-        return;
+        return true;
     }
     if (apSsidShown) {
         output.exitApSsid();
         apSsidShown = false;
     }
+    return false;
 }
 
-void Display::syncMenuDisplay() {
+bool Display::syncMenuDisplay() {
     if (menu.active()) {
         Menu::Snapshot snapshot = menu.snapshot();
         if (output.showMenu(snapshot)) {
             menu.markRendered();
         }
         menuShown = true;
-        return;
+        passkeyShown = false;
+        apSsidShown = false;
+        return true;
     }
 
-    if (!menuShown) return;
+    if (!menuShown) return false;
     output.exitMenu();
     menu.markRendered();
     menuShown = false;
+    return false;
 }
 
 void Display::adjustPasLevel(int8_t delta) {

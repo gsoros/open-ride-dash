@@ -75,8 +75,7 @@ class Menu {
     Snapshot snapshot() const;
     void markRendered();
 
-    void onWifiStatusChange(const char* status);
-    void onWifiApStatusChange(const char* status);
+    void onWifiChange();
     void onBrightnessChange(bool saved);
 
     auto begin() { return _items.begin(); }

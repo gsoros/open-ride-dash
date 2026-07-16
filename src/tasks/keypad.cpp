@@ -55,17 +55,17 @@ void Keypad::keyDownClick() {
 
 void Keypad::keyPowerClick() {
     ESP_LOGD(taskName(), "Key power click");
-    display.queueUiEvent(UiEvent::SelectClick);
+    display.queueUiEvent(UiEvent::PowerClick);
 }
 
 void Keypad::keyUpLongPress() {
     if (handleMenuChord()) return;
-    display.queueUiEvent(UiEvent::UpLongPress);
+    display.queueUiEvent(UiEvent::UpLong);
 }
 
 void Keypad::keyDownLongPress() {
     if (handleMenuChord()) return;
-    display.queueUiEvent(UiEvent::DownLongPress);
+    display.queueUiEvent(UiEvent::DownLong);
 }
 
 void Keypad::keyPowerLongPress() {
@@ -73,7 +73,7 @@ void Keypad::keyPowerLongPress() {
         ESP_LOGD(taskName(), "Key power long press");
         lastLongpressLog = millis();
     }
-    display.queueUiEvent(UiEvent::PowerLongPress);
+    display.queueUiEvent(UiEvent::PowerLong);
 }
 
 bool Keypad::menuChordPressed() {

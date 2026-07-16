@@ -84,7 +84,9 @@ class ST7789_240x240 : public DisplayDriver {
     bool hasBacklight() override { return bl_pin >= 0; }
     bool setBacklight(uint8_t level) override;
     void onSleep() override;
-    bool showPasskey(uint32_t passkey) override;
+    void onRestart() override;
+    void onWifiChange() override;
+    bool showPasskey(uint32_t passkey) override;  // returns true if passkey was shown
     void exitPasskey() override;
 
     bool showApSsid(const char* ssid);
@@ -212,7 +214,7 @@ class ST7789_240x240 : public DisplayDriver {
     };
 
     DisplayMode _displayMode = MODE_SPLASH;
-    DisplayMode _displayModeBeforeMenu = MODE_PAGE;
+    DisplayMode _displayModeBeforeMenuXXXDELETEXXX = MODE_PAGE;
     uint8_t _currentPage = 0;  // default to page 0 (first page)
     uint32_t _lastPageUpdate = 0;
     uint32_t _transitionStart = 0;

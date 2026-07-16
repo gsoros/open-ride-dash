@@ -9,6 +9,9 @@
 
 extern State state;
 
+#include "tasks/wifi.h"
+extern Wifi wifi;
+
 ST7789_240x240::ST7789_240x240(
     int8_t cs,
     int8_t dc,
@@ -167,7 +170,7 @@ void ST7789_240x240::update() {
     }
 
     if (_displayMode == MODE_PASSKEY) {
-        // TODO: Timeout and exit passkey mode
+        // TODO: Timeout and exit passkey mode, in case the PasskeyEnd event is never received
         return;
     }
 
@@ -254,7 +257,7 @@ bool ST7789_240x240::setBacklight(uint8_t level) {
 void ST7789_240x240::onSleep() {
     ESP_LOGD(tag, "onSleep()");
     canvasFullScreen->fillScreen(BLACK);
-    renderTextToCanvas(canvasFullScreen, "SLEEPING", labelFont, 1, 0);
+    renderTextToCanvas(canvasFullScreen, "zzzZZZ", smallFont, 1, 5);
     canvasFullScreen->flush();
     setBrightnessPercent(0);
 
@@ -267,6 +270,19 @@ void ST7789_240x240::onSleep() {
     gpio_set_level((gpio_num_t)bl_pin, 0);
     gpio_hold_en((gpio_num_t)bl_pin);
     gpio_deep_sleep_hold_en();
+}
+
+void ST7789_240x240::onRestart() {
+    ESP_LOGD(tag, "onRestart()");
+    canvasFullScreen->fillScreen(BLACK);
+    renderTextToCanvas(canvasFullScreen, "restarting...", smallFont, 1, 5);
+    canvasFullScreen->flush();
+}
+
+void ST7789_240x240::onWifiChange() {
+    ESP_LOGD(tag, "onWifiChange()");
+    if (wifi.isApEnabled() && !showApSsid(wifi.getApSsid()))
+        ESP_LOGE(tag, "Failed to show AP SSID");
 }
 
 bool ST7789_240x240::showPasskey(uint32_t passkey) {
@@ -298,7 +314,6 @@ bool ST7789_240x240::showApSsid(const char* ssid) {
     canvasFullScreen->setFont(smallFont);
     canvasFullScreen->setTextColor(WHITE);
     canvasFullScreen->setTextSize(1);
-    // Draw "AP Active" label near the top
     canvasFullScreen->setCursor(10, 20);
     canvasFullScreen->print("AP Active");
     // Draw the SSID centered vertically
@@ -307,7 +322,6 @@ bool ST7789_240x240::showApSsid(const char* ssid) {
     canvasFullScreen->getTextBounds(ssid, 0, 0, &x1, &y1, &w, &h);
     int16_t cx = (canvasFullScreen->w() - w) / 2;
     int16_t cy = (canvasFullScreen->h() - h) / 2;
-    // canvasFullScreen->setFont(labelFont); //too large without wrapping
     canvasFullScreen->setCursor(cx, cy);
     canvasFullScreen->print(ssid);
     canvasFullScreen->flush();
@@ -331,10 +345,8 @@ bool ST7789_240x240::showMenu(const Menu::Snapshot& menu) {
         return false;
     }
 
-    bool enteringMenu = _displayMode != MODE_MENU;
-    if (enteringMenu) _displayModeBeforeMenu = _displayMode;
     _displayMode = MODE_MENU;
-    if (!enteringMenu && !menu.dirty) return false;
+    if (!menu.dirty) return false;
 
     drawMenu(menu);
     return true;
@@ -344,11 +356,6 @@ void ST7789_240x240::exitMenu() {
     if (_displayMode != MODE_MENU) return;
     canvasFullScreen->fillScreen(BLACK);
     canvasFullScreen->flush();
-    // Restore AP mode if it was active before entering the menu
-    if (_displayModeBeforeMenu == MODE_WIFI_AP) {
-        _displayMode = MODE_WIFI_AP;
-        return;
-    }
     startPageTransition(_currentPage);
 }
 

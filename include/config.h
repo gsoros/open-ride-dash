@@ -10,8 +10,9 @@
 #error "Unsupported board. Please define ORD_BOARD in platformio.ini"
 #endif
 
-constexpr const char* DEFAULT_WIFI_SSID = "myNetwork";
-constexpr const char* DEFAULT_WIFI_PASSWORD = "myPassword";
+constexpr const char* DEFAULT_WIFI_SSID = "myNetwork";        // STA SSID
+constexpr const char* DEFAULT_WIFI_PASSWORD = "myPassword";   // STA password
+constexpr const char* DEFAULT_WIFI_AP_SSID = "OpenRideDash";  // AP SSID
 
 // Fallback AP: if STA doesn't connect within this time, start a passwordless AP
 constexpr unsigned long WIFI_STA_TIMEOUT_MS = 60000;

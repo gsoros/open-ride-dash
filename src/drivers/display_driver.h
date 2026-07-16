@@ -18,7 +18,9 @@ class DisplayDriver {
     virtual bool setBacklight(uint8_t level) { return false; };
     virtual bool hasBrightnessControl() { return false; };
     virtual void onSleep() {};
-    virtual bool showPasskey(uint32_t passkey) { return false; };
+    virtual void onRestart() {};
+    virtual void onWifiChange() {};
+    virtual bool showPasskey(uint32_t passkey) { return false; };  // returns true if passkey was shown
     virtual void exitPasskey() {};
 
     virtual void nextPage() {};
