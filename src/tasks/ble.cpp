@@ -406,7 +406,6 @@ void Ble::initializeCtsService() {
 void Ble::onCtsHrWrite(uint8_t bpm) {
     state.heartRate(bpm);
     ESP_LOGI(taskName(), "CTS HR write: %u BPM", bpm);
-    display.queueUiEvent(UiEvent::BleChange);
 }
 
 void Ble::initializeNusService() {
@@ -414,7 +413,7 @@ void Ble::initializeNusService() {
 
     // TX: device -> phone. Notify, no read (Nordic UART convention).
     _nusTxCharacteristic = nusService->createCharacteristic(
-        kNusTxCharUuid, NIMBLE_PROPERTY::NOTIFY);
+        kNusTxCharUuid, NIMBLE_PROPERTY::NOTIFY | NIMBLE_PROPERTY::READ);
 
     // RX: phone -> device. Write (with response) so the phone knows we got it.
     _nusRxCharacteristic = nusService->createCharacteristic(
