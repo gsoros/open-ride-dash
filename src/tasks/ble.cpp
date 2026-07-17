@@ -409,7 +409,7 @@ void Ble::publishCpsMeasurement() {
 void Ble::initializeCtsService() {
     BLEService* ctsService = _server->createService(kCtsServiceUuid);
     _ctsCharacteristic = ctsService->createCharacteristic(
-        kCtsTelemetryCharUuid, NIMBLE_PROPERTY::NOTIFY);
+        kCtsTelemetryCharUuid, NIMBLE_PROPERTY::NOTIFY | NIMBLE_PROPERTY::READ);
     // HR write char: phone pushes heart rate (uint8 BPM) from a connected HRM.
     _ctsHrCharacteristic = ctsService->createCharacteristic(
         kCtsHrCharUuid, NIMBLE_PROPERTY::WRITE_NR);

@@ -55,7 +55,7 @@
     - CSC: 0x1816, measurement characteristic 0x2A5B, notify.
     - CPS: 0x1818, measurement characteristic 0x2A63, notify.
     - BAS: 0x180F, level characteristic 0x2A19, read/notify.
-    - CTS: custom 128-bit service with a telemetry characteristic (notify) and a HR char (write).
+    - CTS: custom 128-bit service with a telemetry characteristic (notify/read) and a HR char (write).
     - NUS: Nordic UART service with RX/TX characteristics, write for RX and
       notify (fragmented, length-prefixed) for TX. RX lines are bridged to the
       existing Api command queue; TX carries Api replies.
