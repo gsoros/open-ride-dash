@@ -177,12 +177,13 @@ void Ble::initializeStack() {
     BLECharacteristic* fwVersionCharacteristic = disService->createCharacteristic(
         BLEUUID((uint16_t)0x2A26), NIMBLE_PROPERTY::READ);
 
-    const char* model = "ORD Dash";
-    const char* manufacturer = "OpenRide";
-    const char* version = (whoami != nullptr && whoami[0] != '\0') ? whoami : (ord_version != nullptr ? ord_version : "dev");
-
-    modelCharacteristic->setValue(std::string(model));  // TODO: pass the char* directly instead of std::string?
-    manufacturerCharacteristic->setValue(std::string(manufacturer));
+    const char* manufacturer = "DIY";
+    const char* model = "OpenRideDash";
+    const char* version = (whoami != nullptr && whoami[0] != '\0') ? whoami
+                                                                   : (ord_version != nullptr ? ord_version
+                                                                                             : "0.0.0");
+    manufacturerCharacteristic->setValue(std::string(manufacturer));  // TODO: pass the char* directly instead of std::string?
+    modelCharacteristic->setValue(std::string(model));
     fwVersionCharacteristic->setValue(std::string(version));
 
     BLEService* basService = server->createService(BLEUUID((uint16_t)0x180F));
@@ -198,7 +199,7 @@ void Ble::initializeStack() {
     BLEAdvertising* advertising = BLEDevice::getAdvertising();
     BLEAdvertisementData advData;
     advData.setName(state.hostname());
-    advData.setAppearance(0x0484);
+    advData.setAppearance(0x0480);  // Cycling Computer (Generic)
     advData.addServiceUUID(BLEUUID((uint16_t)0x1816));
     advData.addServiceUUID(BLEUUID((uint16_t)0x1818));
     advertising->setAdvertisementData(advData);
