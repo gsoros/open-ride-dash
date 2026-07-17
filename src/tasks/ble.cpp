@@ -503,18 +503,18 @@ void Ble::publishCtsMeasurement() {
 
     uint8_t payload[kCtsPayloadSize] = {0};
     payload[0] = 0x01;  // version
-    payload[1] = static_cast<uint8_t>((speed >> 8) & 0xFF);
-    payload[2] = static_cast<uint8_t>(speed & 0xFF);
-    payload[3] = static_cast<uint8_t>((voltage >> 8) & 0xFF);
-    payload[4] = static_cast<uint8_t>(voltage & 0xFF);
-    payload[5] = static_cast<uint8_t>((current >> 8) & 0xFF);
-    payload[6] = static_cast<uint8_t>(current & 0xFF);
+    payload[1] = static_cast<uint8_t>(speed & 0xFF);
+    payload[2] = static_cast<uint8_t>((speed >> 8) & 0xFF);
+    payload[3] = static_cast<uint8_t>(voltage & 0xFF);
+    payload[4] = static_cast<uint8_t>((voltage >> 8) & 0xFF);
+    payload[5] = static_cast<uint8_t>(current & 0xFF);
+    payload[6] = static_cast<uint8_t>((current >> 8) & 0xFF);
     payload[7] = soc;
-    payload[8] = static_cast<uint8_t>((range >> 8) & 0xFF);
-    payload[9] = static_cast<uint8_t>(range & 0xFF);
+    payload[8] = static_cast<uint8_t>(range & 0xFF);
+    payload[9] = static_cast<uint8_t>((range >> 8) & 0xFF);
     payload[10] = static_cast<uint8_t>(pasLevel);  // int8 reinterpreted as raw byte
-    payload[11] = static_cast<uint8_t>((humanPower >> 8) & 0xFF);
-    payload[12] = static_cast<uint8_t>(humanPower & 0xFF);
+    payload[11] = static_cast<uint8_t>(humanPower & 0xFF);
+    payload[12] = static_cast<uint8_t>((humanPower >> 8) & 0xFF);
     payload[13] = cadence;
 
     // Change-based rate limiting: skip notification when nothing changed.
