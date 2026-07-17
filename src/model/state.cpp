@@ -45,7 +45,7 @@ void State::registerApiCommands() {
         [this](const char* args) {
             Api::Reply reply = {};
             State::Snapshot s = getSnapshot();
-            snprintf((char*)reply.data, sizeof(reply.data), "{\"speed\":%.2f,\"pas\":%d,\"torque\":%u,\"cadence\":%u,\"current\":%.1f,\"voltage\":%.1f,\"motor\":%uC,\"contr\":%uC,\"wheelM\":%.1f,\"wheelSi\":%.1f,\"wheelC\":%u}",
+            snprintf((char*)reply.data, sizeof(reply.data), "{\"speed\":%.2f,\"pas\":%d,\"torque\":%u,\"cadence\":%u,\"current\":%.1f,\"voltage\":%.1f,\"motor\":%uC,\"contr\":%uC,\"wheelM\":%.1f,\"wheelSi\":%.1f,\"wheelC\":%u,\"heartRate\":%u}",
                      s.speed(),
                      s.pasLevelRequested,
                      s.torque,
@@ -56,7 +56,8 @@ void State::registerApiCommands() {
                      s.controllerTemp,
                      s.maxAssistSpeed_x100 / 100.0f,
                      s.wheelSize_x10 / 10.0f,
-                     s.wheelCircumference);
+                     s.wheelCircumference,
+                     s.heartRate);
             return reply;
         },
         "Usage: state\nShows some current values.");
