@@ -46,7 +46,9 @@
        - DONE: Nordic UART service (RX write / TX notify).
        - DONE: RX bridged to the existing Api command queue (hostname, battery,
          ble, wifi, restart, v, help, ...). TX carries formatted Api replies.
-       - DONE: Hardcoded 250-byte RX cap; best-effort, no fragmentation yet.
+       - DONE: Hardcoded 250-byte RX cap; TX replies fragmented over NOTIFY; first
+         frame carries a 2-byte big-endian total-length prefix, subsequent frames
+         are raw continuation data; MTU negotiated to 247.
 
     GATT profile:
     - DIS: 0x180A, read-only device information.
@@ -54,8 +56,9 @@
     - CPS: 0x1818, measurement characteristic 0x2A63, notify.
     - BAS: 0x180F, level characteristic 0x2A19, read/notify.
     - CTS: custom 128-bit service with a telemetry characteristic (notify) and a HR char (write).
-    - NUS: Nordic UART service with RX/TX characteristics, write for RX and read/notify for TX.
-      RX lines are bridged to the existing Api command queue; TX carries Api replies.
+    - NUS: Nordic UART service with RX/TX characteristics, write for RX and
+      notify (fragmented, length-prefixed) for TX. RX lines are bridged to the
+      existing Api command queue; TX carries Api replies.
 
     Implementation notes:
     - The BLE task owns the BLE state machine, connection lifecycle, and outgoing notifications.
@@ -85,6 +88,7 @@ class Ble : public Task,
     void handleConnect(NimBLEConnInfo& connInfo);
     void handleDisconnect(NimBLEConnInfo& connInfo, int reason);
     void handleAuthenticationComplete(NimBLEConnInfo& connInfo);
+    void handleMtuChange(uint16_t mtu);
     void onCtsHrWrite(uint8_t bpm);
     void onNusRx(const char* line);
 
@@ -123,6 +127,7 @@ class Ble : public Task,
     bool _enabled = false;  // BLE disabled by default
     bool _initialized = false;
     bool _connected = false;
+    uint16_t _mtu = 23;                      // negotiated ATT MTU (default 23 until onMTUChange)
     QueueHandle_t _nusReplyQueue = nullptr;  // Api replies for NUS TX
     uint8_t _batteryLevel = 0;
     uint32_t _lastBatteryPublishMs = 0;

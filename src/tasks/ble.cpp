@@ -61,6 +61,12 @@ class BleServerCallbacks : public BLEServerCallbacks {
         ESP_LOGI(tag, "onAuthenticationComplete");
     }
 
+    void onMTUChange(uint16_t mtu, NimBLEConnInfo& connInfo) override {
+        (void)connInfo;
+        if (_ble != nullptr) _ble->handleMtuChange(mtu);
+        ESP_LOGI(tag, "onMTUChange: %u", mtu);
+    }
+
    private:
     Ble* _ble;
     const char* tag = "BleSC";
@@ -68,6 +74,11 @@ class BleServerCallbacks : public BLEServerCallbacks {
 
 // Hardcoded NUS RX payload cap (matches firmware note in ble.h).
 constexpr size_t kNusRxMaxLen = 250;
+
+// NUS TX: we request a large MTU and fragment replies over NOTIFY. A 2-byte
+// big-endian length prefix precedes each frame so the phone can reassemble.
+constexpr uint16_t kNusMaxMtu = 247;             // requested ATT MTU
+constexpr size_t kNusMaxChunk = kNusMaxMtu - 3;  // max ATT payload per notification
 
 // CTS HR write callback: phone pushes heart rate (uint8 BPM) from a HRM.
 class CtsHrCallbacks : public BLECharacteristicCallbacks {
@@ -160,6 +171,7 @@ void Ble::initializeStack() {
     if (_initialized) return;
 
     BLEDevice::init(state.hostname());
+    BLEDevice::setMTU(kNusMaxMtu);  // request a large ATT MTU for NUS TX
 
     BLEServer* server = BLEDevice::createServer();
     if (server == nullptr) return;
@@ -412,9 +424,11 @@ void Ble::onCtsHrWrite(uint8_t bpm) {
 void Ble::initializeNusService() {
     BLEService* nusService = _server->createService(kNusServiceUuid);
 
-    // TX: device -> phone. Notify, no read (Nordic UART convention).
+    // TX: device -> phone. Notify only; replies are fragmented with a 2-byte
+    // length prefix (see sendNusReply). No READ property — the shared TX buffer
+    // would race with a Read Blob.
     _nusTxCharacteristic = nusService->createCharacteristic(
-        kNusTxCharUuid, NIMBLE_PROPERTY::NOTIFY | NIMBLE_PROPERTY::READ);
+        kNusTxCharUuid, NIMBLE_PROPERTY::NOTIFY);
 
     // RX: phone -> device. Write (with response) so the phone knows we got it.
     _nusRxCharacteristic = nusService->createCharacteristic(
@@ -432,12 +446,43 @@ void Ble::onNusRx(const char* line) {
     }
 }
 
+void Ble::handleMtuChange(uint16_t mtu) {
+    _mtu = mtu;
+    ESP_LOGI(taskName(), "BLE MTU negotiated: %u", mtu);
+}
+
 void Ble::sendNusReply(const Api::Reply& reply) {
     if (_server == nullptr || _nusTxCharacteristic == nullptr || !_connected) return;
     char buf[Api::REPLY_SERIAL_LINE_SIZE] = {};
     Api::formatReply(reply, buf, sizeof(buf));
-    _nusTxCharacteristic->setValue((uint8_t*)buf, strlen(buf));
-    _nusTxCharacteristic->notify();
+    const size_t total = strlen(buf);
+    if (total == 0) return;
+
+    const uint8_t* p = reinterpret_cast<const uint8_t*>(buf);
+    // ATT payload per notification is MTU - 3; clamp to our buffer size.
+    const size_t chunkCap = std::min<size_t>(_mtu, kNusMaxMtu) - 3;
+    size_t off = 0;
+
+    // First frame: 2-byte big-endian total length prefix.
+    {
+        const size_t chunk = std::min(total - off, chunkCap - 2);
+        uint8_t frame[2 + kNusMaxChunk] = {};
+        frame[0] = static_cast<uint8_t>((total >> 8) & 0xFF);
+        frame[1] = static_cast<uint8_t>(total & 0xFF);
+        std::memcpy(&frame[2], p + off, chunk);
+        _nusTxCharacteristic->setValue(frame, chunk + 2);
+        _nusTxCharacteristic->notify();
+        off += chunk;
+    }
+
+    // Subsequent frames: raw continuation data, no length prefix.
+    while (off < total) {
+        delay(10);  // pace multi-chunk replies
+        const size_t chunk = std::min(total - off, chunkCap);
+        _nusTxCharacteristic->setValue(p + off, chunk);
+        _nusTxCharacteristic->notify();
+        off += chunk;
+    }
 }
 
 void Ble::publishCtsMeasurement() {
