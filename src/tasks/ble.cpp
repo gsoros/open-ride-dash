@@ -77,7 +77,7 @@ class CtsHrCallbacks : public BLECharacteristicCallbacks {
     void onWrite(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override {
         (void)connInfo;
         if (_ble == nullptr) return;
-        const std::string& v = pCharacteristic->getValue();
+        const std::string& v = pCharacteristic->getValue();  // TODO: fixed buffer instead of std::string?
         if (v.size() >= 1) {
             _ble->onCtsHrWrite(static_cast<uint8_t>(v[0]));
         }
@@ -95,7 +95,7 @@ class NusRxCallbacks : public BLECharacteristicCallbacks {
     void onWrite(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override {
         (void)connInfo;
         if (_ble == nullptr) return;
-        const std::string& v = pCharacteristic->getValue();
+        const std::string& v = pCharacteristic->getValue();  // TODO: fixed buffer instead of std::string?
         if (v.empty()) return;
         char line[kNusRxMaxLen + 1] = {};
         size_t n = std::min(v.size(), kNusRxMaxLen);
@@ -181,7 +181,7 @@ void Ble::initializeStack() {
     const char* manufacturer = "OpenRide";
     const char* version = (whoami != nullptr && whoami[0] != '\0') ? whoami : (ord_version != nullptr ? ord_version : "dev");
 
-    modelCharacteristic->setValue(std::string(model));
+    modelCharacteristic->setValue(std::string(model));  // TODO: pass the char* directly instead of std::string?
     manufacturerCharacteristic->setValue(std::string(manufacturer));
     fwVersionCharacteristic->setValue(std::string(version));
 

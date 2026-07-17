@@ -45,7 +45,7 @@ void setup() {
     api.taskStart(10.0f, 4096);
 
     ble.setup();
-    ble.taskStart(1.0f, 4096);
+    ble.taskStart(1.0f, 4096);  // TODO: decouple metric tick rate from task frequency
 
     display.setup();
     display.taskStart(50.0f, 4096);

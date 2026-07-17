@@ -18,7 +18,7 @@
       (-DCONFIG_BT_NIMBLE_MAX_CONNECTIONS=1) if the RAM saving matters, since
       the app-level stop-advertising-on-connect logic alone won't shrink the
       stack's connection pool.
-    - Security: use authenticated pairing and keypad confirmation for the first pairing.
+    - Security: use authenticated pairing: display generated passkey.
     - Advertising payload should fit the legacy 31-byte limit and include flags, appearance,
       and the mandatory service UUIDs for CSC/CPS compatibility.
     - Minimize BLE stack footprint, memory use, and fragmentation.
