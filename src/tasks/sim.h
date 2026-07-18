@@ -1,10 +1,13 @@
-#ifndef CAN_SIM_H
-#define CAN_SIM_H
+#ifndef SIM_H
+#define SIM_H
 
 #include "model/state.h"
 #include "task.h"
+#include "tasks/api.h"
+#include "util.h"
 
 extern State state;
+extern Api api;
 
 class NumberSim {
    public:
@@ -120,11 +123,11 @@ class NumberSim {
     unsigned long stopDuration = 2000;
 };
 
-// Simulated CAN injections
-class CANSim : public Task {
+// Simulates movement
+class Sim : public Task {
    public:
     virtual const char* taskName() const override {
-        return "CANSim";
+        return "Sim";
     }
 
     virtual void setup() {
@@ -138,22 +141,44 @@ class CANSim : public Task {
         powerSim->maxAccel = 100.0f;
         powerSim->maxDecel = 500.0f;
         powerSim->stopProbability = 2;
+
+        api.registerCommand("sim", [this](const char* args) { return _simCommand(args); }, "Usage: sim[ on|off]\nSimulates CAN traffic.");
     }
 
     virtual void taskRun() override {
+        if (!enabled) return;
+
         speedSim->run();
         if (speedSim->isInjectable) {
-            // state.speed(speedSim->currentValue);
+            state.speed_x100(speedSim->currentValue * 100);
         }
+
         powerSim->run();
         if (powerSim->isInjectable) {
-            // state.motorPower(powerSim->currentValue);
+            constexpr float voltage = 48.0f;
+            state.batteryVoltage_x100(voltage * 100);
+            state.batteryCurrent_x100(powerSim->currentValue / voltage * 100);
         }
     }
 
    protected:
     NumberSim* speedSim = nullptr;
     NumberSim* powerSim = nullptr;
+    bool enabled = false;
+
+    Api::Reply _simCommand(const char* args) {
+        Api::Reply reply = {};
+        if (Util::isStrBoolOn(args))
+            enabled = true;
+        else if (Util::isStrBoolOff(args))
+            enabled = false;
+        else if (strlen(args) > 0) {
+            reply.code = Api::Reply::Code::InvalidArgs;
+            snprintf((char*)reply.data, sizeof(reply.data), "Usage: sim[ on|off]");
+        }
+        snprintf((char*)reply.data, sizeof(reply.data), "sim %s", Util::boolToString(enabled));
+        return reply;
+    }
 };
 
-#endif  // CAN_SIM_H
+#endif  // SIM_H

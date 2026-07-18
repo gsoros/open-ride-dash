@@ -9,7 +9,7 @@
 #include "tasks/api.h"
 #include "tasks/ble.h"
 #include "tasks/display.h"
-#include "tasks/can_sim.h"
+#include "tasks/sim.h"
 #include "tasks/can.h"
 #include "tasks/keypad.h"
 #include "tasks/alarm.h"
@@ -17,7 +17,7 @@
 State state;
 Api api;
 Ble ble;
-// CANSim canSim;
+Sim canSim;
 CAN can;
 Display display;
 Wifi wifi;
@@ -62,8 +62,8 @@ void setup() {
     wifiSerial.setup(wifi.isEnabled());
     wifiSerial.taskStart(10.0f, 4096);
 
-    // canSim.setup();
-    // canSim.taskStart(100.0f, 2048);
+    canSim.setup();
+    canSim.taskStart(2.0f, 2048);
 
     can.setup();
     can.taskStart(100.0f, 4096);
