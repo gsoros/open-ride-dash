@@ -11,8 +11,6 @@
 #include "model/state.h"
 #include "ui/menu.h"
 
-extern State state;
-
 #ifndef U8G2_FONT_SECTION
 #define U8G2_FONT_SECTION(name) __attribute__((section(".text." name)))
 #endif

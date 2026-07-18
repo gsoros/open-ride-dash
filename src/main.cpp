@@ -17,7 +17,7 @@
 State state;
 Api api;
 Ble ble;
-Sim canSim;
+Sim sim;
 CAN can;
 Display display;
 Wifi wifi;
@@ -62,8 +62,8 @@ void setup() {
     wifiSerial.setup(wifi.isEnabled());
     wifiSerial.taskStart(10.0f, 4096);
 
-    canSim.setup();
-    canSim.taskStart(2.0f, 2048);
+    sim.setup();
+    sim.taskStart(2.0f, 2048);
 
     can.setup();
     can.taskStart(100.0f, 4096);

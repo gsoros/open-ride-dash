@@ -132,51 +132,53 @@ class Sim : public Task {
 
     virtual void setup() {
         randomSeed(esp_random());
-        speedSim = new NumberSim();
-        powerSim = new NumberSim();
-        powerSim->normalMin = 200;
-        powerSim->normalMax = 500;
-        powerSim->burstMin = 700;
-        powerSim->burstMax = 900;
-        powerSim->maxAccel = 100.0f;
-        powerSim->maxDecel = 500.0f;
-        powerSim->stopProbability = 2;
+        _speedSim = new NumberSim();
+        _powerSim = new NumberSim();
+        _powerSim->normalMin = 200;
+        _powerSim->normalMax = 500;
+        _powerSim->burstMin = 700;
+        _powerSim->burstMax = 900;
+        _powerSim->maxAccel = 100.0f;
+        _powerSim->maxDecel = 500.0f;
+        _powerSim->stopProbability = 2;
 
         api.registerCommand("sim", [this](const char* args) { return _simCommand(args); }, "Usage: sim[ on|off]\nSimulates CAN traffic.");
     }
 
     virtual void taskRun() override {
-        if (!enabled) return;
+        if (!_enabled) return;
 
-        speedSim->run();
-        if (speedSim->isInjectable) {
-            state.speed_x100(speedSim->currentValue * 100);
+        _speedSim->run();
+        if (_speedSim->isInjectable) {
+            state.speed_x100(_speedSim->currentValue * 100);
         }
 
-        powerSim->run();
-        if (powerSim->isInjectable) {
+        _powerSim->run();
+        if (_powerSim->isInjectable) {
             constexpr float voltage = 48.0f;
             state.batteryVoltage_x100(voltage * 100);
-            state.batteryCurrent_x100(powerSim->currentValue / voltage * 100);
+            state.batteryCurrent_x100(_powerSim->currentValue / voltage * 100);
         }
     }
 
+    bool isEnabled() const { return _enabled; }
+
    protected:
-    NumberSim* speedSim = nullptr;
-    NumberSim* powerSim = nullptr;
-    bool enabled = false;
+    NumberSim* _speedSim = nullptr;
+    NumberSim* _powerSim = nullptr;
+    bool _enabled = false;
 
     Api::Reply _simCommand(const char* args) {
         Api::Reply reply = {};
         if (Util::isStrBoolOn(args))
-            enabled = true;
+            _enabled = true;
         else if (Util::isStrBoolOff(args))
-            enabled = false;
+            _enabled = false;
         else if (strlen(args) > 0) {
             reply.code = Api::Reply::Code::InvalidArgs;
             snprintf((char*)reply.data, sizeof(reply.data), "Usage: sim[ on|off]");
         }
-        snprintf((char*)reply.data, sizeof(reply.data), "sim %s", Util::boolToString(enabled));
+        snprintf((char*)reply.data, sizeof(reply.data), "sim %s", Util::boolToString(_enabled));
         return reply;
     }
 };
