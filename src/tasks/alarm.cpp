@@ -151,6 +151,11 @@ bool Alarm::isWarning() const {
     return _state.load(std::memory_order_relaxed) == WARNING;
 }
 
+// For testing, set the last motion timestamp to now
+void Alarm::mock() {
+    _mpuInterruptTimestamp.store(millis(), std::memory_order_release);
+}
+
 Api::Reply Alarm::_armCommand(const char* args) {
     ESP_LOGI(taskName(), "Arming");
     bool success = arm();

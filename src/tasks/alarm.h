@@ -28,6 +28,7 @@ class Alarm : public Task {
     bool isArmed() const;
     bool isLatched() const;
     bool isWarning() const;
+    void mock();  // update lastMotionTimestamp to now
 
    protected:
     MPU9250 _mpu;

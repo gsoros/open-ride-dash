@@ -4,10 +4,12 @@
 #include "model/state.h"
 #include "task.h"
 #include "tasks/api.h"
+#include "tasks/alarm.h"
 #include "util.h"
 
 extern State state;
 extern Api api;
+extern Alarm alarmTask;
 
 class NumberSim {
    public:
@@ -159,6 +161,9 @@ class Sim : public Task {
             state.batteryVoltage_x100(voltage * 100);
             state.batteryCurrent_x100(_powerSim->currentValue / voltage * 100);
         }
+
+        // Don't let the system go to sleep while the simulator is running
+        alarmTask.mock();
     }
 
     bool isEnabled() const { return _enabled; }
