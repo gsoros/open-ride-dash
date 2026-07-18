@@ -113,6 +113,8 @@ class Ble : public Task,
     void sendNusReply(const Api::Reply& reply);
     void initializeStack();
     void registerApiCommands();
+    void startAdvertising();
+    void stopAdvertising();
     Api::Reply bleCommand(const char* args);
 
     BLEServer* _server = nullptr;

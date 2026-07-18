@@ -239,11 +239,17 @@ void Ble::setEnabled(bool enabled) {
 }
 
 void Ble::taskRun() {
-    if (!_enabled || !_initialized) return;
+    if (!_initialized) return;
+    if (!_enabled) {
+        stopAdvertising();
+        return;
+    }
     if (_connected) {
+        stopAdvertising();
         updateBatteryLevel();
         updateCyclingServices();
-    }
+    } else
+        startAdvertising();
     // Drain any pending NUS Api replies and forward them out the TX char.
     if (_nusReplyQueue != nullptr) {
         Api::Reply reply;
@@ -260,6 +266,23 @@ void Ble::registerApiCommands() {
             return bleCommand(args);
         },
         "Usage: ble[ on|off|toggle|status]\nShows or sets the BLE enabled state.");
+}
+
+void Ble::startAdvertising() {
+    if (!_initialized) return;
+    if (!_enabled) return;
+    BLEAdvertising* advertising = BLEDevice::getAdvertising();
+    if (advertising == nullptr) return;
+    if (advertising->isAdvertising()) return;
+    BLEDevice::startAdvertising();
+}
+
+void Ble::stopAdvertising() {
+    if (!_initialized) return;
+    BLEAdvertising* advertising = BLEDevice::getAdvertising();
+    if (advertising == nullptr) return;
+    if (!advertising->isAdvertising()) return;
+    BLEDevice::stopAdvertising();
 }
 
 Api::Reply Ble::bleCommand(const char* args) {
@@ -551,7 +574,7 @@ void Ble::handleAuthenticationComplete(NimBLEConnInfo& connInfo) {
 
 void Ble::handleConnect(NimBLEConnInfo& connInfo) {
     _connected = true;
-    NimBLEDevice::stopAdvertising();
+    stopAdvertising();
     // Require pairing for any further communication
     ESP_LOGI(taskName(), "startSecurity");
     NimBLEDevice::startSecurity(connInfo.getConnHandle());
@@ -562,7 +585,7 @@ void Ble::handleConnect(NimBLEConnInfo& connInfo) {
 
 void Ble::handleDisconnect(NimBLEConnInfo& connInfo, int reason) {
     _connected = false;
-    NimBLEDevice::startAdvertising();
+    startAdvertising();
     ESP_LOGI(taskName(), "Disconnected");
     display.queueUiEvent(UiEvent::BleChange);
 }
