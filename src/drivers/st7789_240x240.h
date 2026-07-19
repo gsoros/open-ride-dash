@@ -208,7 +208,7 @@ class ST7789_240x240 : public DisplayDriver {
     inline static constexpr PageLayout defaultPages[PAGE_COUNT] = {
         {METRIC_SPEED, METRIC_SOC, METRIC_RANGE},
         {METRIC_HUMAN_PWR, METRIC_CADENCE, METRIC_MOTOR_PWR},
-        {METRIC_PAS, METRIC_VOLTAGE, METRIC_MOTOR_TEMP},
+        {METRIC_HEART_RATE, METRIC_PAS, METRIC_MOTOR_TEMP},
     };
 
     DisplayMode _displayMode = MODE_SPLASH;

@@ -709,15 +709,14 @@ void ST7789_240x240::renderTextToCanvas(
 
     int16_t cursorX = canvas->w() - textWidth - 8;  // align right
 
-    if ((canvas == canvasMajor || canvas == transitionLabelMajor || canvas == transitionValueMajor) &&
-        font == largeFont) {
+    if (canvas == canvasMajor || canvas == transitionLabelMajor || canvas == transitionValueMajor) {
         cursorX -= 6;
         // ESP_LOGD(tag, "Extra offset for '%s'", text);
     }
 
     if (cursorX < 0) {
-        // ESP_LOGW(tag, "Text overflow for '%s' (%dpx), aligning to left", text, textWidth);
         cursorX = 0;
+        // ESP_LOGW(tag, "Text overflow for '%s' (%dpx), aligning to left", text, textWidth);
     }
 
     canvas->setCursor(cursorX, canvas->h() - verticalOffset);
@@ -825,8 +824,8 @@ bool ST7789_240x240::formatMetricValue(MetricID id, State::Snapshot& s, char* bu
         case METRIC_RANGE:
             formatUInt(buffer, bufferSize, roundedMetricValue((float)s.range()));
             return true;
-        case METRIC_HEART_RATE:  // TODO: Implement live heart rate
-            formatUInt(buffer, bufferSize, 123);
+        case METRIC_HEART_RATE:
+            formatUInt(buffer, bufferSize, s.heartRate);
             return true;
         case METRIC_BODY_TEMP:  // TODO: Implement live body temperature
             snprintf(buffer, bufferSize, "%.1f", 36.5f);

@@ -49,11 +49,11 @@ void Display::setup() {
     menu.onBrightnessChange(savedBrightnessPercent == brightnessPercent);
     apiClientSetup(taskName());
     api.registerCommand(
-        "nextpage",
+        "next",
         [this](const char* args) {
             return nextPageCommand(args);
         },
-        "Usage: nextpage\nSwitches to the next page.");
+        "Usage: next\nSwitches to the next page.");
     // Update WiFi and BLE menu items based on current state,
     // in case those setup() calls ran before the menu was created.
     menu.onWifiChange();
@@ -134,7 +134,7 @@ bool Display::saveBrightness() {
 }
 
 Api::Reply Display::nextPageCommand(const char* args) {
-    ESP_LOGI(taskName(), "Switching to next page");
+    ESP_LOGI(taskName(), "Next page");
     output->nextPage();
     Api::Reply reply = {};
     reply.code = Api::Reply::Code::Success;
