@@ -127,7 +127,7 @@ class NumberSim {
     unsigned long stopDuration = 2000;
 };
 
-// Simulates movement
+// Simulates e-bike activity
 class Sim : public Task {
    public:
     virtual const char* taskName() const override {
@@ -136,32 +136,78 @@ class Sim : public Task {
 
     virtual void setup() {
         randomSeed(esp_random());
-        _speedSim = new NumberSim();
-        _powerSim = new NumberSim();
-        _powerSim->normalMin = 200;
-        _powerSim->normalMax = 500;
-        _powerSim->burstMin = 700;
-        _powerSim->burstMax = 900;
-        _powerSim->maxAccel = 100.0f;
-        _powerSim->maxDecel = 500.0f;
-        _powerSim->stopProbability = 2;
 
-        api.registerCommand("sim", [this](const char* args) { return _simCommand(args); }, "Usage: sim[ on|off]\nSimulates CAN traffic.");
+        // Speed (km/h) using default values
+        _speedSim = new NumberSim();
+
+        // Motor power (Watts)
+        _motorPowerSim = new NumberSim();
+        _motorPowerSim->normalMin = 200;
+        _motorPowerSim->normalMax = 500;
+        _motorPowerSim->burstMin = 700;
+        _motorPowerSim->burstMax = 900;
+        _motorPowerSim->maxAccel = 100.0f;
+        _motorPowerSim->maxDecel = 500.0f;
+        _motorPowerSim->stopProbability = 2;
+
+        // Human cadence (pedalling rate, RPM)
+        _cadenceSim = new NumberSim();
+        _cadenceSim->normalMin = 50;  // casual cruising cadence
+        _cadenceSim->normalMax = 90;  // typical spinning cadence
+        _cadenceSim->burstMin = 90;   // out-of-saddle sprint
+        _cadenceSim->burstMax = 110;
+        _cadenceSim->maxAccel = 20.0f;  // RPM/s — legs spin up quickly
+        _cadenceSim->maxDecel = 40.0f;  // RPM/s — cadence drops when coasting
+        _cadenceSim->stopProbability = 2;
+
+        // Human mechanical power (Watts)
+        _humanPowerSim = new NumberSim();
+        _humanPowerSim->normalMin = 80;     // relaxed rider
+        _humanPowerSim->normalMax = 200;    // steady effort
+        _humanPowerSim->burstMin = 220;     // hard acceleration
+        _humanPowerSim->burstMax = 350;     // sprint
+        _humanPowerSim->maxAccel = 80.0f;   // W/s
+        _humanPowerSim->maxDecel = 200.0f;  // W/s — power fades fast when easing off
+        _humanPowerSim->stopProbability = 2;
+
+        api.registerCommand("sim", [this](const char* args) { return _simCommand(args); }, "Usage: sim[ on|off]\nSimulates e-bike activity.");
     }
 
     virtual void taskRun() override {
         if (!_enabled) return;
 
+        // ---- Speed ----
         _speedSim->run();
         if (_speedSim->isInjectable) {
             state.speed_x100(_speedSim->currentValue * 100);
         }
 
-        _powerSim->run();
-        if (_powerSim->isInjectable) {
+        // ---- Motor power and battery ----
+        _motorPowerSim->run();
+        if (_motorPowerSim->isInjectable) {
             constexpr float voltage = 48.0f;
             state.batteryVoltage_x100(voltage * 100);
-            state.batteryCurrent_x100(_powerSim->currentValue / voltage * 100);
+            state.batteryCurrent_x100(_motorPowerSim->currentValue / voltage * 100);
+        }
+
+        // ---- Human power & cadence ----
+        _cadenceSim->run();
+        _humanPowerSim->run();
+        if (_cadenceSim->isInjectable || _humanPowerSim->isInjectable) {
+            float cadenceRpm = _cadenceSim->currentValue;
+            float humanW = _humanPowerSim->currentValue;
+            state.cadence((uint8_t)cadenceRpm);
+
+            // Derive a realistic raw torque from power = cadence * torqueNm * 2*pi/60
+            // torqueNm = power / (cadence * 2*pi/60); raw = torqueNm * TORQUE_NM_FACTOR + 750
+            uint16_t torqueRaw;
+            if (cadenceRpm < 1.0f) {
+                torqueRaw = State::TORQUE_REST_RAW;  // at rest the strain gauge reads its zero offset
+            } else {
+                float torqueNm = humanW / (cadenceRpm * 0.104719755f);
+                torqueRaw = (uint16_t)(torqueNm * State::TORQUE_NM_FACTOR + float(State::TORQUE_REST_RAW));
+            }
+            state.torque(torqueRaw);
         }
 
         // Don't let the system go to sleep while the simulator is running
@@ -172,7 +218,9 @@ class Sim : public Task {
 
    protected:
     NumberSim* _speedSim = nullptr;
-    NumberSim* _powerSim = nullptr;
+    NumberSim* _motorPowerSim = nullptr;
+    NumberSim* _cadenceSim = nullptr;
+    NumberSim* _humanPowerSim = nullptr;
     bool _enabled = false;
 
     Api::Reply _simCommand(const char* args) {

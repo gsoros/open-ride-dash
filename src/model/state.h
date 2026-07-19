@@ -262,7 +262,8 @@ class State : public HasPreferences {
     void setSnapshot(Snapshot s, bool withMutex = true);
 
     // Raw sensor value at rest: 750 counts
-    static constexpr int16_t TORQUE_OFFSET = -750;
+    static constexpr int16_t TORQUE_REST_RAW = 750;
+    static constexpr int16_t TORQUE_OFFSET = TORQUE_REST_RAW * -1;
 
     // Value with an 18.46 kg mass hanging from a horizontal 170 mm crank: 1875 counts.
     // Raw delta = 1875 - 750 = 1125 counts
