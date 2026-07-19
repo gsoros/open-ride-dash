@@ -131,6 +131,7 @@ void CAN::taskRun() {
                 // cadence and torque is below 20% of last torque, ignore the reading for
                 // 3 seconds. The origins of this issue are unknown, it may be a bug in
                 // the Bafang firmware or a misinterpretation of frame payloads.
+                // TODO: Capture a representative log sample and investigate.
                 static uint32_t lastValidTorqueTime = 0;
                 if (cadence > 0 &&
                     cadence > (uint8_t)(lastCadence * .8f) &&
