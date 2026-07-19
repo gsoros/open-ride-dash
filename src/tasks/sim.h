@@ -174,6 +174,10 @@ class Sim : public Task {
         _batteryVoltage = State::BATTERY_CELL_VOLTAGE_MAX * State::BATTERY_PACK_CELL_COUNT;
         _lastBatteryUpdate = millis();
 
+        // Start at a low assist level (never walk assist / off)
+        _pasLevel = 1;
+        state.pasLevel(_pasLevel);
+
         api.registerCommand("sim", [this](const char* args) { return _simCommand(args); }, "Usage: sim[ on|off]\nSimulates e-bike activity.");
     }
 
@@ -213,6 +217,19 @@ class Sim : public Task {
         state.batteryVoltage_x100((uint16_t)(_batteryVoltage * 100.0f));
         state.batteryCurrent_x100((uint16_t)(motorW / _batteryVoltage * 100.0f));
 
+        // ---- PAS level (coupled to motor power, with hysteresis) ----
+        // Higher assist draws more motor power, so step the level up/down as the
+        // smoothed motor power crosses powerBand per level, with a deadband to
+        // avoid flicker at the boundaries. Walk assist (-1) and off (0) are unused.
+        constexpr float deadband = 30.0f;
+        constexpr float hysteresis = 0.5f;
+        constexpr float powerBand = 100.0f;
+        if (motorW > (_pasLevel + hysteresis) * powerBand + deadband && _pasLevel < 5)
+            _pasLevel++;
+        else if (motorW < (_pasLevel - hysteresis) * powerBand - deadband && _pasLevel > 1)
+            _pasLevel--;
+        state.pasLevel(_pasLevel);
+
         // ---- Human power & cadence ----
         _cadenceSim->run();
         _humanPowerSim->run();
@@ -249,6 +266,7 @@ class Sim : public Task {
     float _batteryVoltage = 0.0f;          // live pack voltage (V)
     unsigned long _lastBatteryUpdate = 0;  // for continuous drain timing
     float _batteryDrainScale = 100.0f;     // demo acceleration: higher = faster drain
+    int8_t _pasLevel = 1;                  // current simulated PAS level (1-5)
 
     Api::Reply _simCommand(const char* args) {
         Api::Reply reply = {};

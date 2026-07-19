@@ -257,7 +257,7 @@ int8_t State::pasLevelRequested() {
     return getInt8(&_latest.pasLevelRequested);
 }
 void State::pasLevel(int8_t l) {
-    ESP_LOGD(tag, "pasLevel(%d)", l);
+    // ESP_LOGD(tag, "pasLevel(%d)", l);
     setInt8(&_latest.pasLevel, l);
 }
 int8_t State::pasLevel() {
