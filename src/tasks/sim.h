@@ -170,6 +170,10 @@ class Sim : public Task {
         _humanPowerSim->maxDecel = 200.0f;  // W/s — power fades fast when easing off
         _humanPowerSim->stopProbability = 2;
 
+        // Start the battery at full charge
+        _batteryVoltage = State::BATTERY_CELL_VOLTAGE_MAX * State::BATTERY_PACK_CELL_COUNT;
+        _lastBatteryUpdate = millis();
+
         api.registerCommand("sim", [this](const char* args) { return _simCommand(args); }, "Usage: sim[ on|off]\nSimulates e-bike activity.");
     }
 
@@ -184,11 +188,30 @@ class Sim : public Task {
 
         // ---- Motor power and battery ----
         _motorPowerSim->run();
-        if (_motorPowerSim->isInjectable) {
-            constexpr float voltage = 48.0f;
-            state.batteryVoltage_x100(voltage * 100);
-            state.batteryCurrent_x100(_motorPowerSim->currentValue / voltage * 100);
+
+        // Battery voltage drains proportionally to motor power.
+        // Energy used this tick (Wh) = power(W) * dt(s) / 3600, scaled for demo speed.
+        // Voltage drop = energyFraction * (fullVoltage - emptyVoltage).
+        unsigned long now = millis();
+        float dt = (now - _lastBatteryUpdate) / 1000.0f;
+        if (dt <= 0.0f) dt = 0.01f;
+        if (dt > 0.1f) dt = 0.1f;  // clamp after long pauses
+        _lastBatteryUpdate = now;
+
+        float motorW = _motorPowerSim->currentValue;
+        float fullV = State::BATTERY_CELL_VOLTAGE_MAX * State::BATTERY_PACK_CELL_COUNT;
+        float emptyV = State::BATTERY_CELL_VOLTAGE_MIN * State::BATTERY_PACK_CELL_COUNT;
+        float capacityWh = (float)state.batteryCapacity();
+        float dWh = motorW * dt / 3600.0f * _batteryDrainScale;
+        _batteryVoltage -= dWh / capacityWh * (fullV - emptyV);
+
+        // When empty, jump back to full (simulated "battery swap")
+        if (_batteryVoltage <= emptyV) {
+            _batteryVoltage = fullV;
         }
+
+        state.batteryVoltage_x100((uint16_t)(_batteryVoltage * 100.0f));
+        state.batteryCurrent_x100((uint16_t)(motorW / _batteryVoltage * 100.0f));
 
         // ---- Human power & cadence ----
         _cadenceSim->run();
@@ -222,6 +245,10 @@ class Sim : public Task {
     NumberSim* _cadenceSim = nullptr;
     NumberSim* _humanPowerSim = nullptr;
     bool _enabled = false;
+
+    float _batteryVoltage = 0.0f;          // live pack voltage (V)
+    unsigned long _lastBatteryUpdate = 0;  // for continuous drain timing
+    float _batteryDrainScale = 100.0f;     // demo acceleration: higher = faster drain
 
     Api::Reply _simCommand(const char* args) {
         Api::Reply reply = {};
