@@ -34,6 +34,7 @@ class DisplayDriver {
 
     virtual void nextPage() {};
     virtual uint8_t currentPage() { return 0; };
+    virtual uint8_t pageCount() const { return 0; };  // total number of pages
 };
 
 #endif  // DISPLAY_DRIVER_H

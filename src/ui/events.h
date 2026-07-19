@@ -17,7 +17,8 @@ enum class UiEvent : uint8_t {
     PasskeyEnd,    // Passkey requirement ended. Sent after every authentication, even if the passkey was never used (reconnect) or when a wrong passkey was entered.
     OtaChange,     // Sent when the OTA state changes. Actual state is State::ota().
     WifiChange,    // Sent on WiFi status changes (STA and AP start/stop/connect/disconnect).
-    BleChange,     // Sent on BLE status changes (enabled/disabled, connect/disconnect).
+    BleChange,     // Sent on BLE status changes (enabled/disabled/connect/disconnect).
+    NextPage,      // Request the Display task to advance to the next metrics page.
 };
 
 #endif  // UI_EVENTS_H

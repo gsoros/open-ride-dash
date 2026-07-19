@@ -377,6 +377,10 @@ uint8_t ST7789_240x240::currentPage() {
     return _currentPage;
 }
 
+uint8_t ST7789_240x240::pageCount() const {
+    return PAGE_COUNT;
+}
+
 /*
     Starts a page transition to the given page by first clearing the metric slots, then drawing the labels and starting the crossfade to the values.
     page: index of the page to transition to

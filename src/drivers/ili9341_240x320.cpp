@@ -100,6 +100,11 @@ uint8_t ILI9341_240x320::currentPage() {
     return 0;
 }
 
+uint8_t ILI9341_240x320::pageCount() const {
+    // TODO: return the total number of pages.
+    return 0;
+}
+
 bool ILI9341_240x320::showMenu(const Menu::Snapshot& menu) {
     // TODO: render the menu. Return true once drawn.
     return false;

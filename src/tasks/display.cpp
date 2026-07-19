@@ -135,7 +135,16 @@ bool Display::saveBrightness() {
 
 Api::Reply Display::nextPageCommand(const char* args) {
     ESP_LOGI(taskName(), "Next page");
-    output->nextPage();
+    // Route through the UI event queue so the page transition (which drives the
+    // shared SPI bus) only ever runs inside the Display task. Invoking
+    // output->nextPage() synchronously from the API task would race with the
+    // Display task's per-frame output->update() and corrupt the SPI/DMA state.
+    if (!queueUiEvent(UiEvent::NextPage)) {
+        Api::Reply reply = {};
+        reply.code = Api::Reply::Code::ExecutionError;
+        snprintf((char*)reply.data, sizeof(reply.data), "UI event queue full");
+        return reply;
+    }
     Api::Reply reply = {};
     reply.code = Api::Reply::Code::Success;
     snprintf((char*)reply.data, sizeof(reply.data), "Page %d", output->currentPage());
@@ -227,6 +236,10 @@ void Display::handleUiEvent(UiEvent event) {
             ESP_LOGD(taskName(), "BleChange");
             menu.onBleChange();
             output->onBleChange();
+            return;
+        case UiEvent::NextPage:
+            ESP_LOGD(taskName(), "NextPage");
+            output->nextPage();
             return;
         default:
             ESP_LOGW(taskName(), "Unhandled UI event: %u", (uint8_t)event);

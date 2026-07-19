@@ -44,6 +44,7 @@ class ILI9341_240x320 : public DisplayDriver {
 
     void nextPage() override;
     uint8_t currentPage() override;
+    uint8_t pageCount() const override;
 
     bool showMenu(const Menu::Snapshot& menu) override;  // returns true if menu was shown
     void exitMenu() override;

@@ -93,6 +93,7 @@ class ST7789_240x240 : public DisplayDriver {
 
     void nextPage() override;
     uint8_t currentPage() override;
+    uint8_t pageCount() const override;
 
     bool showMenu(const Menu::Snapshot& menu);
     void exitMenu();
