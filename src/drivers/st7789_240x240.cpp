@@ -9,8 +9,10 @@
 
 extern State state;
 
+#ifdef FEATURE_SIM
 #include "tasks/sim.h"  // for sim.isEnabled()
 extern Sim sim;
+#endif
 
 #include "tasks/wifi.h"
 extern Wifi wifi;
@@ -630,11 +632,16 @@ void ST7789_240x240::drawMetricValue(uint8_t slotIndex, MetricID id, State::Snap
     char value[sizeof(rendered.value)] = {};
     bool isNumeric = true;
 
+    bool simIsEnabled = false;
+#ifdef FEATURE_SIM
+    simIsEnabled = sim.isEnabled();
+#endif
+
     // If the controller is not alive, indicate it in the major
     // slot by showing "ZZZ" instead of the metric value,
     // unless the simulation is active.
     // Otherwise, format the metric value.
-    if (!s.controllerAlive && slotIndex == SLOT_MAJOR && !sim.isEnabled()) {
+    if (!s.controllerAlive && slotIndex == SLOT_MAJOR && !simIsEnabled) {
         strlcpy(value, "ZZZ", sizeof(value));
         isNumeric = false;
     } else {

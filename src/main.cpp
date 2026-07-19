@@ -9,7 +9,9 @@
 #include "tasks/api.h"
 #include "tasks/ble.h"
 #include "tasks/display.h"
+#ifdef FEATURE_SIM
 #include "tasks/sim.h"
+#endif
 #include "tasks/can.h"
 #include "tasks/keypad.h"
 #include "tasks/alarm.h"
@@ -17,7 +19,9 @@
 State state;
 Api api;
 Ble ble;
+#ifdef FEATURE_SIM
 Sim sim;
+#endif
 CAN can;
 Display display;
 Wifi wifi;
@@ -62,8 +66,10 @@ void setup() {
     wifiSerial.setup(wifi.isEnabled());
     wifiSerial.taskStart(10.0f, 4096);
 
+#ifdef FEATURE_SIM
     sim.setup();
     sim.taskStart(2.0f, 2048);
+#endif
 
     can.setup();
     can.taskStart(100.0f, 4096);

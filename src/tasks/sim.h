@@ -1,6 +1,8 @@
 #ifndef SIM_H
 #define SIM_H
 
+#ifdef FEATURE_SIM
+
 #include "model/state.h"
 #include "task.h"
 #include "tasks/api.h"
@@ -188,4 +190,5 @@ class Sim : public Task {
     }
 };
 
+#endif  // FEATURE_SIM
 #endif  // SIM_H
