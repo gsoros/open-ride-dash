@@ -59,9 +59,9 @@ OpenRideDash is open-source firmware for an ESP32-C3 based e-bike dashboard. It 
 - The project applies a custom bootloader replacement during the build.
 - The display driver uses multiple canvas layers and animated page transitions.
 
-## Planned Features
+## Companion App
 
-- Mobile app for recording and sharing ride data
+[**Wattson**](https://github.com/gsoros/wattson) is the companion mobile app for OpenRideDash. Built with Flutter, it connects to the dash via BLE to display live telemetry, record rides with GPS, and export GPX data — all local-first with no cloud dependency.
 
 
 ## License
