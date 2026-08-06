@@ -13,10 +13,10 @@ class Api : public Task {
     static constexpr size_t COMMAND_NAME_SIZE = 32;
     static constexpr size_t REQUEST_COMMAND_LINE_SIZE = 128;
     static constexpr size_t REPLY_ARGS_SIZE = REQUEST_COMMAND_LINE_SIZE;
-    static constexpr size_t REPLY_DATA_SIZE = 256;
+    static constexpr size_t REPLY_DATA_SIZE = 512;
     static constexpr size_t MAX_COMMANDS = 256;
     static constexpr UBaseType_t REQUEST_QUEUE_LENGTH = 8;
-    static constexpr size_t REPLY_SERIAL_LINE_SIZE = 300;
+    static constexpr size_t REPLY_SERIAL_LINE_SIZE = 600;
 
     struct Reply;
     struct Command {

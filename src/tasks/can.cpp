@@ -2,8 +2,32 @@
 
 #include "model/state.h"
 #include "util.h"
+#include "tasks/api.h"
+
+#include "util/ring_buffer.h"
 
 extern State state;
+extern Api api;
+
+// Torque sample ring buffer (always present, 512 entries ~12KB RAM).
+// Stores every received 0x02F83200 frame for the torquelog dump command.
+// Not wrapped in FEATURE_DEBUG_BLE — this is the simpler instrumentation path
+// that works independently of the BLE debug service.
+struct TorqueSample {
+    uint32_t timestamp;
+    uint16_t rawTorque;
+    int16_t torque;  // offset applied
+    uint8_t cadence;
+    uint8_t sequence;
+    uint8_t status;
+    uint16_t unknown2;
+    uint8_t frameData[8];
+};
+static RingBuffer<TorqueSample, 512> g_torqueBuffer;
+
+#ifdef FEATURE_DEBUG_BLE
+#include "util/debug_log.h"
+#endif
 
 const char* CAN::taskName() const {
     return "CAN";
@@ -22,6 +46,42 @@ void CAN::setup() {
             delay(1000);
         }
     }
+
+    // Register torquelog command for dump-on-demand via NUS.
+    api.registerCommand(
+        "torquelog",
+        [](const char* args) -> Api::Reply {
+            (void)args;
+            Api::Reply reply = {};
+            char* p = (char*)reply.data;
+            size_t remaining = sizeof(reply.data);
+            const size_t head = g_torqueBuffer.head();
+            const size_t tail = g_torqueBuffer.tail();
+            const size_t count = (head - tail) & (g_torqueBuffer.capacity() - 1);
+            // Header line
+            int n = snprintf(p, remaining, "torquelog: %zu samples\n", count);
+            if (n > 0) {
+                p += n;
+                remaining -= (size_t)n;
+            }
+            // Dump most recent entries (up to what fits in the reply).
+            // Start from the oldest readable entry.
+            const size_t start = (count <= 8) ? tail : head - 8;
+            for (size_t i = start; i != head; i = (i + 1) & (g_torqueBuffer.capacity() - 1)) {
+                const TorqueSample& ts = g_torqueBuffer.at(i);
+                int16_t torque = (int)ts.rawTorque + State::TORQUE_OFFSET;
+                n = snprintf(p, remaining,
+                             "T:%lu R:%u O:%d C:%u S:%u ST:%02X U2:%u\n",
+                             (unsigned long)ts.timestamp, ts.rawTorque, torque,
+                             ts.cadence, ts.sequence, ts.status, ts.unknown2);
+                if (n <= 0 || (size_t)n >= remaining) break;
+                p += n;
+                remaining -= (size_t)n;
+            }
+            reply.length = (size_t)(p - (char*)reply.data);
+            return reply;
+        },
+        "Usage: torquelog\nDumps recent torque sensor samples from the ring buffer.");
 }
 
 void CAN::taskRun() {
@@ -119,13 +179,39 @@ void CAN::taskRun() {
                 uint16_t unknown2 = (((uint16_t)frame.data[7] << 8) | (uint16_t)frame.data[6]);
                 static uint8_t lastCadence = 0;
                 static uint16_t lastTorque = 0;
+
+                // Push raw sample to ring buffer (before any filtering).
+                TorqueSample ts;
+                ts.timestamp = millis();
+                ts.rawTorque = rawTorque;
+                ts.cadence = cadence;
+                ts.sequence = sequence;
+                ts.status = status;
+                ts.unknown2 = unknown2;
+                memcpy(ts.frameData, frame.data, 8);
+                ts.torque = 0;  // filled after offset check below
+                g_torqueBuffer.push(ts);
+
                 if ((int)rawTorque + State::TORQUE_OFFSET < 0) {
                     ESP_LOGW(taskName(), "Parsed raw torque %u is below expected offset %d, ignoring", rawTorque, State::TORQUE_OFFSET);
                     break;
                 }
                 uint16_t torque = rawTorque + State::TORQUE_OFFSET;
+                // Update the torque field in the ring buffer entry (in-place is safe
+                // because the ring buffer owns a copy, but we just pushed — it's the
+                // tail). For lock-free simplicity, we don't update in-place; the dump
+                // command recomputes torque = rawTorque + offset.
                 // Ignore unchanged values
                 if (cadence == lastCadence && torque == lastTorque) break;
+
+#ifdef FEATURE_DEBUG_BLE
+                {
+                    char hexbuf[32] = {};
+                    Util::hexToStr(hexbuf, sizeof(hexbuf), frame.data, frame.len);
+                    debugLog("CAN 0x02F83200 st=%02X seq=%u u1=%u cad=%u tor=%u u2=%u raw=%u frame=[%s]",
+                             status, sequence, unknown1, cadence, torque, unknown2, rawTorque, hexbuf);
+                }
+#endif
                 // Workaround for periodic drops in torque readings despite steady input,
                 // which causes humanPower() to report 0W. If cadence is above 80% of last
                 // cadence and torque is below 20% of last torque, ignore the reading for

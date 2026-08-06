@@ -2,6 +2,7 @@
 #include "tasks/api.h"
 #include "config.h"
 #include "util.h"
+#include "util/ema.h"
 
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
@@ -10,6 +11,13 @@
 #include "tasks/sim.h"
 extern Sim sim;  // for sim.isEnabled()
 #endif
+
+// File-scope EMA instances for human power, SoC, and range filtering.
+// Replaces the earlier static locals inside each method.
+static Ema g_humanPowerEma(0.2f);
+static Ema g_socEma(0.1f);
+static Ema g_rangeEma(0.1f);
+static bool g_emaDisabled = false;
 
 float State::Snapshot::speed() {
     return (float)speed_x100 / 100.0f;
@@ -48,15 +56,9 @@ float State::Snapshot::humanPower() {
     }
 
     // Simple exponential moving average
-    static float filtered = -1.0f;  // uninitialised sentinel
-    constexpr float alpha = 0.2f;   // smoothing factor (0 < alpha ≤ 1)
-    if (filtered < 0.0f) {
-        filtered = power;  // first call: seed the filter
-    } else {
-        filtered = alpha * power + (1.0f - alpha) * filtered;
-    }
+    float filtered = g_humanPowerEma.filter(power);
 
-    return filtered;
+    return g_emaDisabled ? power : filtered;
 }
 
 float State::Snapshot::soc() {
@@ -110,13 +112,7 @@ float State::Snapshot::soc() {
     }
 
     // Simple exponential moving average
-    static float filtered = -1.0f;  // uninitialised sentinel
-    constexpr float alpha = 0.1f;   // smoothing factor (0 < alpha ≤ 1)
-    if (filtered < 0.0f) {
-        filtered = soc;  // first call: seed the filter
-    } else {
-        filtered = alpha * soc + (1.0f - alpha) * filtered;
-    }
+    float filtered = g_socEma.filter(soc);
 
     /*
     static uint32_t lastLog = 0;
@@ -126,9 +122,10 @@ float State::Snapshot::soc() {
     }
     */
 
-    return filtered < 0.0f ? 0.0f :  // clamp to 0-100%
-               filtered > 100.0f ? 100.0f
-                                 : filtered;
+    float result = filtered < 0.0f ? 0.0f :  // clamp to 0-100%
+                       filtered > 100.0f ? 100.0f
+                                         : filtered;
+    return g_emaDisabled ? soc : result;
 }
 
 float State::Snapshot::range() {
@@ -151,13 +148,7 @@ float State::Snapshot::range() {
         rawRange = remainingEnergy_Wh / motorEfficiency_WhPerKm;
 
     // Simple exponential moving average
-    static float filteredRange = -1.0f;  // uninitialised sentinel
-    constexpr float alpha = 0.1f;        // smoothing factor (0 < alpha ≤ 1)
-    if (filteredRange < 0.0f) {
-        filteredRange = rawRange;  // first call: seed the filter
-    } else {
-        filteredRange = alpha * rawRange + (1.0f - alpha) * filteredRange;
-    }
+    float filteredRange = g_rangeEma.filter(rawRange);
 
     /*
     static uint32_t lastLog = 0;
@@ -171,7 +162,7 @@ float State::Snapshot::range() {
     }
     */
 
-    return filteredRange;
+    return g_emaDisabled ? rawRange : filteredRange;
 }
 
 State::State() {
@@ -229,6 +220,44 @@ void State::registerApiCommands() {
             return reply;
         },
         "Usage: state\nShows some current values.");
+
+    api.registerCommand(
+        "ema",
+        [this](const char* args) {
+            Api::Reply reply = {};
+            args = Util::skipWhitespace(args);
+            if (*args == '\0') {
+                snprintf((char*)reply.data, sizeof(reply.data), "ema %s",
+                         Util::boolToString(!g_emaDisabled));
+                return reply;
+            }
+            bool enable = true;
+            if (!Util::parseBoolValue(args, &enable)) {
+                reply.code = Api::Reply::Code::InvalidArgs;
+                snprintf((char*)reply.data, sizeof(reply.data), "Usage: ema[ on|off]");
+                return reply;
+            }
+            g_emaDisabled = !enable;
+            snprintf((char*)reply.data, sizeof(reply.data), "ema %s",
+                     Util::boolToString(!g_emaDisabled));
+            return reply;
+        },
+        "Usage: ema[ on|off]\nEnables or disables EMA smoothing (human power, SoC, range). "
+        "Disabled returns raw values.");
+}
+
+void State::setEmaDisabled(bool disabled) {
+    g_emaDisabled = disabled;
+    if (disabled) {
+        // Reset filters so next ride starts fresh when re-enabled.
+        g_humanPowerEma.reset();
+        g_socEma.reset();
+        g_rangeEma.reset();
+    }
+}
+
+bool State::isEmaDisabled() {
+    return g_emaDisabled;
 }
 
 void State::blePassKey(uint32_t v) {

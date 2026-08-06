@@ -100,6 +100,10 @@ class State : public HasPreferences {
     void hostname(const char* v);
     const char* hostname();
 
+    // EMA debug bypass — when true, SnapShot::{humanPower,soc,range} return raw values.
+    static void setEmaDisabled(bool disabled);
+    static bool isEmaDisabled();
+
     bool acquireMutex();
     void releaseMutex();
     Snapshot getSnapshot(bool withMutex = true);

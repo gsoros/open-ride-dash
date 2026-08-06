@@ -208,6 +208,10 @@ void Ble::initializeStack() {
     initializeCtsService();
     initializeNusService();
 
+#ifdef FEATURE_DEBUG_BLE
+    _bleDebug.setup(server);
+#endif
+
     BLEAdvertising* advertising = BLEDevice::getAdvertising();
     BLEAdvertisementData advData;
     advData.setName(state.hostname());
@@ -257,6 +261,10 @@ void Ble::taskRun() {
             sendNusReply(reply);
         }
     }
+
+#ifdef FEATURE_DEBUG_BLE
+    _bleDebug.taskRun();
+#endif
 }
 
 void Ble::registerApiCommands() {

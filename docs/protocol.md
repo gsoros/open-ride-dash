@@ -248,6 +248,32 @@ API [nonexistent] (Unknown Command) 'nonexistent' is a mystery
 | **Execute** | `nullpointer` |
 | **Reply** | (crashes the device intentionally) |
 
+### 4.14 `torquelog` — Torque sensor ring buffer dump
+
+| | |
+|---|---|
+| **Get** | `torquelog` |
+| **Reply data** | Header line + up to 20 torque samples |
+| **Example** | `API [torquelog] (Success) torquelog: 154 samples` then `T:12345 R:1250 O:500 C:80 S:5 ST:5B U2:0\n...` |
+
+Dumps the most recent torque sensor samples from the internal ring buffer.
+Each sample line format: `T:<timestamp_ms> R:<rawTorque> O:<offsetTorque> C:<cadence> S:<sequence> ST:<status> U2:<unknown2>`.
+Always present (no feature flag needed).
+
+### 4.15 `ema` — EMA smoothing bypass
+
+| | |
+|---|---|
+| **Status** | `ema` |
+| **Enable** | `ema on` |
+| **Disable** | `ema off` |
+| **Reply data** | `ema <on|off>` |
+| **Example** | `API [ema] (Success) ema on` |
+
+Controls the exponential moving average filters applied to human power, SoC,
+and range. When OFF, raw (unfiltered) values are returned, making torque drops
+easier to detect. Always present.
+
 ---
 
 ## 5. Boolean representation

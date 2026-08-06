@@ -75,6 +75,10 @@
 #include "has_preferences.h"
 #include "api.h"
 
+#ifdef FEATURE_DEBUG_BLE
+#include "ble_debug.h"
+#endif
+
 class Ble : public Task,
             public HasPreferences {
    public:
@@ -147,6 +151,10 @@ class Ble : public Task,
 
    private:
     uint8_t _lastCtsPayload[kCtsPayloadSize] = {};
+
+#ifdef FEATURE_DEBUG_BLE
+    BleDebug _bleDebug;
+#endif
 };
 
 #endif  // BLE_H
