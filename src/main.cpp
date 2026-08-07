@@ -46,13 +46,13 @@ void setup() {
     state.setup();
 
     api.setup();
-    api.taskStart(10.0f, 4096);
+    api.taskStart(10.0f, 4096 + 512 + 512);
 
     ble.setup();
     ble.taskStart(1.0f, 4096);  // TODO: decouple metric tick rate from task frequency
 
     display.setup();
-    display.taskStart(50.0f, 4096);
+    display.taskStart(50.0f, 2048 + 1024 + 512);
 
     wifi.setup();
     wifi.taskStart(1.0f, 8192);  // AP mode does not work with lower stack size
@@ -60,25 +60,25 @@ void setup() {
 
     if (wifi.isEnabled()) {
         ota.setup();
-        ota.taskStart(2.0f, 100.0f, 4096);
+        ota.taskStart(2.0f, 100.0f, 2048 + 1024 + 512 + 512);
     }
 
     wifiSerial.setup(wifi.isEnabled());
-    wifiSerial.taskStart(10.0f, 4096);
+    wifiSerial.taskStart(10.0f, 1024 + 512 + 512);
 
 #ifdef FEATURE_SIM
     sim.setup();
-    sim.taskStart(2.0f, 2048);
+    sim.taskStart(2.0f, 1024);
 #endif
 
     can.setup();
-    can.taskStart(100.0f, 4096);
+    can.taskStart(100.0f, 2048 + 512);
 
     keypad.setup();
-    keypad.taskStart(100.0f, 2048);
+    keypad.taskStart(100.0f, 1024 + 512 + 512);
 
     alarmTask.setup();
-    alarmTask.taskStart(100.0f, 2048);
+    alarmTask.taskStart(100.0f, 1024 + 512 + 512);
 
     // static Task* tasksToMonitor[] = {&api, &wifi, &ota, &wifiSerial, &display, &can};
     // systemMonitor.setup(tasksToMonitor, sizeof(tasksToMonitor) / sizeof(tasksToMonitor[0]));

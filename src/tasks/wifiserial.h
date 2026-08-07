@@ -11,8 +11,8 @@
 
 class WifiSerial : public Task, public ApiClient {
    public:
-    static constexpr size_t LINE_SIZE = 300;
-    static constexpr size_t NUM_LOG_LINES = 8;
+    static constexpr size_t LINE_SIZE = 256;
+    static constexpr size_t NUM_LOG_LINES = 4;
 
     WifiSerial(uint16_t port = 23);
 

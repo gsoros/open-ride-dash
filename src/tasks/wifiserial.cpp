@@ -109,7 +109,7 @@ void WifiSerial::drainLogQueue() {
 #ifdef FEATURE_SERIAL
         Serial.print(line.text);
 #endif
-        if (wifiClient && wifiClient.connected()) {
+        if (wifiClient.connected()) {
             wifiClient.print(line.text);
         }
     }

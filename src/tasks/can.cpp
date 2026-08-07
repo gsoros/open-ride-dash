@@ -223,7 +223,14 @@ void CAN::taskRun() {
                     cadence > (uint8_t)(lastCadence * .8f) &&
                     torque < (uint16_t)(lastTorque * .2f) &&
                     t - lastValidTorqueTime < 3000) {
-                    ESP_LOGW(taskName(), "Parsed torque %u is below 20%% of last torque %u while cadence delta is %d, ignoring", torque, lastTorque, cadence - lastCadence);
+                    char buf[128] = {};
+                    snprintf(buf, sizeof(buf),
+                             "Parsed torque %u is below 20%% of last torque %u while cadence delta is %d, ignoring",
+                             torque, lastTorque, cadence - lastCadence);
+                    ESP_LOGW(taskName(), "%s", buf);
+#ifdef FEATURE_DEBUG_BLE
+                    debugLog(buf);
+#endif
                     break;
                 }
                 lastValidTorqueTime = t;

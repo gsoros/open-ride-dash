@@ -19,7 +19,7 @@ struct DebugLogEntry {
 };
 
 /// Global ring buffer for debug log messages. Capacity must be power of two.
-extern RingBuffer<DebugLogEntry, 128> g_debugLogBuffer;
+extern RingBuffer<DebugLogEntry, 32> g_debugLogBuffer;
 
 /**
  * @brief Write a debug log message to UART and the ring buffer.

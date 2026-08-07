@@ -103,7 +103,8 @@ class Task {
 
         if (res != pdPASS) {
             _taskRunning.store(false, std::memory_order_relaxed);
-            ESP_LOGE(taskName(), "Failed to create task (res=%d)", res);
+            ESP_LOGE(taskName(), "Failed to create task (res=%d, words=%u, heap=%u)",
+                     res, stackWords, ESP.getFreeHeap());
             return false;
         }
 

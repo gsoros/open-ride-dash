@@ -4,7 +4,7 @@
 
 #include <Arduino.h>
 
-RingBuffer<DebugLogEntry, 128> g_debugLogBuffer;
+RingBuffer<DebugLogEntry, 32> g_debugLogBuffer;
 
 void debugLog(const char* fmt, ...) {
     DebugLogEntry entry;
