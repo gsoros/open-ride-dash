@@ -216,31 +216,39 @@ void CAN::taskRun() {
                 }
 #endif
                 // Workaround for periodic drops in torque readings despite steady input,
-                // which causes humanPower() to report 0W. If cadence is above 80% of last
-                // cadence and torque is below 20% of last torque, ignore the reading for
-                // 3 seconds. The origins of this issue are unknown, it may be a bug in
+                // which causes humanPower() to report 0W.
+                //
+                // The origins of this issue are unknown, it may be a bug in
                 // the Bafang firmware or a misinterpretation of frame payloads.
-                // TODO: Capture a representative log sample and investigate.
-                static uint32_t lastValidTorqueTime = 0;
-                if (cadence > 0 &&
-                    cadence > (uint8_t)(lastCadence * .8f) &&
-                    torque < (uint16_t)(lastTorque * .2f) &&
-                    t - lastValidTorqueTime < 3000) {
+                //
+                // If sequence is unchanged and torque is near resting, the torque bytes
+                // likely contain stale/zeroed data while cadence updated independently.
+                // ~8 Nm expressed in torque counts (8 Nm × 36.55 counts/Nm ≈ 292).
+                static constexpr uint16_t NEAR_RESTING_TORQUE = (uint16_t)(8.0f * State::TORQUE_NM_FACTOR);
+                static uint8_t lastValidSequence = 0;
+                if (sequence == lastValidSequence && torque < NEAR_RESTING_TORQUE) {
                     char buf[128] = {};
                     snprintf(buf, sizeof(buf),
-                             "Parsed torque %u is below 20%% of last torque %u while cadence delta is %d, ignoring",
-                             torque, lastTorque, cadence - lastCadence);
+                             "Parsed torque %u is near resting while sequence %u is unchanged, ignoring",
+                             torque, sequence);
                     ESP_LOGW(taskName(), "%s", buf);
 #ifdef FEATURE_DEBUG_BLE
                     debugLog(buf);
 #endif
                     break;
                 }
-                lastValidTorqueTime = t;
+                lastValidSequence = sequence;
                 lastCadence = cadence;
                 lastTorque = torque;
                 float humanPower = 0.0f;
-                if (state.acquireMutex()) {
+                if (!state.acquireMutex()) {
+                    char buf[] = "0x02F83200 Failed to acquire mutex";
+                    ESP_LOGE(taskName(), "%s", buf);
+#ifdef FEATURE_DEBUG_BLE
+                    debugLog(buf);
+#endif
+                    break;
+                } else {
                     State::Snapshot s = state.getSnapshot(false);
                     s.cadence = cadence;
                     s.torque = rawTorque;
