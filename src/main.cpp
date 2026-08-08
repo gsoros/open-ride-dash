@@ -49,7 +49,7 @@ void setup() {
     api.taskStart(10.0f, 4096 + 512 + 512);
 
     ble.setup();
-    ble.taskStart(1.0f, 4096);  // TODO: decouple metric tick rate from task frequency
+    ble.taskStart(5.0f, 4096);  // Telemetry and Battery updates are rate-limited to 1 Hz, BLEDebug is rate-limited to 20 Hz (50ms)
 
     display.setup();
     display.taskStart(50.0f, 2048 + 1024 + 512);

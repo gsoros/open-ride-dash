@@ -251,7 +251,7 @@ void Ble::taskRun() {
     if (_connected) {
         stopAdvertising();
         updateBatteryLevel();
-        updateCyclingServices();
+        updateTelemetryServices();
     } else
         startAdvertising();
     // Drain any pending NUS Api replies and forward them out the TX char.
@@ -348,13 +348,13 @@ void Ble::initializeCyclingServices() {
         BLEUUID((uint16_t)0x2A63), NIMBLE_PROPERTY::NOTIFY);
 }
 
-void Ble::updateCyclingServices() {
-    if (_server == nullptr || _cscCharacteristic == nullptr || _cpsCharacteristic == nullptr) return;
+void Ble::updateTelemetryServices() {
+    if (_server == nullptr || _cscCharacteristic == nullptr || _cpsCharacteristic == nullptr || _ctsCharacteristic == nullptr) return;
 
     uint32_t now = millis();
-    if ((now - _lastCyclingPublishMs) < 1000U) return;
+    if ((now - _lastTelemetryPublishMs) < kTelemetryTickMs) return;
 
-    _lastCyclingPublishMs = now;
+    _lastTelemetryPublishMs = now;
     publishCscMeasurement();
     publishCpsMeasurement();
     publishCtsMeasurement();
@@ -599,18 +599,17 @@ void Ble::handleDisconnect(NimBLEConnInfo& connInfo, int reason) {
 }
 
 void Ble::updateBatteryLevel() {
+    if (_server == nullptr || _batteryCharacteristic == nullptr) return;
+    if ((millis() - _lastBatteryPublishMs) < 1000U) return;  // rate limit to 1 Hz
     State::Snapshot snapshot = state.getSnapshot(true);
     float soc = snapshot.soc();
     uint8_t newLevel = static_cast<uint8_t>(std::clamp(soc, 0.0f, 100.0f));
 
-    if (newLevel == _batteryLevel && (millis() - _lastBatteryPublishMs) < 1000U) {
-        return;
-    }
+    if (newLevel == _batteryLevel) return;  // skip if unchanged
 
     _batteryLevel = newLevel;
-    _lastBatteryPublishMs = millis();
 
-    if (_server == nullptr || _batteryCharacteristic == nullptr) return;
+    _lastBatteryPublishMs = millis();
 
     _batteryCharacteristic->setValue(&_batteryLevel, 1);
     if (_connected) {

@@ -29,7 +29,7 @@ void BleDebug::taskRun() {
     size_t batchLen = 0;
 
     DebugLogEntry entry;
-    while (batchLen < sizeof(batch) - 128 - 1 && g_debugLogBuffer.pop(entry)) {
+    while (batchLen < sizeof(batch) - sizeof(entry.message) - 1 && g_debugLogBuffer.pop(entry)) {
         int n = snprintf(batch + batchLen, sizeof(batch) - batchLen,
                          "[%lu] %s\n",
                          (unsigned long)entry.timestamp,
@@ -37,8 +37,7 @@ void BleDebug::taskRun() {
         if (n > 0 && (size_t)n < sizeof(batch) - batchLen) {
             batchLen += n;
         } else {
-            // Message too long for remaining space — put it back? No, just drop it.
-            // To keep order, we stop draining here. The next taskRun() will pick up.
+            // Message too long, drop it.
             break;
         }
     }

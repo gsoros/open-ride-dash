@@ -106,7 +106,7 @@ class Ble : public Task,
 
    private:
     void updateBatteryLevel();
-    void updateCyclingServices();
+    void updateTelemetryServices();
     void initializeSecurity();
     void initializeCyclingServices();
     void publishCscMeasurement();
@@ -137,7 +137,7 @@ class Ble : public Task,
     QueueHandle_t _nusReplyQueue = nullptr;  // Api replies for NUS TX
     uint8_t _batteryLevel = 0;
     uint32_t _lastBatteryPublishMs = 0;
-    uint32_t _lastCyclingPublishMs = 0;
+    uint32_t _lastTelemetryPublishMs = 0;
     uint32_t _cscWheelRevolutions = 0;
     uint16_t _cscLastWheelEventTime = 0;
     uint32_t _cscCrankRevolutions = 0;
@@ -147,7 +147,8 @@ class Ble : public Task,
     uint16_t _lastCpsPower = 0;
 
    public:
-    static constexpr size_t kCtsPayloadSize = 14;
+    static constexpr size_t kCtsPayloadSize = 14;       // Protocol V1 payload size
+    static constexpr uint16_t kTelemetryTickMs = 1000;  // Telemetry update interval (CSC, CPS, CTS), Wattson assumes 1 Hz for now, but could be dynamic in the future
 
    private:
     uint8_t _lastCtsPayload[kCtsPayloadSize] = {};

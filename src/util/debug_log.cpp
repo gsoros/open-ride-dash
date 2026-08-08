@@ -4,7 +4,7 @@
 
 #include <Arduino.h>
 
-RingBuffer<DebugLogEntry, 32> g_debugLogBuffer;
+RingBuffer<DebugLogEntry, 16> g_debugLogBuffer;
 
 void debugLog(const char* fmt, ...) {
     DebugLogEntry entry;
@@ -16,7 +16,7 @@ void debugLog(const char* fmt, ...) {
     va_end(args);
 
     // Write to UART too (already goes via ESP_LOG* in most cases, but for
-    // explicit debugLog calls we duplicate to ensure capture even if the
+    // explicit debugLog calls we could duplicate to ensure capture even if the
     // caller does not also ESP_LOG*).
     // printf("[DEBUG] %s\n", entry.message);
 
