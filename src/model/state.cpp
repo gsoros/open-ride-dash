@@ -17,7 +17,7 @@ extern Sim sim;  // for sim.isEnabled()
 static Ema g_humanPowerEma(0.2f);
 static Ema g_socEma(0.1f);
 static Ema g_rangeEma(0.1f);
-static bool g_emaDisabled = false;
+static bool g_emaDisabled = true;  // default to disabled until explicitly enabled via API command
 
 float State::Snapshot::speed() {
     return (float)speed_x100 / 100.0f;

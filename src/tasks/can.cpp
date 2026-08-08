@@ -4,11 +4,12 @@
 #include "util.h"
 #include "tasks/api.h"
 
-#include "util/ring_buffer.h"
+// #include "util/ring_buffer.h"
 
 extern State state;
 extern Api api;
 
+/*
 // Torque sample ring buffer (always present, 512 entries ~12KB RAM).
 // Stores every received 0x02F83200 frame for the torquelog dump command.
 // Not wrapped in FEATURE_DEBUG_BLE — this is the simpler instrumentation path
@@ -24,6 +25,7 @@ struct TorqueSample {
     uint8_t frameData[8];
 };
 static RingBuffer<TorqueSample, 512> g_torqueBuffer;
+*/
 
 #ifdef FEATURE_DEBUG_BLE
 #include "util/debug_log.h"
@@ -47,6 +49,7 @@ void CAN::setup() {
         }
     }
 
+    /*
     // Register torquelog command for dump-on-demand via NUS.
     api.registerCommand(
         "torquelog",
@@ -82,6 +85,7 @@ void CAN::setup() {
             return reply;
         },
         "Usage: torquelog\nDumps recent torque sensor samples from the ring buffer.");
+        */
 }
 
 void CAN::taskRun() {
@@ -180,6 +184,7 @@ void CAN::taskRun() {
                 static uint8_t lastCadence = 0;
                 static uint16_t lastTorque = 0;
 
+                /*
                 // Push raw sample to ring buffer (before any filtering).
                 TorqueSample ts;
                 ts.timestamp = millis();
@@ -191,16 +196,14 @@ void CAN::taskRun() {
                 memcpy(ts.frameData, frame.data, 8);
                 ts.torque = 0;  // filled after offset check below
                 g_torqueBuffer.push(ts);
+                */
 
                 if ((int)rawTorque + State::TORQUE_OFFSET < 0) {
                     ESP_LOGW(taskName(), "Parsed raw torque %u is below expected offset %d, ignoring", rawTorque, State::TORQUE_OFFSET);
                     break;
                 }
                 uint16_t torque = rawTorque + State::TORQUE_OFFSET;
-                // Update the torque field in the ring buffer entry (in-place is safe
-                // because the ring buffer owns a copy, but we just pushed — it's the
-                // tail). For lock-free simplicity, we don't update in-place; the dump
-                // command recomputes torque = rawTorque + offset.
+
                 // Ignore unchanged values
                 if (cadence == lastCadence && torque == lastTorque) break;
 
@@ -245,11 +248,16 @@ void CAN::taskRun() {
                     state.releaseMutex();
                     humanPower = s.humanPower();
                 }
-                ESP_LOGD(taskName(),
+                char buf[128] = {};
+                snprintf(buf, sizeof(buf),
                          "Parsed cadence: %u, torque: %u, human power: %.1f, "
                          "status: %u, seq: %u, unknown1: %u, unknown2: %u",
                          cadence, torque, humanPower,
                          status, sequence, unknown1, unknown2);
+                ESP_LOGD(taskName(), "%s", buf);
+#ifdef FEATURE_DEBUG_BLE
+                debugLog(buf);
+#endif
                 break;
             }
 

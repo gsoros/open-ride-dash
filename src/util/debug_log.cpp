@@ -18,7 +18,7 @@ void debugLog(const char* fmt, ...) {
     // Write to UART too (already goes via ESP_LOG* in most cases, but for
     // explicit debugLog calls we duplicate to ensure capture even if the
     // caller does not also ESP_LOG*).
-    printf("[DEBUG] %s\n", entry.message);
+    // printf("[DEBUG] %s\n", entry.message);
 
     g_debugLogBuffer.push(entry);
 }
