@@ -168,84 +168,84 @@ void CAN::taskRun() {
             case 0x02F83200: {  // [8] Cadence and torque
                                 /*
                                 Byte   Field              Detail
-                                [0]    status             0x5B = active, 0x5A = shutting down
-                                [1]    sequence           +1 every 2 seconds, stops when idle
-                                [2]    unknown 1          always 0x00
+                                [0]    unknown1           decreasing
+                                [1:2]  sequence           increasing
                                 [3]    cadence            RPM
-                                [4:5]  torque             750: idle
-                                [6:7]  unknown 2
+                                [4:5]  raw torque         750: idle
+                                [6]    unknown2
+                                [7]    unknown3
                                 */
-                uint8_t status = frame.data[0];
-                uint8_t sequence = frame.data[1];
-                uint8_t unknown1 = frame.data[2];
+                uint16_t sequence = (((uint16_t)frame.data[2] << 8) | (uint16_t)frame.data[1]);
                 uint8_t cadence = frame.data[3];
                 uint16_t rawTorque = (((uint16_t)frame.data[5] << 8) | (uint16_t)frame.data[4]);
-                uint16_t unknown2 = (((uint16_t)frame.data[7] << 8) | (uint16_t)frame.data[6]);
-                static uint8_t lastCadence = 0;
-                static uint16_t lastTorque = 0;
 
-                /*
-                // Push raw sample to ring buffer (before any filtering).
-                TorqueSample ts;
-                ts.timestamp = millis();
-                ts.rawTorque = rawTorque;
-                ts.cadence = cadence;
-                ts.sequence = sequence;
-                ts.status = status;
-                ts.unknown2 = unknown2;
-                memcpy(ts.frameData, frame.data, 8);
-                ts.torque = 0;  // filled after offset check below
-                g_torqueBuffer.push(ts);
-                */
+                char hexbuf[32] = {};
+                Util::hexToStr(hexbuf, sizeof(hexbuf), frame.data, frame.len);
+                char buf[128] = {};
+                snprintf(buf, sizeof(buf),
+                         "0x02F83200[%s] s=%u c=%u rt=%u",
+                         hexbuf, sequence, cadence, rawTorque);
 
+                char logBuf[200] = {};
+
+                // Discard frames with negative torque
                 if ((int)rawTorque + State::TORQUE_OFFSET < 0) {
-                    ESP_LOGW(taskName(), "Parsed raw torque %u is below expected offset %d, ignoring", rawTorque, State::TORQUE_OFFSET);
+                    snprintf(logBuf, sizeof(logBuf), "%s rt too small, discarding", buf);
+                    ESP_LOGW(taskName(), "%s", logBuf);
+#ifdef FEATURE_DEBUG_BLE
+                    debugLog(logBuf);
+#endif
                     break;
                 }
                 uint16_t torque = rawTorque + State::TORQUE_OFFSET;
 
-                // Ignore unchanged values
-                if (cadence == lastCadence && torque == lastTorque) break;
-
+                // Discard unchanged values
+                static uint8_t lastCadence = 0;
+                static uint16_t lastTorque = 0;
+                static bool unchangedCTLogged = false;
+                if (cadence == lastCadence && torque == lastTorque) {
+                    if (!unchangedCTLogged) {
+                        snprintf(logBuf, sizeof(logBuf), "%s c and t unchanged, discarding", buf);
+                        ESP_LOGD(taskName(), "%s", logBuf);
 #ifdef FEATURE_DEBUG_BLE
-                {
-                    char hexbuf[32] = {};
-                    Util::hexToStr(hexbuf, sizeof(hexbuf), frame.data, frame.len);
-                    debugLog("CAN 0x02F83200 st=%02X seq=%u u1=%u cad=%u tor=%u u2=%u raw=%u frame=[%s]",
-                             status, sequence, unknown1, cadence, torque, unknown2, rawTorque, hexbuf);
-                }
+                        debugLog(logBuf);
 #endif
+                        unchangedCTLogged = true;
+                    }
+                    break;
+                }
+                unchangedCTLogged = false;
+
                 // Workaround for periodic drops in torque readings despite steady input,
                 // which causes humanPower() to report 0W.
                 //
                 // The origins of this issue are unknown, it may be a bug in
                 // the Bafang firmware or a misinterpretation of frame payloads.
                 //
-                // If sequence is unchanged and torque is near resting, the torque bytes
-                // likely contain stale/zeroed data while cadence updated independently.
-                // ~8 Nm expressed in torque counts (8 Nm × 36.55 counts/Nm ≈ 292).
-                static constexpr uint16_t NEAR_RESTING_TORQUE = (uint16_t)(8.0f * State::TORQUE_NM_FACTOR);
-                static uint8_t lastValidSequence = 0;
-                if (sequence == lastValidSequence && torque < NEAR_RESTING_TORQUE) {
-                    char buf[128] = {};
-                    snprintf(buf, sizeof(buf),
-                             "Parsed torque %u is near resting while sequence %u is unchanged, ignoring",
-                             torque, sequence);
-                    ESP_LOGW(taskName(), "%s", buf);
+                // If cadence is above 20 and torque is near resting, we discard the frame for 7 seconds.
+                // ~12 Nm expressed in torque counts (12 Nm × 36.55 counts/Nm ≈ 439).
+                static constexpr uint16_t NEAR_RESTING_TORQUE = (uint16_t)(12.0f * State::TORQUE_NM_FACTOR);
+                static constexpr uint32_t RESET_0x02F83200_INTERVAL = 7000;
+                static uint32_t lastValid0x02F83200 = 0;
+                if (cadence > 20 && torque < NEAR_RESTING_TORQUE && t - lastValid0x02F83200 < RESET_0x02F83200_INTERVAL) {
+                    snprintf(logBuf, sizeof(logBuf),
+                             "%s t too small, discarding (%.1fs)",
+                             buf, (t - lastValid0x02F83200) / 1000.0f);
+                    ESP_LOGD(taskName(), "%s", logBuf);
 #ifdef FEATURE_DEBUG_BLE
-                    debugLog(buf);
+                    debugLog(logBuf);
 #endif
                     break;
                 }
-                lastValidSequence = sequence;
                 lastCadence = cadence;
                 lastTorque = torque;
+                lastValid0x02F83200 = t;
                 float humanPower = 0.0f;
                 if (!state.acquireMutex()) {
-                    char buf[] = "0x02F83200 Failed to acquire mutex";
-                    ESP_LOGE(taskName(), "%s", buf);
+                    snprintf(logBuf, sizeof(logBuf), "%s failed to acquire mutex", buf);
+                    ESP_LOGE(taskName(), "%s", logBuf);
 #ifdef FEATURE_DEBUG_BLE
-                    debugLog(buf);
+                    debugLog(logBuf);
 #endif
                     break;
                 } else {
@@ -256,15 +256,10 @@ void CAN::taskRun() {
                     state.releaseMutex();
                     humanPower = s.humanPower();
                 }
-                char buf[128] = {};
-                snprintf(buf, sizeof(buf),
-                         "Parsed cadence: %u, torque: %u, human power: %.1f, "
-                         "status: %u, seq: %u, unknown1: %u, unknown2: %u",
-                         cadence, torque, humanPower,
-                         status, sequence, unknown1, unknown2);
-                ESP_LOGD(taskName(), "%s", buf);
+                snprintf(logBuf, sizeof(logBuf), "%s power: %.1f", buf, humanPower);
+                ESP_LOGD(taskName(), "%s", logBuf);
 #ifdef FEATURE_DEBUG_BLE
-                debugLog(buf);
+                debugLog(logBuf);
 #endif
                 break;
             }
@@ -432,8 +427,11 @@ void CAN::taskRun() {
                     break;
                 }
                 strncpy(lastHexbuf, hexbuf, sizeof(lastHexbuf));
-                ESP_LOGD(taskName(), "UnParsed ID 0x02F83208 (%d: torque tick? ), len: %d, data: [%s]",
+                ESP_LOGD(taskName(), "UnParsed 0x02F83208 (%d: torque tick? ), len: %d, data: [%s]",
                          tick, frame.len, hexbuf);
+#ifdef FEATURE_DEBUG_BLE
+                debugLog("0x02F83208[%s] tick=%d", hexbuf, tick);
+#endif
                 break;
             }
 
