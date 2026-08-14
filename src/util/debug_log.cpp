@@ -23,4 +23,15 @@ void debugLog(const char* fmt, ...) {
     g_debugLogBuffer.push(entry);
 }
 
+void debugLogRaw(const char* msg, uint16_t len) {
+    DebugLogEntry entry;
+    entry.timestamp = millis();
+    if (len >= sizeof(entry.message)) {
+        len = sizeof(entry.message) - 1;
+    }
+    memcpy(entry.message, msg, len);
+    entry.message[len] = '\0';
+    g_debugLogBuffer.push(entry);
+}
+
 #endif  // FEATURE_DEBUG_BLE

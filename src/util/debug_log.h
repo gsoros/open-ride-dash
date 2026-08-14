@@ -29,6 +29,14 @@ extern RingBuffer<DebugLogEntry, 16> g_debugLogBuffer;
  */
 void debugLog(const char* fmt, ...) __attribute__((format(printf, 1, 2)));
 
+/**
+ * @brief Write a pre-formatted message to the ring buffer (no vsnprintf).
+ *
+ * Stack-light version for hot paths like CAN frame handlers.
+ * Copies up to sizeof(DebugLogEntry::message)-1 bytes.
+ */
+void debugLogRaw(const char* msg, uint16_t len);
+
 /// Mark the beginning of a dump section (e.g. on command trigger).
 void debugLogDumpStart();
 
@@ -39,6 +47,7 @@ inline size_t debugLogCount() { return g_debugLogBuffer.count(); }
 // FEATURE_DEBUG_BLE not defined: all debugLog calls compile to nothing.
 
 #define debugLog(...) ((void)0)
+#define debugLogRaw(...) ((void)0)
 #define debugLogDumpStart() ((void)0)
 #define debugLogCount() ((size_t)0)
 
