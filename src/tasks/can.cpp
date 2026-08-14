@@ -430,7 +430,7 @@ void CAN::taskRun() {
                 ESP_LOGD(taskName(), "UnParsed 0x02F83208 (%d: torque tick? ), len: %d, data: [%s]",
                          tick, frame.len, hexbuf);
 #ifdef FEATURE_DEBUG_BLE
-                debugLog("0x02F83208[%s] tick=%d", hexbuf, tick);
+                //debugLog("0x02F83208[%s] tick=%d", hexbuf, tick);
 #endif
                 break;
             }
